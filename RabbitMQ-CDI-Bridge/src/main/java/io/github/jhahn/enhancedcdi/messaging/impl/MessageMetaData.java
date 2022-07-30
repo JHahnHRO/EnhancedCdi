@@ -7,25 +7,18 @@ import io.github.jhahn.enhancedcdi.messaging.*;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Produces;
-import javax.enterprise.inject.spi.AnnotatedCallable;
-import javax.enterprise.inject.spi.AnnotatedParameter;
-import javax.enterprise.inject.spi.DefinitionException;
 import javax.enterprise.inject.spi.InjectionPoint;
-import javax.inject.Inject;
-import java.lang.reflect.AnnotatedElement;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @RequestScoped
 class MessageMetaData {
-    Delivery incomingMessage;
-    String queue;
+    private Delivery incomingMessage;
+    private String queue;
 
     void setIncomingMessage(Delivery message) {
         this.incomingMessage = message;
@@ -35,11 +28,14 @@ class MessageMetaData {
         this.queue = queue;
     }
 
-    Delivery checkDelivery() {
+    private void checkDelivery() {
         if (incomingMessage == null) {
             throw new IllegalStateException("No RabbitMQ message received yet in the current RequestScope");
         }
-        return incomingMessage;
+    }
+
+    Optional<Delivery> getIncomingDelivery() {
+        return Optional.of(incomingMessage);
     }
 
     @Produces
@@ -48,36 +44,6 @@ class MessageMetaData {
     String routingKey() {
         checkDelivery();
         return incomingMessage.getEnvelope().getRoutingKey();
-    }
-
-    @Inject
-    RoutingKeyPatternCache routingKeyPatternCache;
-
-    @Produces
-    @RoutingKeyGroup("")
-    @Dependent
-    String routingKeyGroup(InjectionPoint injectionPoint) {
-        checkDelivery();
-
-        if (injectionPoint.getAnnotated() instanceof AnnotatedParameter<?> parameter) {
-            final RoutingKeyGroup routingKeyGroup = parameter.getAnnotation(RoutingKeyGroup.class);
-
-            final AnnotatedCallable<?> methodOrConstructor = parameter.getDeclaringCallable();
-            final Optional<Pattern> pattern = routingKeyPatternCache.get(
-                    (AnnotatedElement) methodOrConstructor.getJavaMember());
-
-            if (pattern.isPresent()) {
-                final Matcher matcher = pattern.get().matcher(routingKey());
-                if (matcher.matches()) {
-                    return matcher.group(routingKeyGroup.value());
-                } else {
-                    return null;
-                }
-            }
-        }
-        throw new DefinitionException(
-                "@RoutingKeyGroup can only be used on parameters of methods annotated with @RoutingKeyPattern");
-
     }
 
     @Produces
@@ -159,15 +125,9 @@ class MessageMetaData {
     @Produces
     @Dependent
     @Header("")
-    byte[] byteArrayHeader(InjectionPoint injectionPoint) {
-        return header(injectionPoint, byte[].class).clone();
-    }
-
-    @Produces
-    @Dependent
-    @Header("")
     Instant instantHeader(InjectionPoint injectionPoint) {
-        return header(injectionPoint, Date.class).toInstant();
+        final Date header = header(injectionPoint, Date.class);
+        return header == null ? null : header.toInstant();
     }
 
     @Produces
@@ -175,6 +135,14 @@ class MessageMetaData {
     @Header("")
     BigDecimal bigDecimalHeader(InjectionPoint injectionPoint) {
         return header(injectionPoint, BigDecimal.class);
+    }
+
+    @Produces
+    @Dependent
+    @Header("")
+    String stringHeader(InjectionPoint injectionPoint) {
+        final Object header = header(injectionPoint, Object.class);
+        return header == null ? null : header.toString();
     }
 
     @SuppressWarnings("unchecked")
@@ -205,13 +173,12 @@ class MessageMetaData {
         final String headerName = injectionPoint.getQualifiers()
                 .stream()
                 .filter(ann -> ann.annotationType() == Header.class)
-                .findAny()
                 .map(Header.class::cast)
                 .map(Header::value)
+                .findAny()
                 .orElseThrow();
 
         return clazz.cast(headers.get(headerName));
     }
     //endregion
-
 }

@@ -25,7 +25,7 @@ class SubscriptionImpl<T> implements Subscription<T> {
         this.priority = builder.priority;
         this.name = builder.name;
 
-        this.callback = Objects.requireNonNull(builder.callback);
+        this.callback = Objects.requireNonNull(builder.callback, "No callback was set");
         this.supportsManualDelivery = builder.supportsManualDelivery;
 
         this.enabled = false;
@@ -66,7 +66,7 @@ class SubscriptionImpl<T> implements Subscription<T> {
     @Override
     public boolean isCancelled() {
         synchronized (this) {
-            return callback != null;
+            return callback == null;
         }
     }
 
@@ -74,7 +74,7 @@ class SubscriptionImpl<T> implements Subscription<T> {
     public void deliver(T event) {
         Objects.requireNonNull(event);
 
-        if (supportsManualDelivery) {
+        if (!supportsManualDelivery) {
             throw new UnsupportedOperationException("Events cannot be manually delivered to this subscription");
         }
         BiConsumer<T, EventMetadata> theCallback;

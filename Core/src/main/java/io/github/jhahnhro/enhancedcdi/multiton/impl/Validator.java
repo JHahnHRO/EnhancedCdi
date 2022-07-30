@@ -184,7 +184,7 @@ public class Validator {
             || injectionPoint.getBean() == null // this happens if the injection point does not belong to any CDI-bean.
             // For example if it is inside a servlet, a message-driven EJB, JAX-RS endpoint, or something else that
             // is an injection *target* but not itself a bean. Can also happen when using
-            // BeanManager#createInjectionPoint, CDI.current().select(...).remove(), or when using Unmanaged
+            // BeanManager#createInjectionPoint, CDI.current().select(...).borrow(), or when using Unmanaged
         ) {
             throw new BeanParameterOutsideParametrizedBeanClassException();
         }

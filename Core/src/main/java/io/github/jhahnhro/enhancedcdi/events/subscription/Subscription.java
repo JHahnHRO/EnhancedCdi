@@ -17,7 +17,7 @@ import java.util.function.Consumer;
  * observer method}.
  * <p>
  * Like observer method, subscriptions are strongly typed and recognize parametrized types in the same way. For example,
- * a subscription for type {@code List<String>} will not remove notified when an event of type {@code List<Integer>} is
+ * a subscription for type {@code List<String>} will not borrow notified when an event of type {@code List<Integer>} is
  * fired, but a subscription for the raw type {@code List} will. They also recognize {@link javax.inject.Qualifier
  * qualifiers} in the same way.
  * <p>
@@ -87,10 +87,10 @@ public interface Subscription<T> extends Prioritized {
     boolean supportsManualDelivery();
 
     /**
-     * Different subscriptions remove notified of an event in ascending order of their priority. No order is defined for
+     * Different subscriptions borrow notified of an event in ascending order of their priority. No order is defined for
      * subscriptions of equal priority.
      * <p>
-     * Note however that subscriptions always remove notified AFTER regular observer methods.
+     * Note however that subscriptions always borrow notified AFTER regular observer methods.
      */
     @Override
     int getPriority();

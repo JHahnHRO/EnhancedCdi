@@ -16,7 +16,7 @@ public interface SubscriptionGroup extends AutoCloseable {
      * called, including subscriptions contained in subgroups and subscriptions that are already cancelled. The
      * resulting list is sorted in some order compatible with their {@link Subscription#getPriority() priority}, i.e.
      * subscriptions with lower priority occur before subscriptions with higher priority. The order in which
-     * subscriptions with the same priority is not defined.
+     * subscriptions with the same priority occur is not defined.
      *
      * @return all subscriptions of this subscription group
      */

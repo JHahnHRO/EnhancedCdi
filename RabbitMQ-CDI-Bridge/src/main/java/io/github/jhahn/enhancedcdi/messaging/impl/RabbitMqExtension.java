@@ -1,46 +1,26 @@
 package io.github.jhahn.enhancedcdi.messaging.impl;
 
-import io.github.jhahn.enhancedcdi.messaging.*;
+import io.github.jhahn.enhancedcdi.messaging.FromExchange;
+import io.github.jhahn.enhancedcdi.messaging.FromQueue;
+import io.github.jhahn.enhancedcdi.messaging.RpcEndpoint;
 
 import javax.enterprise.event.Observes;
-import javax.enterprise.event.ObservesAsync;
 import javax.enterprise.inject.spi.*;
-import java.lang.reflect.AnnotatedElement;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import java.util.*;
-import java.util.regex.Pattern;
-import java.util.regex.PatternSyntaxException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class RabbitMqExtension implements Extension {
     private final Map<String, Set<AnnotatedMethod<?>>> necessaryQueues = new HashMap<>();
     private final Map<String, Set<AnnotatedMethod<?>>> necessaryExchanges = new HashMap<>();
-    private final Map<AnnotatedElement, Pattern> routingKeyPatterns = new HashMap<>();
 
     //region ProcessManagedBean
-    void validate(@Observes ProcessManagedBean<?> pb) {
-        AnnotatedType<?> at = pb.getAnnotatedBeanClass();
+    <T, X> void collectInjectionPoints(@Observes ProcessInjectionPoint<T, X> pip) {
 
-        validatePatterns(at, at.getJavaClass(), pb);
-        for (AnnotatedMethod<?> annotated : at.getMethods()) {
-            validatePatterns(annotated, annotated.getJavaMember(), pb);
-        }
-    }
-
-    private void validatePatterns(Annotated annotatedMethodOrType, AnnotatedElement annotatedElement,
-                                  ProcessManagedBean<?> pb) {
-        RoutingKeyPattern routingKeyPattern = annotatedMethodOrType.getAnnotation(RoutingKeyPattern.class);
-        if (routingKeyPattern == null) {
-            return;
-        }
-        String regex = routingKeyPattern.value();
-        try {
-            final Pattern pattern = Pattern.compile(regex);
-            routingKeyPatterns.put(annotatedElement, pattern);
-        } catch (PatternSyntaxException ex) {
-            pb.addDefinitionError(
-                    new DefinitionException(annotatedMethodOrType + " declares an invalid routing key pattern", ex));
-        }
     }
     //endregion
 
@@ -52,42 +32,23 @@ public class RabbitMqExtension implements Extension {
         if (pom.getAnnotatedMethod().isAnnotationPresent(RpcEndpoint.class)) {
             validateRpcMethod(pom);
         }
-        if (pom.getAnnotatedMethod().isAnnotationPresent(PublishTo.class)) {
-            validateFireAndForgetMethod(pom);
-        }
-    }
-
-    private <T, X> void validateFireAndForgetMethod(ProcessObserverMethod<T, X> pom) {
-        final AnnotatedMethod<X> method = pom.getAnnotatedMethod();
-        final Method javaMethod = method.getJavaMember();
-
-        necessaryExchanges.computeIfAbsent(method.getAnnotation(PublishTo.class).exchange(), __ -> new HashSet<>())
-                .add(method);
-
-        if (javaMethod.getReturnType() == Void.TYPE || javaMethod.getReturnType() == Void.class) {
-            pom.addDefinitionError(new DefinitionException(
-                    method + " was declared with @PublishTo method, " + "but has no return type"));
-        }
-
-    }
-
-    private <X> AnnotatedParameter<X> getEventParameter(AnnotatedMethod<X> method) {
-        return method.getParameters()
-                .stream()
-                .filter(p -> p.isAnnotationPresent(Observes.class) || p.isAnnotationPresent(ObservesAsync.class))
-                .findAny()
-                .orElseThrow();
     }
 
     private <T, X> void validateConsumerMethod(ProcessObserverMethod<T, X> pom) {
-        final AnnotatedMethod<X> method = pom.getAnnotatedMethod();
-        final AnnotatedParameter<X> eventParameter = getEventParameter(method);
+        final Set<Annotation> observedQualifiers = pom.getObserverMethod().getObservedQualifiers();
 
-        Optional.ofNullable(eventParameter.getAnnotation(FromQueue.class))
+        final AnnotatedMethod<X> method = pom.getAnnotatedMethod();
+
+        observedQualifiers.stream()
+                .filter(ann -> ann.annotationType() == FromQueue.class)
+                .map(FromQueue.class::cast)
                 .map(FromQueue::value)
-                .ifPresent(queue -> necessaryQueues.computeIfAbsent(queue, __ -> new HashSet<>()).add(method));
-        Optional.ofNullable(eventParameter.getAnnotation(FromExchange.class))
+                .forEach(queue -> necessaryQueues.computeIfAbsent(queue, __ -> new HashSet<>()).add(method));
+        observedQualifiers.stream()
+                .filter(ann -> ann.annotationType() == FromExchange.class)
+                .map(FromExchange.class::cast)
                 .map(FromExchange::value)
+                .findAny()
                 .ifPresent(exchange -> necessaryExchanges.computeIfAbsent(exchange, __ -> new HashSet<>()).add(method));
 
     }

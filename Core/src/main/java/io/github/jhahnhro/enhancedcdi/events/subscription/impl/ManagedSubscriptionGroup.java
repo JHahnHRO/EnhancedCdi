@@ -4,7 +4,6 @@ import io.github.jhahnhro.enhancedcdi.events.subscription.Subscription;
 import io.github.jhahnhro.enhancedcdi.events.subscription.SubscriptionGroup;
 import io.github.jhahnhro.enhancedcdi.util.Cleaning;
 
-import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.spi.Annotated;
@@ -33,25 +32,43 @@ public class ManagedSubscriptionGroup implements SubscriptionGroup {
     private final SubscriptionRegistry subscriptionRegistry;
     private final String groupName;
 
+    private final Cleaner.Cleanable cleanable;
     private volatile boolean closed = false;
-    private Cleaner.Cleanable cleanable;
 
     @Inject
     ManagedSubscriptionGroup(SubscriptionRegistry subscriptionRegistry, InjectionPoint injectionPoint) {
         this(subscriptionRegistry, extractGroupName(injectionPoint));
     }
 
+    ManagedSubscriptionGroup(SubscriptionRegistry subscriptionRegistry, String groupName) {
+        this.subscriptionRegistry = subscriptionRegistry;
+        this.groupName = groupName;
+
+        // if someone misuses Instance<> to create a SubscriptionGroup without ever calling Instance.destroy(), it can
+        // be the case that the CDI container never calls preDestroy(). Thus, we also register with a Cleaner to
+        // ensure that the subscriptions are removed from the registry and cancelled.
+        cleanable = Cleaning.DEFAULT_CLEANER.register(this, new CleaningAction(this.managedSubscriptions,
+                                                                               this.subscriptionRegistry,
+                                                                               this.managedSubgroups));
+    }
+
     private static String extractGroupName(InjectionPoint injectionPoint) {
         // injectionPoint may be null if instance is created manually with beanManager.getReference
         // injectionPoint.annotated may be null if instance was obtained programmatically with beanManager
-        // .getInstance().select(...).remove()
+        // .getInstance().select(...).borrow()
         Optional<Annotated> annotated = Optional.ofNullable(injectionPoint).map(InjectionPoint::getAnnotated);
 
-        return annotated.filter(AnnotatedField.class::isInstance).map(AnnotatedField.class::cast)
+        return annotated.filter(AnnotatedField.class::isInstance)
+                .map(AnnotatedField.class::cast)
                 .map(ManagedSubscriptionGroup::extractFieldName)
-                .or(() -> annotated.filter(AnnotatedParameter.class::isInstance).map(AnnotatedParameter.class::cast)
+                .or(() -> annotated.filter(AnnotatedParameter.class::isInstance)
+                        .map(AnnotatedParameter.class::cast)
                         .map(ManagedSubscriptionGroup::extractParameterName))
                 .orElseGet(() -> "Subscription#" + UUID.randomUUID());
+    }
+
+    private static String extractFieldName(AnnotatedField<?> field) {
+        return field.getDeclaringType().getJavaClass().getCanonicalName() + "." + field.getJavaMember().getName();
     }
 
     private static String extractParameterName(AnnotatedParameter<?> annotatedParameter) {
@@ -59,28 +76,11 @@ public class ManagedSubscriptionGroup implements SubscriptionGroup {
         Executable executable = parameter.getDeclaringExecutable();
         String className = executable.getDeclaringClass().getCanonicalName();
         String executableName = executable.getName();
-        String parameterNames = Arrays.stream(executable.getParameters()).map(Parameter::getParameterizedType)
-                .map(Objects::toString).collect(Collectors.joining(",", "(", ")"));
+        String parameterNames = Arrays.stream(executable.getParameters())
+                .map(Parameter::getParameterizedType)
+                .map(Objects::toString)
+                .collect(Collectors.joining(",", "(", ")"));
         return className + "." + executableName + parameterNames + "/" + parameter.getName();
-    }
-
-    private static String extractFieldName(AnnotatedField<?> field) {
-        return field.getDeclaringType().getJavaClass().getCanonicalName() + "." + field.getJavaMember().getName();
-    }
-
-    ManagedSubscriptionGroup(SubscriptionRegistry subscriptionRegistry, String groupName) {
-        this.subscriptionRegistry = subscriptionRegistry;
-        this.groupName = groupName;
-    }
-
-    @PostConstruct
-    private void postConstruct() {
-        // if someone misuses Instance<> to create a SubscriptionGroup without ever calling Instance.destroy(), it can
-        // be the case that the CDI container never calls preDestroy(). Thus, we also register with a Cleaner to be
-        // extra sure that the subscriptions remove removed from the registry and cancelled.
-        cleanable = Cleaning.DEFAULT_CLEANER.register(this, new CleaningAction(this.managedSubscriptions,
-                                                                               this.subscriptionRegistry,
-                                                                               this.managedSubgroups));
     }
 
     @PreDestroy
@@ -194,8 +194,7 @@ public class ManagedSubscriptionGroup implements SubscriptionGroup {
      * An action that is executed when this group is destroyed by the CDI-container or garbage collected, whichever
      * happens first.
      */
-    private static class CleaningAction implements Runnable {
-
+    private static final class CleaningAction implements Runnable {
         private final Collection<SubscriptionImpl<?>> managedSubscriptions;
         private final SubscriptionRegistry subscriptionRegistry;
         private final Collection<ManagedSubscriptionGroup> managedSubgroups;

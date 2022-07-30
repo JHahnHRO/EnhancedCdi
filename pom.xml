@@ -7,7 +7,7 @@
     <groupId>io.github.jhahnhro.enhancedcdi</groupId>
     <artifactId>parent</artifactId>
     <packaging>pom</packaging>
-    <version>0.1</version>
+    <version>0.2</version>
     <build>
         <plugins>
             <plugin>
@@ -23,6 +23,7 @@
     <modules>
         <module>Core</module>
         <module>RabbitMQ-CDI-Bridge</module>
+        <module>Contexts</module>
     </modules>
 
     <properties>
@@ -50,10 +51,36 @@
                 <version>2.0</version>
             </dependency>
 
+            <!-- testing -->
             <dependency>
                 <groupId>org.junit.jupiter</groupId>
                 <artifactId>junit-jupiter-api</artifactId>
                 <version>${junit-jupiter.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-params</artifactId>
+                <version>${junit-jupiter.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter-engine</artifactId>
+                <version>${junit-jupiter.version}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>4.6.1</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.assertj</groupId>
+                <artifactId>assertj-core</artifactId>
+                <version>3.20.2</version>
                 <scope>test</scope>
             </dependency>
 
@@ -74,18 +101,4 @@
 
     </dependencyManagement>
 
-    <dependencies>
-
-        <dependency>
-            <groupId>org.jboss.weld</groupId>
-            <artifactId>weld-junit5</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jboss.weld.se</groupId>
-            <artifactId>weld-se-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
 </project>

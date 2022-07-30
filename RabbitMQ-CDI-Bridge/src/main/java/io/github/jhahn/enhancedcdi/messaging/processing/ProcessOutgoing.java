@@ -8,7 +8,7 @@ import io.github.jhahn.enhancedcdi.messaging.serialization.Serializer;
 import java.io.OutputStream;
 
 public sealed interface ProcessOutgoing<T> extends ProcessDelivery
-        permits ProcessOutgoing.Message, ProcessOutgoing.Request, ProcessOutgoing.Response {
+        permits ProcessOutgoing.Broadcast, ProcessOutgoing.Request, ProcessOutgoing.Response {
 
 
     /**
@@ -58,7 +58,7 @@ public sealed interface ProcessOutgoing<T> extends ProcessDelivery
     /**
      * An event that is fired synchronously for every outgoing fire-and-forget style delivery.
      */
-    non-sealed interface Message<T> extends ProcessOutgoing<T> {
+    non-sealed interface Broadcast<T> extends ProcessOutgoing<T> {
 
         /**
          * Replaces the name of  the exchange the delivery should be published to. Only the final value, after all event
@@ -69,7 +69,7 @@ public sealed interface ProcessOutgoing<T> extends ProcessDelivery
         void setExchange(String exchange);
 
         /**
-         * Replaces the routing key the delivery should be published with. Only the final value, after all event *
+         * Replaces the routing key the delivery should be published with. Only the final value, after all event
          * observers are finished, will be used.
          *
          * @param routingKey routing key the delivery should be published with
@@ -88,7 +88,7 @@ public sealed interface ProcessOutgoing<T> extends ProcessDelivery
         void setExchange(String exchange);
 
         /**
-         * Replaces the routing key the delivery should be published with. Only the final value, after all event *
+         * Replaces the routing key the delivery should be published with. Only the final value, after all event
          * observers are finished, will be used.
          *
          * @param routingKey routing key the delivery should be published with
@@ -137,13 +137,12 @@ public sealed interface ProcessOutgoing<T> extends ProcessDelivery
 
         /**
          * Allows mutating almost all the properties of the response except {@link BasicProperties#getCorrelationId()},
-         * because that is needed to route the response back correctly to the client and to associate the response with
-         * the request respectively. Any attempt to overwrite the value will result in an
-         * {@link UnsupportedOperationException}.
+         * because that is needed to associate the response with the request. Any attempt to overwrite the value will
+         * result in an {@link UnsupportedOperationException}.
          * <p>
          * Only the final state of the builder is used in the message sent to the broker.
          *
-         * @return A {@link PropertiesBuilder} that allows mutating the properties of the response expect the
+         * @return A {@link PropertiesBuilder} that allows mutating the properties of the response except the
          * correlation ID.
          */
         @Override

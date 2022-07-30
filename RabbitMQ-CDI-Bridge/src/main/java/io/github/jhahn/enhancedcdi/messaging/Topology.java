@@ -14,6 +14,17 @@ import java.util.stream.Collectors;
 /**
  * A topology consists of a set of exchange declarations, queue declarations and a set of bindings between (a subset of)
  * those queues and (a subset of) those exchanges.
+ * <p>
+ * It enforces that
+ * <ul>
+ *     <li>There are no conflicts between exchange declarations, i.e. it cannot contain more than one declaration
+ *     with the same name</li>
+ *     <li>Pre-defined exchanges cannot be re-declared</li>
+ *     <li>There are no conflicts between queue declarations, i.e. it cannot contain more than one declarations with
+ *     the same name</li>
+ *     <li>Every binding needs to refer to an exchange within the same Topology or a pre-defined exchange and to a
+ *     queue within the same topology.</li>
+ * </ul>
  */
 public record Topology(Set<Exchange.Declare> exchangeDeclarations, Set<Queue.Declare> queueDeclarations,
                        Set<Queue.Bind> queueBindings) {
@@ -21,11 +32,14 @@ public record Topology(Set<Exchange.Declare> exchangeDeclarations, Set<Queue.Dec
     public static final Set<String> PREDECLARED_EXCHANGES = Set.of("", "amq.direct", "amq.fanout", "amq.topic",
                                                                    "amq.match", "amq.headers");
 
-    private record QueueAndExchange(String queue, String exchange) {}
-
     public Topology {
+        exchangeDeclarations = Set.copyOf(exchangeDeclarations);
+        queueDeclarations = Set.copyOf(queueDeclarations);
+        queueBindings = Set.copyOf(queueBindings);
+
         final var exchangeByName = groupByName(exchangeDeclarations, Exchange.Declare::getExchange);
         final var queueByName = groupByName(queueDeclarations, Queue.Declare::getQueue);
+        record QueueAndExchange(String queue, String exchange) {}
         final var bindings = groupByName(queueBindings,
                                          bind -> new QueueAndExchange(bind.getQueue(), bind.getExchange()));
 
@@ -54,16 +68,12 @@ public record Topology(Set<Exchange.Declare> exchangeDeclarations, Set<Queue.Dec
         if (!errors.isEmpty()) {
             throw new IllegalDeclarationException(errors.toString());
         }
-
-        exchangeDeclarations = Set.copyOf(exchangeDeclarations);
-        queueDeclarations = Set.copyOf(queueDeclarations);
-        queueBindings = Set.copyOf(queueBindings);
     }
 
     private <T> void validateNonConflictingDeclarations(StringBuilder errors, Collection<Set<T>> values) {
-        for (Set<T> exDecl : values) {
-            if (exDecl.size() > 1) {
-                errors.append("Multiple conflicting declarations: ").append(exDecl).append('\n');
+        for (Set<T> declarations : values) {
+            if (declarations.size() > 1) {
+                errors.append("Multiple conflicting declarations: ").append(declarations).append('\n');
             }
         }
     }

@@ -7,19 +7,18 @@ import javax.enterprise.inject.spi.ObserverMethod;
 import javax.enterprise.util.TypeLiteral;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
+import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 class AbstractSubscriptionBuilder<T> implements Subscription.Builder<T> {
-    private static final BiConsumer<?, EventMetadata> NOOP_CALLBACK = (payload, metaData) -> {};
 
     Set<Annotation> qualifiers = new HashSet<>();
     Type observedEventType = Object.class;
-    BiConsumer<T, EventMetadata> callback = (BiConsumer<T, EventMetadata>) NOOP_CALLBACK;
+    BiConsumer<T, EventMetadata> callback = null;
     boolean supportsManualDelivery = false;
     int priority = ObserverMethod.DEFAULT_PRIORITY;
     String name = null;
@@ -27,7 +26,7 @@ class AbstractSubscriptionBuilder<T> implements Subscription.Builder<T> {
     @Override
     public Subscription.Builder<T> setQualifiers(Annotation... additionalQualifiers) {
         this.qualifiers.clear();
-        this.qualifiers.addAll(List.of(Objects.requireNonNull(additionalQualifiers)));
+        Collections.addAll(this.qualifiers, additionalQualifiers);
         return this;
     }
 
@@ -78,9 +77,6 @@ class AbstractSubscriptionBuilder<T> implements Subscription.Builder<T> {
 
     @Override
     public Subscription<T> build() {
-        if (callback == NOOP_CALLBACK) {
-            throw new IllegalStateException("No callback has been set");
-        }
         return new SubscriptionImpl<>(this);
     }
 

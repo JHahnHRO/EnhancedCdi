@@ -1,14 +1,13 @@
 package io.github.jhahn.enhancedcdi.messaging.processing;
 
 import com.rabbitmq.client.BasicProperties;
-import com.rabbitmq.client.Delivery;
 import io.github.jhahn.enhancedcdi.messaging.serialization.Deserializer;
 
 import java.io.InputStream;
 import java.util.Optional;
 
 public sealed interface ProcessIncoming extends ProcessDelivery
-        permits ProcessIncoming.Message, ProcessIncoming.Request, ProcessIncoming.Response {
+        permits ProcessIncoming.Broadcast, ProcessIncoming.Request, ProcessIncoming.Response {
 
     /**
      * @return the name of the queue the delivery was received on
@@ -39,13 +38,8 @@ public sealed interface ProcessIncoming extends ProcessDelivery
     /**
      * An event synchronously fired for every incoming message that is neither an RPC request nor an RPC response, i.e.
      * that was published in a fire-and-forget style.
-     * <p>
-     * Does not allow mutating the metadata of the incoming delivery, but allows replacing the body.
-     *
-     * @see Request
-     * @see Response
      */
-    non-sealed interface Message extends ProcessIncoming {
+    non-sealed interface Broadcast extends ProcessIncoming {
 
     }
 
@@ -100,7 +94,7 @@ public sealed interface ProcessIncoming extends ProcessDelivery
     /**
      * Event fired for incoming RPC requests, i.e. deliveries that have the 'replyTo' set to a non-null value.
      */
-    non-sealed interface Response extends ProcessIncoming {
+    non-sealed interface Response<R> extends ProcessIncoming {
 
         /**
          * Returns the request to which the delivery is a response to. It will be returned as it was sent to the broker,
@@ -108,6 +102,6 @@ public sealed interface ProcessIncoming extends ProcessDelivery
          *
          * @return the request to which the delivery is a response to.
          */
-        Delivery request();
+        Outgoing<R> request();
     }
 }

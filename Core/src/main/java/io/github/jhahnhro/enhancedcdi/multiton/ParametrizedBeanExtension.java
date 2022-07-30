@@ -16,7 +16,7 @@ import javax.enterprise.util.AnnotationLiteral;
 import java.util.*;
 
 /**
- * If a bean class has the {@link ParametrizedBean} annotation, then this extension will create multiple instances of
+ * If a bean class has the {@link ParametrizedBean} annotation, then this extension will getOrCreate multiple instances of
  * {@link AnnotatedType} with that {@link AnnotatedType#getJavaClass() underlying type}. Every parametrized bean must
  * have a unique instance field annotated with {@link BeanParameter} and its type must be an enum class {@code E}. The
  * {@link Class#getEnumConstants() enum constants} of that enum class are the parameters. The original {@code
