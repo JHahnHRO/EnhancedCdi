@@ -4,7 +4,7 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.RpcClient;
 import com.rabbitmq.client.RpcClientParams;
-import io.github.jhahnhro.enhancedcdi.pooled.Pool;
+import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -16,7 +16,7 @@ import java.util.concurrent.TimeoutException;
 class LowLevelPublisher {
 
     @Inject
-    private Pool<Channel> publisherChannels;
+    private BlockingPool<Channel> publisherChannels;
 
     public void doBroadcast(String exchange, String routingKey, AMQP.BasicProperties properties, byte[] body)
             throws IOException, InterruptedException {

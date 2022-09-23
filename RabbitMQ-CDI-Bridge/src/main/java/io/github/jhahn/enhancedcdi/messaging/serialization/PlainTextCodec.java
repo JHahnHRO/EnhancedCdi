@@ -4,7 +4,7 @@ import com.rabbitmq.client.BasicProperties;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahn.enhancedcdi.messaging.PropertiesBuilder;
 
-import javax.enterprise.context.Dependent;
+import javax.inject.Singleton;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -14,7 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@Dependent
+@Singleton
 public class PlainTextCodec implements Deserializer<String>, Serializer<CharSequence> {
 
     public static final Pattern CONTENT_TYPE = Pattern.compile(

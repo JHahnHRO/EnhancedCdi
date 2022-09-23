@@ -4,12 +4,12 @@ import com.rabbitmq.client.BasicProperties;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahn.enhancedcdi.messaging.PropertiesBuilder;
 
-import javax.enterprise.context.Dependent;
+import javax.inject.Singleton;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@Dependent
+@Singleton
 public class ByteArrayCodec implements Deserializer<byte[]>, Serializer<byte[]> {
 
     private static final String APPLICATION_OCTET_STREAM = "application/octet-stream";

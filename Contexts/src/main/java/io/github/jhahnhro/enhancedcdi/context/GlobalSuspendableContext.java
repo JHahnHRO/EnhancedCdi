@@ -8,11 +8,17 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * A {@link SuspendableContext suspendable} and {@link SharedContext shared} that is either active in all threads or not
  * active in all threads.
  * <p>
- * Thread-safety: {@link #close() Closing} the context is not guaranteed to be synchronized in any way, i.e. if some
- * thread still uses some client proxies of this context, it may suddenly find itself confronted with a
- * {@link javax.enterprise.context.ContextNotActiveException} when another thread concurrently calls {@code close()}.
+ *
+ * @apiNote @apiNote No guarantees are made regarding thread-safety of {@link ActivationToken#close() deactivation}. If
+ * a thread is still using (a client proxies of) one this context's contextual instances, it may suddenly find itself
+ * confronted with a {@link javax.enterprise.context.ContextNotActiveException} when another thread concurrently calls
+ * {@code close()}.
+ * @apiNote No relationship between deactivation and destruction is defined except that being destroyed must also imply
+ * that the context is inactive. Implementations must specify whether suspending a context will destroy its contextual
+ * instances or not. In other words: After deactivation and re-activation the available contextual instances in this
+ * context may be the same as before or they may be completely new instances.
  */
-public abstract class GlobalSuspendableContext implements SuspendableContext, CloseableContext, SharedContext {
+public abstract class GlobalSuspendableContext implements SuspendableContext, SharedContext {
     private final BeanStorage beanStorage = new BeanStorage();
 
     /**
@@ -36,13 +42,6 @@ public abstract class GlobalSuspendableContext implements SuspendableContext, Cl
         } else {
             throw new IllegalStateException("Context already closed.");
         }
-    }
-
-    @Override
-    public void close() {
-        this.token = null;
-        // TODO fix race condition with #get
-        this.beanStorage.destroyAll();
     }
 
     @Override

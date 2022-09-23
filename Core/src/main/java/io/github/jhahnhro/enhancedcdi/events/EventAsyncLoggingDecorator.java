@@ -10,19 +10,18 @@ import javax.enterprise.inject.spi.EventMetadata;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.inject.Inject;
 import java.io.Serializable;
+import java.lang.System.Logger.Level;
 import java.text.MessageFormat;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 /**
- * Enables logging of all exceptions that are thrown in {@link javax.enterprise.event.ObservesAsync async observer
- * methods} and would otherwise be lost. All exceptions from all failed observer methods are collected and logged after
- * the last observer method finished executing.
+ * Enables logging of all exceptions that are thrown in
+ * {@link javax.enterprise.event.ObservesAsync async observer methods} and would otherwise be lost. All exceptions from
+ * all failed observer methods are collected and logged after the last observer method finished executing.
  *
  * @param <T>
  */
@@ -30,9 +29,10 @@ import java.util.stream.Collectors;
 public class EventAsyncLoggingDecorator<T> extends AbstractEventDecorator<T> {
 
     /**
-     * {@link Logger} of the {@link Bean#getBeanClass() Bean class} if the {@link Event} injection point.
+     * {@link java.lang.System.Logger} of the {@link Bean#getBeanClass() Bean class} if the {@link Event} injection
+     * point.
      */
-    private final Logger beanLogger;
+    private final System.Logger beanLogger;
     /**
      * Default logger that does not collect stack traces
      */
@@ -46,13 +46,16 @@ public class EventAsyncLoggingDecorator<T> extends AbstractEventDecorator<T> {
     EventAsyncLoggingDecorator(Event<T> delegate, EventMetadata eventMetadata) {
         super(delegate, eventMetadata);
 
-        InjectionPoint injectionPoint = eventMetadata.getInjectionPoint();
-        this.beanLogger = getLogger(injectionPoint);
+        this.beanLogger = getLogger(eventMetadata);
         this.exceptionHandler = new ExceptionHandler();
     }
 
-    private static Logger getLogger(InjectionPoint injectionPoint) {
-        return Logger.getLogger(injectionPoint.getMember().getDeclaringClass().getCanonicalName());
+    private static System.Logger getLogger(EventMetadata eventMetadata) {
+        return System.getLogger(getOriginClassName(eventMetadata));
+    }
+
+    private static String getOriginClassName(EventMetadata eventMetadata) {
+        return eventMetadata.getInjectionPoint().getMember().getDeclaringClass().getCanonicalName();
     }
 
     /**
@@ -80,8 +83,8 @@ public class EventAsyncLoggingDecorator<T> extends AbstractEventDecorator<T> {
         return super.fireAsync(event, options).whenComplete(handleExceptions());
     }
 
-    private BiConsumer<Object, Throwable> handleExceptions() {
-        if (beanLogger.isLoggable(Level.FINE)) {
+    private BiConsumer<T, Throwable> handleExceptions() {
+        if (beanLogger.isLoggable(Level.DEBUG)) {
             return new ExceptionHandlerWithStacktrace();
         } else {
             return exceptionHandler;
@@ -89,15 +92,14 @@ public class EventAsyncLoggingDecorator<T> extends AbstractEventDecorator<T> {
     }
     //endregion
 
-    private class ExceptionHandler implements BiConsumer<Object, Throwable>, Serializable {
+    private class ExceptionHandler implements BiConsumer<T, Throwable>, Serializable {
 
         @Override
-        public void accept(Object o, Throwable ex) {
+        public void accept(T o, Throwable ex) {
             if (ex != null) {
-                beanLogger.log(Level.SEVERE, () -> MessageFormat.format(
-                        "Asynchronous observer method(s) of an event originating from {0} failed "
-                        + "with exception(s): {0}", eventMetadata.getInjectionPoint(), ex.getSuppressed()));
-                beanLogger.log(Level.FINE, "Exception was: ", ex);
+                beanLogger.log(Level.ERROR, () -> MessageFormat.format(
+                        "Asynchronous observer method(s) of an event originating from {0} failed with exception",
+                        eventMetadata.getInjectionPoint()), ex);
             }
         }
     }
@@ -106,7 +108,7 @@ public class EventAsyncLoggingDecorator<T> extends AbstractEventDecorator<T> {
         private final List<StackWalker.StackFrame> stackFrames;
 
         ExceptionHandlerWithStacktrace() {
-            final String beanClassName = eventMetadata.getInjectionPoint().getMember().getDeclaringClass().getName();
+            final String beanClassName = getOriginClassName(eventMetadata);
             this.stackFrames = StackWalker.getInstance()
                     .walk(stream -> stream.dropWhile(frame -> !frame.getClassName().equals(beanClassName))
                             .collect(Collectors.toList()));
@@ -119,10 +121,10 @@ public class EventAsyncLoggingDecorator<T> extends AbstractEventDecorator<T> {
         }
 
         @Override
-        public void accept(Object o, Throwable ex) {
+        public void accept(T o, Throwable ex) {
             super.accept(o, ex);
             if (ex != null) {
-                beanLogger.log(Level.FINE, ex, this::getMessage);
+                beanLogger.log(Level.DEBUG, this::getMessage, ex);
             }
         }
     }

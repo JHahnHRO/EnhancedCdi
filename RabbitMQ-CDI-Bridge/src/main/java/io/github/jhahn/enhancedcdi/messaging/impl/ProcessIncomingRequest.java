@@ -29,6 +29,7 @@ class ProcessIncomingRequest extends ProcessIncomingImpl implements ProcessIncom
 
         final BasicProperties requestProperties = properties();
         if (!Objects.equals(requestProperties.getCorrelationId(), response.properties().getCorrelationId())) {
+            // TODO
             throw new IllegalArgumentException("");
         }
         this.immediateResponse = response;

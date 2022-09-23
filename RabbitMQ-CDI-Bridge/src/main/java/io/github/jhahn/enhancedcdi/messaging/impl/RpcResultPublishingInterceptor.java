@@ -19,7 +19,7 @@ import java.util.Optional;
 @Interceptor
 @Priority(Interceptor.Priority.LIBRARY_BEFORE)
 @RpcEndpoint
-public class RpcResultPublishingInterceptor {
+class RpcResultPublishingInterceptor {
 
     @Inject
     @io.github.jhahn.enhancedcdi.messaging.Outgoing

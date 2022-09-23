@@ -8,7 +8,9 @@ import javax.enterprise.context.spi.AlterableContext;
  * will always return false. Closing is irreversible.
  * <p>
  * No guarantees are made regarding thread-safety of closing. An implementation may wait until it can be sure that its
- * contextual instances are no longer in use, before destroying them, but it does not have to.
+ * contextual instances are no longer in use, before destroying them, but it does not have to. For example
+ * {@link MultiThreadedSharedContext} waits for all active threads to finish before destroying the contextual
+ * instances.
  */
 public interface CloseableContext extends AlterableContext, AutoCloseable {
 
@@ -21,4 +23,9 @@ public interface CloseableContext extends AlterableContext, AutoCloseable {
      */
     @Override
     void close();
+
+    /**
+     * @return {@code true} iff this context is already closed.
+     */
+    boolean isClosed();
 }

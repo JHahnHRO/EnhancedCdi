@@ -7,9 +7,7 @@ import io.github.jhahn.enhancedcdi.messaging.serialization.Serializer;
 
 import java.io.OutputStream;
 
-public sealed interface ProcessOutgoing<T> extends ProcessDelivery
-        permits ProcessOutgoing.Broadcast, ProcessOutgoing.Request, ProcessOutgoing.Response {
-
+public sealed interface ProcessOutgoing<T> extends ProcessDelivery {
 
     /**
      * @return The java object that will be serialized and published to RabbitMQ

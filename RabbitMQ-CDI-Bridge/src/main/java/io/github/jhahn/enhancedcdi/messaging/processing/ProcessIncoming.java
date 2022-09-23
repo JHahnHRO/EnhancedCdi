@@ -6,8 +6,7 @@ import io.github.jhahn.enhancedcdi.messaging.serialization.Deserializer;
 import java.io.InputStream;
 import java.util.Optional;
 
-public sealed interface ProcessIncoming extends ProcessDelivery
-        permits ProcessIncoming.Broadcast, ProcessIncoming.Request, ProcessIncoming.Response {
+public sealed interface ProcessIncoming extends ProcessDelivery {
 
     /**
      * @return the name of the queue the delivery was received on
@@ -44,8 +43,8 @@ public sealed interface ProcessIncoming extends ProcessDelivery
     }
 
     /**
-     * An event synchronously fired for incoming RPC requests, i.e. deliveries that have the 'replyTo' set to a non-null
-     * value.
+     * An event synchronously fired for incoming RPC requests, i.e. deliveries that have the
+     * {@link BasicProperties#getReplyTo() replyTo property} set to a non-null value.
      *
      * <p>
      * Allows for short-circuiting the request handling by calling {@link #setImmediateResponse}. If one of the
@@ -92,7 +91,7 @@ public sealed interface ProcessIncoming extends ProcessDelivery
     }
 
     /**
-     * Event fired for incoming RPC requests, i.e. deliveries that have the 'replyTo' set to a non-null value.
+     * Event fired for incoming responses to RPC requests.
      */
     non-sealed interface Response<R> extends ProcessIncoming {
 

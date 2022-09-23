@@ -21,7 +21,8 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.util.Optional;
-import java.util.logging.Logger;
+
+import static java.lang.System.Logger.Level.INFO;
 
 /**
  *
@@ -29,7 +30,7 @@ import java.util.logging.Logger;
 @ApplicationScoped
 class EventBridge {
 
-    private final static Logger LOG = Logger.getLogger(EventBridge.class.getCanonicalName());
+    private final static System.Logger LOG = System.getLogger(EventBridge.class.getCanonicalName());
 
     @Inject
     LowLevelPublisher publisher;
@@ -65,13 +66,7 @@ class EventBridge {
     //region incoming deliveries
     void handleDelivery(@ObservesAsync @Incoming Delivery delivery, EventMetadata eventMetadata)
             throws IOException, InterruptedException {
-        final String queueName = eventMetadata.getQualifiers()
-                .stream()
-                .filter(FromQueue.class::isInstance)
-                .map(FromQueue.class::cast)
-                .map(FromQueue::value)
-                .findAny()
-                .orElseThrow();
+        final String queueName = getQueueName(eventMetadata);
 
         // make sure request metadata is available in the current request scope for injection into event observers
         messageMetaData.setIncomingMessage(delivery);
@@ -81,10 +76,20 @@ class EventBridge {
 
         // processing the delivery
         if (preprocessingEvent.vetoed) {
-            LOG.info("Incoming RabbitMQ delivery was vetoed and will not be handled.");
+            LOG.log(INFO, "Incoming RabbitMQ delivery was vetoed and will not be handled.");
         } else {
             deserializeAndFire(delivery, queueName, preprocessingEvent);
         }
+    }
+
+    private String getQueueName(EventMetadata eventMetadata) {
+        return eventMetadata.getQualifiers()
+                .stream()
+                .filter(FromQueue.class::isInstance)
+                .map(FromQueue.class::cast)
+                .map(FromQueue::value)
+                .findAny()
+                .orElseThrow();
     }
 
     private ProcessIncomingImpl doPreprocessing(Delivery delivery, String queueName)

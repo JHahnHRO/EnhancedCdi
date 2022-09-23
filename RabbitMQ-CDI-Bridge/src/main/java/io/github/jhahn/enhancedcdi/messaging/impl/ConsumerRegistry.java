@@ -7,135 +7,92 @@ import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.Observes;
-import javax.enterprise.inject.Instance;
-import javax.enterprise.inject.spi.EventMetadata;
 import javax.inject.Inject;
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.CompletionStage;
+import java.lang.System.Logger.Level;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 @ApplicationScoped
-public class ConsumerRegistry {
-    private static final Logger EVENT_BRIDGE_LOG = Logger.getLogger(EventBridge.class.getCanonicalName());
+class ConsumerRegistry {
+    private static final System.Logger LOG = System.getLogger(EventBridge.class.getCanonicalName());
 
     /**
      * Map queue names => Consumers (Because we only dispatch message to the CDI event system, there only ever needs to
      * be one consumer per queue)
-     * <p>
-     * TODO: use ConcurrentMap, AtomicBoolean, remove lock
      */
-    private final Map<String, DispatchingConsumer> consumers = new HashMap<>();
-    private final Lock lock = new ReentrantLock();
-    private final Collection<CompletionStage<Delivery>> runningEvents = ConcurrentHashMap.newKeySet();
+    private final Map<String, DispatchingConsumer> consumers = new ConcurrentHashMap<>();
     @Inject
     @Incoming
     Event<Delivery> dispatcher;
     @Inject
-    Instance<Channel> channelInstance;
-    @Inject
-    @Consolidated
-    Topology topology;
+    Connection connection;
     @Inject
     Infrastructure infrastructure;
-    private boolean destroyed = false;
 
-    public void startReceiving(@Observes StartReceiving startReceiving, EventMetadata metadata)
-            throws IOException, TimeoutException {
-        final Optional<String> queueName = metadata.getQualifiers()
-                .stream()
-                .filter(q -> q.annotationType() == FromQueue.class)
-                .map(FromQueue.class::cast)
-                .map(FromQueue::value)
-                .findAny();
+    public void startReceiving(@Observes StartReceiving startReceiving) throws IOException {
+        final String queueName = startReceiving.queue();
+        final Channel channel = createChannel(queueName);
+        infrastructure.setUpForQueue(queueName);
+        createAndStartConsumer(queueName, channel);
+    }
 
-        if (queueName.isEmpty()) {
-            throw new IllegalArgumentException("StartReceiving event sent without @FromQueue qualifier");
-        }
-
-        final String qName = queueName.get();
-
+    public void stopReceiving(@Observes StopReceiving stopReceiving) {
         try {
-            lock.lock();
-            if (destroyed) {
-                throw new IllegalStateException(
-                        "Cannot start receiving from queue, because the ConsumerRegistry is being destroyed.");
+            final DispatchingConsumer consumer = consumers.remove(stopReceiving.queue());
+            if (consumer == null) {
+                return;
             }
-            final Consumer existingConsumer = consumers.get(qName);
-            if (existingConsumer == null) {
-                final DispatchingConsumer consumer = createConsumer(qName);
-                final Channel channel = consumer.getChannel();
-                setUpNecessaryInfrastructure(qName, channel);
-                consumers.put(qName, consumer);
-                channel.basicConsume(qName, consumer);
-            }
-        } finally {
-            lock.unlock();
+            stopConsumer(consumer);
+        } catch (IOException | TimeoutException e) {
+            LOG.log(Level.WARNING,
+                    "Consumer for queue " + stopReceiving.queue() + " was stopped, but that threw an exception.", e);
         }
-    }
-
-    private void setUpNecessaryInfrastructure(String qName, Channel channel) throws IOException, TimeoutException {
-        final Optional<AMQP.Queue.Declare> queueDeclaration = topology.queueDeclarations()
-                .stream()
-                .filter(qDecl -> qDecl.getQueue().equals(qName))
-                .findAny();
-        if (queueDeclaration.isEmpty()) {
-            throw new IllegalArgumentException("No declaration for queue '" + qName + "' known");
-        }
-
-        final Topology.Builder builder = new Topology.Builder().addQueueDeclaration(queueDeclaration.get());
-
-        final Map<String, List<AMQP.Queue.Bind>> bindings = topology.queueBindings()
-                .stream()
-                .filter(binding -> binding.getQueue().equals(qName))
-                .collect(Collectors.groupingBy(AMQP.Queue.Bind::getExchange));
-        bindings.values().forEach(builder::addQueueBindings);
-
-        topology.exchangeDeclarations()
-                .stream()
-                .filter(exDecl -> bindings.containsKey(exDecl.getExchange()))
-                .forEach(builder::addExchangeDeclaration);
-
-        infrastructure.setUpTopology(builder.build(), channel);
-    }
-
-    private DispatchingConsumer createConsumer(String queueName) throws IOException {
-        final FromQueue.Literal qualifier = new FromQueue.Literal(queueName);
-        return new DispatchingConsumer(channelInstance.get(), dispatcher.select(qualifier));
     }
 
     @PreDestroy
-    void cancelAllConsumers() throws IOException {
-        try {
-            lock.lock();
-            if (destroyed) {
-                return;
-            }
-
-            for (DispatchingConsumer consumer : consumers.values()) {
-                final Channel channel = consumer.getChannel();
-                channel.basicCancel(consumer.getConsumerTag());
-                channelInstance.destroy(channel);
-            }
-            this.consumers.clear();
-            this.destroyed = true;
-        } finally {
-            lock.unlock();
+    void stopAllConsumers() throws IOException, TimeoutException {
+        for (DispatchingConsumer consumer : consumers.values()) {
+            stopConsumer(consumer);
         }
+        this.consumers.clear();
+    }
+
+    private Channel createChannel(String queueName) throws IOException {
+        final Channel channel = connection.createChannel();
+        if (channel == null) {
+            throw new IllegalStateException("No channel available");
+        }
+        channel.addShutdownListener(shutdownSignalException -> {
+            LOG.log(Level.INFO, "Channel for consumer on queue '%s' was shutdown. Reason was '%s'.", queueName,
+                    shutdownSignalException.getReason());
+            consumers.remove(queueName);
+        });
+        return channel;
+    }
+
+    private void createAndStartConsumer(String queueName, Channel channel) throws IOException {
+        final DispatchingConsumer consumer = new DispatchingConsumer(channel, queueName, dispatcher.select(
+                new FromQueue.Literal(queueName)));
+        consumers.put(queueName, consumer);
+        channel.basicConsume(queueName, true, consumer);
+    }
+
+
+    private void stopConsumer(DispatchingConsumer consumer) throws IOException, TimeoutException {
+        final Channel channel = consumer.getChannel();
+        channel.basicCancel(consumer.getConsumerTag());
+        channel.close();
     }
 
     private class DispatchingConsumer extends DefaultConsumer {
-
+        private final String queueName;
         private final Event<Delivery> qualifiedDispatcher;
 
-        public DispatchingConsumer(Channel channel, Event<Delivery> qualifiedDispatcher) {
+        public DispatchingConsumer(final Channel channel, String queueName, final Event<Delivery> qualifiedDispatcher) {
             super(channel);
+            this.queueName = queueName;
             this.qualifiedDispatcher = qualifiedDispatcher;
         }
 
@@ -147,32 +104,30 @@ public class ConsumerRegistry {
                     .append('\'')
                     .append(" with routing key='")
                     .append(envelope.getRoutingKey())
+                    .append('\'')
+                    .append(" and correlationId='")
+                    .append(properties.getCorrelationId())
                     .append('\'');
-            if (EVENT_BRIDGE_LOG.isLoggable(Level.FINE)) {
-                msgBuilder.append(" and properties = ").append(properties);
-            } else {
-                msgBuilder.append(" and correlationId='").append(properties.getCorrelationId()).append('\'');
-            }
 
-            EVENT_BRIDGE_LOG.fine(msgBuilder::toString);
+            LOG.log(Level.INFO, msgBuilder::toString);
 
-            final CompletionStage<Delivery> stage = qualifiedDispatcher.fireAsync(
-                    new Delivery(envelope, properties, body)).whenComplete((result, ex) -> {
+            qualifiedDispatcher.fireAsync(new Delivery(envelope, properties, body)).whenComplete((result, ex) -> {
                 if (ex != null) {
                     msgBuilder.append(" could not be handled.");
-                    EVENT_BRIDGE_LOG.log(Level.SEVERE, msgBuilder.toString(), ex);
+                    LOG.log(Level.ERROR, msgBuilder::toString, ex);
                 }
             });
-            runningEvents.add(stage);
-            stage.whenComplete((result, failure) -> runningEvents.remove(stage));
         }
 
-        /**
-         * @see Consumer#handleCancel(String)
-         */
+        @Override
+        public void handleCancelOk(String consumerTag) {
+            //
+        }
+
         @Override
         public void handleCancel(String consumerTag) throws IOException {
-            channelInstance.destroy(getChannel());
+            LOG.log(Level.WARNING, "Consumer on queue " + queueName + " was unexpectedly cancelled");
+            consumers.remove(queueName);
         }
     }
 }

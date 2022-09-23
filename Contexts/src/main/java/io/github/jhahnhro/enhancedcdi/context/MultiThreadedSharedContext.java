@@ -18,7 +18,7 @@ import java.util.concurrent.Phaser;
  * proxies that are still in use will not unexpectedly throw {@link javax.enterprise.context.ContextNotActiveException}
  * when another thread concurrently calls {@code close()}.
  */
-public abstract class MultiThreadedSharedContext implements SuspendableContext, CloseableContext, SharedContext {
+public abstract class MultiThreadedSharedContext implements CloseableSuspendableContext, SharedContext {
 
     /**
      * A {@link Phaser} with which threads register themselves on {@link #activate() activation} and de-register on
@@ -122,7 +122,7 @@ public abstract class MultiThreadedSharedContext implements SuspendableContext, 
 
     /**
      * Deactivates this context in this thread if it was active, blocks until all other threads have deactivated this
-     * context, then destroy all contextual instances.
+     * context, then destroys all contextual instances.
      * <p>
      * This context cannot be activated again afterwards.
      * <p>
@@ -145,6 +145,10 @@ public abstract class MultiThreadedSharedContext implements SuspendableContext, 
         }
     }
 
+    @Override
+    public boolean isClosed() {
+        return activationPhaser.getPhase() < 0;
+    }
 
     @Override
     public <T> T get(Contextual<T> contextual, CreationalContext<T> context) {

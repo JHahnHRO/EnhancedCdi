@@ -1,5 +1,6 @@
 package io.github.jhahn.enhancedcdi.messaging.impl;
 
+import com.rabbitmq.client.Connection;
 import io.github.jhahn.enhancedcdi.messaging.FromExchange;
 import io.github.jhahn.enhancedcdi.messaging.FromQueue;
 import io.github.jhahn.enhancedcdi.messaging.RpcEndpoint;
@@ -17,10 +18,11 @@ import java.util.stream.Collectors;
 public class RabbitMqExtension implements Extension {
     private final Map<String, Set<AnnotatedMethod<?>>> necessaryQueues = new HashMap<>();
     private final Map<String, Set<AnnotatedMethod<?>>> necessaryExchanges = new HashMap<>();
+    private boolean connectionBeanFound = false;
 
     //region ProcessManagedBean
-    <T, X> void collectInjectionPoints(@Observes ProcessInjectionPoint<T, X> pip) {
-
+    public void checkNecessaryBeans(@Observes ProcessBean<Connection> processConnectionBean) {
+        this.connectionBeanFound = true;
     }
     //endregion
 
@@ -78,4 +80,10 @@ public class RabbitMqExtension implements Extension {
         }
     }
 
+    public void validate(@Observes AfterDeploymentValidation adv) {
+        if (!connectionBeanFound) {
+            adv.addDeploymentProblem(new IllegalStateException(
+                    "A bean of type " + Connection.class.getCanonicalName() + " must be provided"));
+        }
+    }
 }

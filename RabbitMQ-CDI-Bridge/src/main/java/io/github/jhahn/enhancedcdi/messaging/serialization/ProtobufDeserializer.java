@@ -7,7 +7,6 @@ import com.rabbitmq.client.BasicProperties;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahn.enhancedcdi.messaging.InvalidMessageException;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 
@@ -37,7 +36,7 @@ public class ProtobufDeserializer<T extends Message> implements Deserializer<T> 
 
     @Override
     public T deserialize(Envelope envelope, BasicProperties messageProperties, InputStream messageBody)
-            throws InvalidMessageException, IOException {
+            throws InvalidMessageException {
         try {
             return clazz.cast(parser.parseFrom(messageBody));
         } catch (InvalidProtocolBufferException e) {

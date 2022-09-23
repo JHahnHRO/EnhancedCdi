@@ -17,8 +17,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * unique key, e.g. a number or a {@link java.util.UUID}, and each with their own set of contextual instances
  * <p>
  * A child-context can be created from any thread by calling {@link #getOrCreate(KEY)}. Once created, it can be
- * {@link #activate(Object) activated} and {@link #deactivate() deactivated} in any thread as often as needed.
- * Child-contexts are {@link CloseableContext} and calling {@link #close(KEY)} will close a specific child-context.
+ * {@link #activate(Object) activated} and {@link SuspendableContext.ActivationToken#close() deactivated} in any thread
+ * as often as needed. Child-contexts are {@link CloseableSuspendableContext} and calling {@link #close(KEY)} will close
+ * a specific child-context.
  * <p>
  * If this was part of the CDI standard, {@link javax.enterprise.context.SessionScoped} and
  * {@link javax.enterprise.context.ConversationScoped} would be backed by something similar. In contrast to
@@ -27,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * @param <KEY> the type of key identifying the child-contexts.
  */
+// TODO: race condition close vs. getOrCreate => replace ConcurrentHashMap by HashMap+RW-Lock
 public abstract class MultiThreadedNonSharedContext<KEY> implements CloseableContext {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -43,18 +45,13 @@ public abstract class MultiThreadedNonSharedContext<KEY> implements CloseableCon
         return token != null && token.isActive();
     }
 
-    private void checkClosed() {
-        if (closed.get()) {
-            throw new ContextClosedException(this);
-        }
-    }
-
-    public SuspendableContext getOrCreate(KEY key) {
-        checkClosed();
+    public CloseableSuspendableContext getOrCreate(KEY key) {
+        throwIfClosed();
         return contexts.computeIfAbsent(key, ChildContext::new);
     }
 
     public SuspendableContext.ActivationToken activate(KEY key) {
+        throwIfClosed();
         final ChildContext childContext = contexts.get(key);
         if (childContext != null) {
             return childContext.activate();
@@ -64,14 +61,22 @@ public abstract class MultiThreadedNonSharedContext<KEY> implements CloseableCon
         }
     }
 
-    public void deactivate() {
-        getChildContextOrThrow().deactivate();
+    private void throwIfClosed() {
+        if (closed.get()) {
+            throw new ContextClosedException(this);
+        }
     }
 
     public void close() {
-        final ChildContext childContext = getChildContextOrThrow();
-        childContext.close();
-        contexts.remove(childContext.key);
+        if (closed.compareAndSet(false, true)) {
+            contexts.values().forEach(CloseableContext::close);
+            contexts.clear();
+        }
+    }
+
+    @Override
+    public boolean isClosed() {
+        return closed.get();
     }
 
     public void close(KEY key) {
@@ -97,6 +102,7 @@ public abstract class MultiThreadedNonSharedContext<KEY> implements CloseableCon
     }
 
     private ChildContext getChildContextOrThrow() {
+        throwIfClosed();
         final SuspendableContext.ActivationToken token = activationToken.get();
         if (token != null) {
             return (ChildContext) token.issuingContext();
@@ -116,6 +122,5 @@ public abstract class MultiThreadedNonSharedContext<KEY> implements CloseableCon
         public Class<? extends Annotation> getScope() {
             return MultiThreadedNonSharedContext.this.getScope();
         }
-
     }
 }

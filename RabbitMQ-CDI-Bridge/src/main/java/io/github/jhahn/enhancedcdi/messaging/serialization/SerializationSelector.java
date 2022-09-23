@@ -15,6 +15,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @ApplicationScoped
 public class SerializationSelector {
 
+    private static System.Logger LOG = System.getLogger(SerializationSelector.class.getCanonicalName());
+
     private static final Comparator<Prioritized> HIGHEST_PRIORITY_FIRST = Comparator.comparingInt(
             Prioritized::getPriority).reversed();
 
@@ -47,38 +49,28 @@ public class SerializationSelector {
     }
 
     @PreDestroy
-    void destroySerializersAndDeserializers() throws Exception {
-        List<Exception> exceptions = new ArrayList<>();
-        this.deserializers.forEach(deserializer -> tryClose(exceptions, deserializer));
-        this.serializers.forEach(serializer -> tryClose(exceptions, serializer));
-        if (!exceptions.isEmpty()) {
-            if (exceptions.size() == 1) {
-                throw exceptions.get(0);
-            } else {
-                final RuntimeException exception = new RuntimeException();
-                exceptions.forEach(exception::addSuppressed);
-                throw exception;
-            }
-        }
+    void destroySerializersAndDeserializers() {
+        this.deserializers.forEach(this::tryClose);
+        this.serializers.forEach(this::tryClose);
     }
 
-    private void tryClose(List<Exception> exceptions, Object o) {
-        if (o instanceof AutoCloseable) {
+    private void tryClose(Object o) {
+        if (o instanceof AutoCloseable closeable) {
             try {
-                ((AutoCloseable) o).close();
+                closeable.close();
             } catch (Exception e) {
-                exceptions.add(e);
+                LOG.log(System.Logger.Level.ERROR, "Exception while closing. Moving on.", e);
             }
         }
     }
 
-    public <T> Optional<Serializer<T>> selectSerializer(T payloadType) {
+    public <T> Optional<Serializer<T>> selectSerializer(T payload) {
         serializerLock.readLock().lock();
         try {
             return serializers.stream()
-                    .filter(serializer -> serializer.serializableType().isAssignableFrom(payloadType.getClass()))
+                    .filter(serializer -> serializer.serializableType().isAssignableFrom(payload.getClass()))
                     .map(serializer -> (Serializer<T>) serializer)
-                    .filter(serializer -> serializer.canSerialize(payloadType))
+                    .filter(serializer -> serializer.canSerialize(payload))
                     .findFirst();
         } finally {
             serializerLock.readLock().unlock();

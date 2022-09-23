@@ -135,12 +135,14 @@ class PropertiesBuilderImpl implements io.github.jhahn.enhancedcdi.messaging.Pro
 
     @Override
     public PropertiesBuilderImpl addHeaders(Map<String, Object> headers) {
-        return null;
+        this.headers.putAll(headers);
+        return this;
     }
 
     @Override
     public PropertiesBuilderImpl addHeader(String name, Object value) {
-        return null;
+        this.headers.put(name, value);
+        return this;
     }
 
     @Override
