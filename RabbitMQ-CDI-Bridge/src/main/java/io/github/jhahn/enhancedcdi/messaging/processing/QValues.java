@@ -1,6 +1,7 @@
 package io.github.jhahn.enhancedcdi.messaging.processing;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.util.function.BinaryOperator.maxBy;
@@ -27,10 +28,10 @@ public class QValues {
     public static QValues parse(String qValueString) {
         final Map<String, QValue> byName = Arrays.stream(qValueString.split(","))
                 .map(String::trim)
-                .filter(s -> !s.isBlank())
+                .filter(s -> !s.isEmpty())
                 .map(QValue::parse)
-                .collect(Collectors.groupingBy(QValue::value,
-                                               Collectors.reducing(null, maxBy(Comparator.comparing(QValue::weight)))));
+                .collect(Collectors.toMap(QValue::value, Function.identity(),
+                                          maxBy(Comparator.comparing(QValue::weight))));
 
         return new QValues(byName.values());
     }

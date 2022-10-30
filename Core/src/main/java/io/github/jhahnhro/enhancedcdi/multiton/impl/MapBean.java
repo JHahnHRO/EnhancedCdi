@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.multiton.impl;
 
-import io.github.jhahnhro.enhancedcdi.reflection.ParameterizedTypeImpl;
+import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
 
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.spi.CreationalContext;

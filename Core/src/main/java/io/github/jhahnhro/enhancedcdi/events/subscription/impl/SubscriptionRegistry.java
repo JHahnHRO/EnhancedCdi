@@ -1,7 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.events.subscription.impl;
 
 import io.github.jhahnhro.enhancedcdi.events.subscription.Subscription;
-import io.github.jhahnhro.enhancedcdi.reflection.TypeVariableResolver;
+import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Any;

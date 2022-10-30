@@ -5,17 +5,34 @@
     <parent>
         <artifactId>parent</artifactId>
         <groupId>io.github.jhahnhro.enhancedcdi</groupId>
-        <version>0.2</version>
+        <version>0.4</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>rabbitmq-cdi-bridge</artifactId>
+    <packaging>pom</packaging>
+    <modules>
+        <module>protobuf</module>
+        <module>jsonb</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+
+            <dependency>
+                <groupId>io.github.jhahnhro.enhancedcdi</groupId>
+                <artifactId>Core</artifactId>
+                <version>${parent.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
             <groupId>io.github.jhahnhro.enhancedcdi</groupId>
             <artifactId>Core</artifactId>
         </dependency>
+
         <dependency>
             <groupId>javax.enterprise</groupId>
             <artifactId>cdi-api</artifactId>
@@ -29,24 +46,6 @@
             <groupId>com.rabbitmq</groupId>
             <artifactId>amqp-client</artifactId>
             <version>5.16.0</version>
-        </dependency>
-        <dependency>
-            <groupId>javax.json</groupId>
-            <artifactId>javax.json-api</artifactId>
-            <version>1.1.4</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.google.protobuf</groupId>
-            <artifactId>protobuf-java</artifactId>
-            <version>3.21.5</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.github.jhahnhro.enhancedcdi</groupId>
-            <artifactId>Core</artifactId>
-            <version>0.2</version>
-            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.eclipse.microprofile.config</groupId>

@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
-import io.github.jhahnhro.enhancedcdi.reflection.TypeVariableResolver;
+import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
 
 import javax.enterprise.inject.spi.Annotated;
 import java.lang.annotation.Annotation;

@@ -1,8 +1,8 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
-import io.github.jhahnhro.enhancedcdi.reflection.TypeVariableResolver;
-import io.github.jhahnhro.enhancedcdi.reflection.Visit;
-import io.github.jhahnhro.enhancedcdi.reflection.Visit.ClassHierarchy.RecursiveVisitor;
+import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
+import io.github.jhahnhro.enhancedcdi.types.Visit;
+import io.github.jhahnhro.enhancedcdi.types.Visit.ClassHierarchy.RecursiveVisitor;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;

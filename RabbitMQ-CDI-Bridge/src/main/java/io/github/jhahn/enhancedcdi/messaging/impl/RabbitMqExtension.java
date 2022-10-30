@@ -1,9 +1,9 @@
 package io.github.jhahn.enhancedcdi.messaging.impl;
 
-import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import io.github.jhahn.enhancedcdi.messaging.FromExchange;
 import io.github.jhahn.enhancedcdi.messaging.FromQueue;
-import io.github.jhahn.enhancedcdi.messaging.RpcEndpoint;
+import io.github.jhahn.enhancedcdi.messaging.rpc.RpcEndpoint;
 
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.*;
@@ -21,7 +21,7 @@ public class RabbitMqExtension implements Extension {
     private boolean connectionBeanFound = false;
 
     //region ProcessManagedBean
-    public void checkNecessaryBeans(@Observes ProcessBean<Connection> processConnectionBean) {
+    public void checkNecessaryBeans(@Observes ProcessBean<ConnectionFactory> processConnectionBean) {
         this.connectionBeanFound = true;
     }
     //endregion
@@ -59,22 +59,22 @@ public class RabbitMqExtension implements Extension {
         final AnnotatedMethod<X> method = pom.getAnnotatedMethod();
         final Method javaMethod = method.getJavaMember();
 
-        if (javaMethod.getReturnType() == Void.TYPE || javaMethod.getReturnType() == Void.class) {
+        if (javaMethod.getReturnType() == void.class || javaMethod.getReturnType() == Void.class) {
             pom.addDefinitionError(
-                    new DefinitionException(method + " was declared with @RpcMethod, " + "but has no return type"));
+                    new DefinitionException(method + " was declared with @RpcEndpoint, but returns void"));
         }
     }
     //endregion
 
-    Set<NecessaryName> getNecessaryQueues() {
+    public Set<NecessaryName> getNecessaryQueues() {
         return necessaryQueues.entrySet().stream().map(NecessaryName::new).collect(Collectors.toSet());
     }
 
-    Set<NecessaryName> getNecessaryExchanges() {
+    public Set<NecessaryName> getNecessaryExchanges() {
         return necessaryQueues.entrySet().stream().map(NecessaryName::new).collect(Collectors.toSet());
     }
 
-    record NecessaryName(String name, Set<AnnotatedMethod<?>> causes) {
+    public record NecessaryName(String name, Set<AnnotatedMethod<?>> causes) {
         public NecessaryName(Map.Entry<String, Set<AnnotatedMethod<?>>> mapEntry) {
             this(mapEntry.getKey(), mapEntry.getValue());
         }
@@ -83,7 +83,7 @@ public class RabbitMqExtension implements Extension {
     public void validate(@Observes AfterDeploymentValidation adv) {
         if (!connectionBeanFound) {
             adv.addDeploymentProblem(new IllegalStateException(
-                    "A bean of type " + Connection.class.getCanonicalName() + " must be provided"));
+                    "A bean of type " + ConnectionFactory.class.getCanonicalName() + " must be provided"));
         }
     }
 }

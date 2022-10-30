@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * instances.
  * <p>
  * An instance of this class manages "child"-contexts with the same {@link #getScope() scope}, each identified by a
- * unique key, e.g. a number or a {@link java.util.UUID}, and each with their own set of contextual instances
+ * unique key, e.g. a number or a {@link java.util.UUID}, and each with their own set of contextual instances.
  * <p>
  * A child-context can be created from any thread by calling {@link #getOrCreate(KEY)}. Once created, it can be
  * {@link #activate(Object) activated} and {@link SuspendableContext.ActivationToken#close() deactivated} in any thread

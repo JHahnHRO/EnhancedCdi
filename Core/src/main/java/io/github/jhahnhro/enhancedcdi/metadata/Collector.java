@@ -1,7 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
-import io.github.jhahnhro.enhancedcdi.reflection.Visit;
-import io.github.jhahnhro.enhancedcdi.reflection.Visit.ClassHierarchy.RecursiveVisitor;
+import io.github.jhahnhro.enhancedcdi.types.Visit;
+import io.github.jhahnhro.enhancedcdi.types.Visit.ClassHierarchy.RecursiveVisitor;
 
 import javax.enterprise.inject.spi.AnnotatedCallable;
 import javax.enterprise.inject.spi.AnnotatedMember;
@@ -12,8 +12,6 @@ import java.lang.reflect.Executable;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 public class Collector {
     /**

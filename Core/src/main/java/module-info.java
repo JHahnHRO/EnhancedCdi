@@ -7,4 +7,6 @@ module enhancedcdi.core {
 
     exports io.github.jhahnhro.enhancedcdi.pooled;
     exports io.github.jhahnhro.enhancedcdi.metadata;
+    exports io.github.jhahnhro.enhancedcdi.util;
+    exports io.github.jhahnhro.enhancedcdi.types;
 }

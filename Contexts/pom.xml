@@ -5,7 +5,7 @@
     <parent>
         <artifactId>parent</artifactId>
         <groupId>io.github.jhahnhro.enhancedcdi</groupId>
-        <version>0.2</version>
+        <version>0.4</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
@@ -35,6 +35,11 @@
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
             <version>2.1.1</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.jhahnhro.enhancedcdi</groupId>
+            <artifactId>Core</artifactId>
+            <version>0.4</version>
         </dependency>
     </dependencies>
 </project>

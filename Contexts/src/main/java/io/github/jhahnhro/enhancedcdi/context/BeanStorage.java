@@ -1,5 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
+import io.github.jhahnhro.enhancedcdi.util.BeanInstance;
+
 import javax.enterprise.context.spi.Contextual;
 import javax.enterprise.context.spi.CreationalContext;
 import java.util.Map;
@@ -7,39 +9,30 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 class BeanStorage {
-    private final AtomicReference<Map<Contextual<?>, ContextualInstance<?>>> map = new AtomicReference<>(
+    private final AtomicReference<Map<Contextual<?>, BeanInstance<?>>> map = new AtomicReference<>(
             new ConcurrentHashMap<>());
 
     <T> T get(Contextual<T> contextual, CreationalContext<T> context) {
         return (T) map.get()
-                .computeIfAbsent(contextual, __ -> new ContextualInstance<>(contextual, context))
+                .computeIfAbsent(contextual, __ -> BeanInstance.createContextualInstance(contextual, context))
                 .instance();
     }
 
     <T> T get(Contextual<T> contextual) {
-        final ContextualInstance<T> contextualInstance = (ContextualInstance<T>) map.get().get(contextual);
-        return contextualInstance == null ? null : contextualInstance.instance();
+        final BeanInstance<T> beanInstance = (BeanInstance<T>) map.get().get(contextual);
+        return beanInstance == null ? null : beanInstance.instance();
     }
 
     void destroy(Contextual<?> contextual) {
-        final ContextualInstance<?> contextualInstance = map.get().remove(contextual);
-        if (contextualInstance != null) {
-            contextualInstance.destroy();
+        final BeanInstance<?> beanInstance = map.get().remove(contextual);
+        if (beanInstance != null) {
+            beanInstance.destroy();
         }
     }
 
     void destroyAll() {
-        final Map<Contextual<?>, ContextualInstance<?>> oldMap = map.getAndSet(new ConcurrentHashMap<>());
-        oldMap.values().forEach(ContextualInstance::destroy);
+        final Map<Contextual<?>, BeanInstance<?>> oldMap = map.getAndSet(new ConcurrentHashMap<>());
+        oldMap.values().forEach(BeanInstance::destroy);
     }
 
-    private record ContextualInstance<T>(T instance, Contextual<T> contextual, CreationalContext<T> context) {
-        public ContextualInstance(Contextual<T> contextual, CreationalContext<T> context) {
-            this(contextual.create(context), contextual, context);
-        }
-
-        public void destroy() {
-            contextual.destroy(instance, context);
-        }
-    }
 }

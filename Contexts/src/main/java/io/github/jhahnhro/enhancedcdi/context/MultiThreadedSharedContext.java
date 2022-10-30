@@ -37,6 +37,7 @@ public abstract class MultiThreadedSharedContext implements CloseableSuspendable
      * Stores the contextual instances of this context.
      */
     private final BeanStorage beanStorage = new BeanStorage();
+    // TODO: Replace by Map<Thread,ActivationToken>
     private final ThreadLocal<ActivationToken> activationToken;
 
     protected MultiThreadedSharedContext() {

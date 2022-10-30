@@ -1,22 +1,25 @@
 package io.github.jhahn.enhancedcdi.messaging.impl;
 
-import com.rabbitmq.client.*;
-import io.github.jhahn.enhancedcdi.messaging.*;
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ShutdownSignalException;
+import io.github.jhahn.enhancedcdi.messaging.Consumers;
 
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
-import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeoutException;
+
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.WARNING;
 
 @ApplicationScoped
-class ConsumerRegistry {
-    private static final System.Logger LOG = System.getLogger(EventBridge.class.getCanonicalName());
+class ConsumerRegistry implements Consumers {
+    private static final System.Logger LOG = System.getLogger(ConsumerRegistry.class.getCanonicalName());
 
     /**
      * Map queue names => Consumers (Because we only dispatch message to the CDI event system, there only ever needs to
@@ -24,110 +27,73 @@ class ConsumerRegistry {
      */
     private final Map<String, DispatchingConsumer> consumers = new ConcurrentHashMap<>();
     @Inject
-    @Incoming
-    Event<Delivery> dispatcher;
+    Event<InternalDelivery> dispatcher;
     @Inject
     Connection connection;
     @Inject
     Infrastructure infrastructure;
 
-    public void startReceiving(@Observes StartReceiving startReceiving) throws IOException {
-        final String queueName = startReceiving.queue();
-        final Channel channel = createChannel(queueName);
-        infrastructure.setUpForQueue(queueName);
-        createAndStartConsumer(queueName, channel);
+    @Override
+    public void startReceiving(String queue, ConsumerOptions options) throws IOException, InterruptedException {
+        infrastructure.setUpForQueue(queue);
+        final Channel channel = createChannel();
+
+        final DispatchingConsumer consumer = createConsumer(queue, channel, options);
+        consumers.put(queue, consumer);
+
+        consumer.start();
     }
 
-    public void stopReceiving(@Observes StopReceiving stopReceiving) {
-        try {
-            final DispatchingConsumer consumer = consumers.remove(stopReceiving.queue());
-            if (consumer == null) {
-                return;
-            }
-            stopConsumer(consumer);
-        } catch (IOException | TimeoutException e) {
-            LOG.log(Level.WARNING,
-                    "Consumer for queue " + stopReceiving.queue() + " was stopped, but that threw an exception.", e);
+    @Override
+    public void stopReceiving(String queue) throws IOException {
+        final DispatchingConsumer consumer = consumers.remove(queue);
+        if (consumer == null) {
+            return;
         }
+        consumer.stop();
     }
 
     @PreDestroy
-    void stopAllConsumers() throws IOException, TimeoutException {
-        for (DispatchingConsumer consumer : consumers.values()) {
-            stopConsumer(consumer);
+    void stopRemainingConsumers() {
+        for (var entry : consumers.entrySet()) {
+            final String queueName = entry.getKey();
+            final DispatchingConsumer consumer = entry.getValue();
+            try {
+                consumer.stop();
+            } catch (IOException ex) {
+                LOG.log(ERROR, "Consumer for queue \"" + queueName
+                               + "\" could not be shut down in an orderly fashion. Continuing anyway.", ex);
+            }
         }
-        this.consumers.clear();
     }
 
-    private Channel createChannel(String queueName) throws IOException {
+    private Channel createChannel() throws IOException {
         final Channel channel = connection.createChannel();
         if (channel == null) {
             throw new IllegalStateException("No channel available");
         }
-        channel.addShutdownListener(shutdownSignalException -> {
-            LOG.log(Level.INFO, "Channel for consumer on queue '%s' was shutdown. Reason was '%s'.", queueName,
-                    shutdownSignalException.getReason());
-            consumers.remove(queueName);
-        });
         return channel;
     }
 
-    private void createAndStartConsumer(String queueName, Channel channel) throws IOException {
-        final DispatchingConsumer consumer = new DispatchingConsumer(channel, queueName, dispatcher.select(
-                new FromQueue.Literal(queueName)));
-        consumers.put(queueName, consumer);
-        channel.basicConsume(queueName, true, consumer);
+    private DispatchingConsumer createConsumer(final String queueName, final Channel channel, ConsumerOptions options) {
+        return new DispatchingConsumer(channel, queueName, options, dispatcher) {
+            @Override
+            public void handleCancel(String consumerTag) throws IOException {
+                super.handleCancel(consumerTag);
+                LOG.log(WARNING, "Consumer on queue \"%s\" (consumerTag \"%s\") was cancelled unexpectedly.", queueName,
+                        consumerTag);
+                consumers.remove(queueName);
+            }
+
+            @Override
+            public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
+                super.handleShutdownSignal(consumerTag, sig);
+                LOG.log(Level.INFO,
+                        "Channel for consumer on queue \"%s\" (consumerTag \"%s\") was shut down. Reason was \"%s\".",
+                        queueName, consumerTag, sig.getReason());
+                consumers.remove(queueName);
+            }
+        };
     }
 
-
-    private void stopConsumer(DispatchingConsumer consumer) throws IOException, TimeoutException {
-        final Channel channel = consumer.getChannel();
-        channel.basicCancel(consumer.getConsumerTag());
-        channel.close();
-    }
-
-    private class DispatchingConsumer extends DefaultConsumer {
-        private final String queueName;
-        private final Event<Delivery> qualifiedDispatcher;
-
-        public DispatchingConsumer(final Channel channel, String queueName, final Event<Delivery> qualifiedDispatcher) {
-            super(channel);
-            this.queueName = queueName;
-            this.qualifiedDispatcher = qualifiedDispatcher;
-        }
-
-        @Override
-        public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties,
-                                   byte[] body) {
-            final StringBuilder msgBuilder = new StringBuilder("Incoming RabbitMQ delivery from exchange=").append('\'')
-                    .append(envelope.getExchange())
-                    .append('\'')
-                    .append(" with routing key='")
-                    .append(envelope.getRoutingKey())
-                    .append('\'')
-                    .append(" and correlationId='")
-                    .append(properties.getCorrelationId())
-                    .append('\'');
-
-            LOG.log(Level.INFO, msgBuilder::toString);
-
-            qualifiedDispatcher.fireAsync(new Delivery(envelope, properties, body)).whenComplete((result, ex) -> {
-                if (ex != null) {
-                    msgBuilder.append(" could not be handled.");
-                    LOG.log(Level.ERROR, msgBuilder::toString, ex);
-                }
-            });
-        }
-
-        @Override
-        public void handleCancelOk(String consumerTag) {
-            //
-        }
-
-        @Override
-        public void handleCancel(String consumerTag) throws IOException {
-            LOG.log(Level.WARNING, "Consumer on queue " + queueName + " was unexpectedly cancelled");
-            consumers.remove(queueName);
-        }
-    }
 }

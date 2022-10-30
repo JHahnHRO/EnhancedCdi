@@ -1,66 +1,86 @@
 package io.github.jhahn.enhancedcdi.messaging.impl;
 
-import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Delivery;
-import io.github.jhahn.enhancedcdi.messaging.PropertiesBuilder;
-import io.github.jhahn.enhancedcdi.messaging.RpcEndpoint;
-import io.github.jhahn.enhancedcdi.messaging.RpcNotActiveException;
-import io.github.jhahn.enhancedcdi.messaging.processing.Outgoing;
+import io.github.jhahn.enhancedcdi.messaging.Publisher;
+import io.github.jhahn.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahn.enhancedcdi.messaging.messages.OutgoingMessageBuilder;
+import io.github.jhahn.enhancedcdi.messaging.rpc.RpcEndpoint;
+import io.github.jhahn.enhancedcdi.messaging.rpc.RpcNotActiveException;
 
 import javax.annotation.Priority;
 import javax.enterprise.context.ContextNotActiveException;
-import javax.enterprise.event.Event;
+import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 import javax.interceptor.AroundInvoke;
 import javax.interceptor.Interceptor;
 import javax.interceptor.InvocationContext;
-import java.util.Optional;
+import java.lang.reflect.Method;
+import java.lang.reflect.Type;
+import java.util.Map;
+
+import static java.util.Map.entry;
 
 @Interceptor
 @Priority(Interceptor.Priority.LIBRARY_BEFORE)
 @RpcEndpoint
 class RpcResultPublishingInterceptor {
 
+    private static final Map<Class<?>, Object> DEFAULT_VALUES = Map.ofEntries(entry(boolean.class, false),
+                                                                              entry(char.class, '\0'),
+                                                                              entry(byte.class, (byte) 0),
+                                                                              entry(short.class, (short) 0),
+                                                                              entry(int.class, 0),
+                                                                              entry(long.class, 0L),
+                                                                              entry(float.class, 0.0f),
+                                                                              entry(double.class, 0.0d));
+
+    // Instance because OutgoingMessageBuilder is @Dependent and we need lazy lookup
     @Inject
-    @io.github.jhahn.enhancedcdi.messaging.Outgoing
-    PropertiesBuilder propertiesBuilder;
-    @Inject
-    Event<Outgoing<?>> outgoingDeliveryEvent;
+    Instance<OutgoingMessageBuilder<?, ?>> outgoingMessageBuilderInstance;
 
     @Inject
-    private MessageMetaData requestMetaData;
+    Publisher publisher;
 
     @AroundInvoke
     Object publishReturnValue(InvocationContext invocationContext) throws Exception {
-        final String replyTo = extractReplyToFromRequest();
-
-        final Object result = invocationContext.proceed();
-
-        publish(replyTo, result);
-        return result;
+        OutgoingMessageBuilder<?, ?> responseBuilder = isRpcRequestContext();
+        if (responseBuilder == null) {
+            return handleNonRpcInvocation(invocationContext);
+        } else {
+            return handleRpcInvocation(invocationContext, responseBuilder);
+        }
     }
 
-    private String extractReplyToFromRequest() {
-        Optional<Delivery> request;
+    private OutgoingMessageBuilder<?, ?> isRpcRequestContext() {
         try {
-            request = requestMetaData.getIncomingDelivery();
-        } catch (ContextNotActiveException | IllegalStateException ex) {
-            throw new RpcNotActiveException("RPC method called outside of request scope", ex);
+            return outgoingMessageBuilderInstance.get();
+        } catch (ContextNotActiveException ex) {
+            return null;
         }
-
-        if (request.isEmpty()) {
-            throw new RpcNotActiveException("RPC method called without RPC request in active request scope");
-        }
-
-        return request.map(Delivery::getProperties)
-                .map(AMQP.BasicProperties::getReplyTo)
-                .orElseThrow(() -> new RpcNotActiveException(
-                        "RPC method called without RPC request in active request scope. "
-                        + "Broadcast in active request scope does not have the 'replyTo' property."));
     }
 
-    private <T> void publish(String replyTo, T result) {
-        final Outgoing<T> outgoing = new Outgoing<>("", replyTo, propertiesBuilder.build(), result);
-        outgoingDeliveryEvent.fire(outgoing);
+
+    private Object handleNonRpcInvocation(InvocationContext invocationContext) throws Exception {
+        final Method method = invocationContext.getMethod();
+        final RpcEndpoint binding = method.getAnnotation(RpcEndpoint.class);
+
+        return switch (binding.nonRpcInvocations()) {
+            case THROW -> throw new RpcNotActiveException(
+                    method + " was invoked outside of a RequestScope of an RabbitMQ RPC request.");
+            case PROCEED -> invocationContext.proceed();
+            case DO_NOT_PROCEED -> DEFAULT_VALUES.get(method.getReturnType());
+        };
+    }
+
+    private Object handleRpcInvocation(InvocationContext invocationContext,
+                                       OutgoingMessageBuilder<?, ?> responseBuilder)
+            throws Exception {
+
+        Object result = invocationContext.proceed();
+
+        final Outgoing<?> response = responseBuilder.setContent(result).build();
+        final Type responseType = invocationContext.getMethod().getGenericReturnType();
+        publisher.send(response, responseType);
+
+        return result;
     }
 }
