@@ -66,7 +66,8 @@ consumed from a queue.
 
 ## Beans required to use the library
 
-* A bean of type `ConnectionFactory` with qualifier `@Default` that defines how connection configuration.
+* A bean of type `Configuration` with qualifier `@Default` that defines how the connection to the broker is to be
+  established.
     * Only Auto-Recovering Connections (and therefore Channels) are supported. Auto-Recovery will be enabled
       automatically and a warning logged, if the `ConnectionFactory` bean does not have it enabled.
 * At least some beans of types `AMQP.Exchange.Declare`, `AMQP.Queue.Declare`, `AMQP.Queue.Bind`, and/or `Topology` to
