@@ -2,14 +2,15 @@
 <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xmlns="http://maven.apache.org/POM/4.0.0"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
     <parent>
         <artifactId>rabbitmq-cdi-bridge</artifactId>
         <groupId>io.github.jhahnhro.enhancedcdi</groupId>
-        <version>0.4</version>
+        <version>0.5</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
-    <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>json</artifactId>
+    <artifactId>rabbitmq-cdi-bridge-json</artifactId>
     <description>
         Provides base implementations of MessageReader and MessageWriter to read/write messages in json-format using the
         JSON-B API.
@@ -24,8 +25,8 @@
     <dependencies>
         <dependency>
             <groupId>io.github.jhahnhro.enhancedcdi</groupId>
-            <artifactId>rabbitmq-cdi-bridge</artifactId>
-            <version>${parent.version}</version>
+            <artifactId>rabbitmq-cdi-bridge-core</artifactId>
+            <version>${project.parent.version}</version>
         </dependency>
 
         <dependency>

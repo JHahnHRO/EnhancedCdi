@@ -67,17 +67,21 @@ public class EventMetadataImpl implements EventMetadata, Serializable {
         throw new IllegalArgumentException(injectionPoint + " is not a legal injection point for an Event");
     }
 
-    private static Type extractEventType(ParameterizedType parameterizedType) {
-        Type rawType = parameterizedType.getRawType();
-        if (Event.class.equals(rawType)) {
-            return parameterizedType.getActualTypeArguments()[0];
-        } else if ((rawType.equals(Provider.class) || rawType.equals(Instance.class))
-                   && parameterizedType.getActualTypeArguments()[0] instanceof ParameterizedType pType) {
-            // It's not particular reasonable, but nevertheless perfectly legal to have an injection point of type
-            // Instance<Event<T>> or Provider<Provider<Event<T>>> or Provider<Instance<Provider<...
-            return extractEventType(pType);
+    private static Type extractEventType(final ParameterizedType parameterizedType) {
+        ParameterizedType paramType = parameterizedType;
+        while (true) {
+            Type rawType = paramType.getRawType();
+            if (rawType == Event.class) {
+                return paramType.getActualTypeArguments()[0];
+            } else if ((rawType == Provider.class || rawType == Instance.class)
+                       && paramType.getActualTypeArguments()[0] instanceof ParameterizedType pType) {
+                // It's not particular reasonable, but nevertheless perfectly legal to have an injection point of type
+                // Instance<Event<T>> or Provider<Provider<Event<T>>> or Provider<Instance<Provider<...
+                paramType = pType;
+                continue;
+            }
+            return null;
         }
-        return null;
     }
 
     @Override

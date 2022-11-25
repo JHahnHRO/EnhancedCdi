@@ -1,23 +1,53 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
+import javax.enterprise.context.ContextNotActiveException;
 import javax.enterprise.context.spi.AlterableContext;
+import javax.enterprise.context.spi.Contextual;
+import javax.enterprise.context.spi.CreationalContext;
 
 /**
  * An {@link AlterableContext} that can be {@link #close() closed}. Closing entails deactivating the context in all
- * threads in which it was previously active and destroying all contextual instances. Once closed, {@link #isActive()}
- * will always return false. Closing is irreversible.
+ * threads in which it was previously active and destroying all contextual instances previously created. Once closed,
+ * {@link #isActive()} will always return false and {@link #get(Contextual, CreationalContext)},
+ * {@link #get(Contextual)}, as well as {@link #destroy(Contextual)} will throw {@link ContextClosedException}.
  * <p>
- * No guarantees are made regarding thread-safety of closing. An implementation may wait until it can be sure that its
- * contextual instances are no longer in use, before destroying them, but it does not have to. For example
- * {@link MultiThreadedSharedContext} waits for all active threads to finish before destroying the contextual
- * instances.
+ * Closing is irreversible, as opposed to {@link javax.enterprise.inject.spi.PassivationCapable passivation} for
+ * example.
+ * <p>
+ * No guarantees are made regarding thread-safety of closing. An implementation should make an effort to wait until it
+ * can be sure that its contextual instances are no longer in use, before destroying them, but it does not have to. For
+ * example {@link ThreadAwarePauseableContext} waits for all active threads to become inactive before destroying the
+ * contextual instances.
+ *
+ * @see PauseableContext
+ * @see SharedContext
  */
 public interface CloseableContext extends AlterableContext, AutoCloseable {
 
     /**
-     * Deactivates this context permanently in all threads and destroys all beans in this context. This context cannot
-     * be activated again afterwards.
-     * <p>
+     * Convenience method that throws {@link ContextNotActiveException} if this context is not active in the current
+     * thread.
+     */
+    default void checkActive() {
+        if (!isActive()) {
+            throw new ContextNotActiveException();
+        }
+    }
+
+    /**
+     * Convenience method that throws {@link ContextClosedException} if this context is closed.
+     */
+    default void checkOpen() {
+        if (isClosed()) {
+            throw new ContextClosedException(this);
+        }
+    }
+
+    /**
+     * Deactivates this context permanently in all threads and destroys all beans in this context. Calls to
+     * {@link #get(Contextual)}, {@link #get(Contextual, CreationalContext)} and {@link #destroy(Contextual)} will
+     * always throw {@link javax.enterprise.context.ContextNotActiveException} afterwards, {@link #isActive()} will
+     * always return {@code false}.
      *
      * @apiNote Must be idempotent, i.e. calling it multiple times has the same effect as calling it once.
      */

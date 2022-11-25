@@ -20,6 +20,9 @@ import java.lang.reflect.Type;
  *     beans. The client proxies also include the interceptor chain, i.e. calling methods on a contextual reference
  *     goes through the complete interceptor and decorator chain of the bean before arriving at the "real" method.</li>
  *     <li><i>injectable references</i> for each injection point that resolves to the bean.</li>
+ *     <li>{@link javax.enterprise.inject.spi.Unmanaged unmanaged instances} that support interceptors, decorators,
+ *     lifecycle callbacks etc., but are not managed by the CDI container and live independently along-side the
+ *     managed instance(s).</li>
  * </ol>
  *
  * @param instance
@@ -38,7 +41,7 @@ public record BeanInstance<T>(T instance, Contextual<T> contextual, CreationalCo
      * @return
      */
     public static <T> BeanInstance<T> createContextualInstance(Contextual<T> contextual, CreationalContext<T> context) {
-        return new BeanInstance<T>(contextual.create(context), contextual, context);
+        return new BeanInstance<>(contextual.create(context), contextual, context);
     }
 
     public static <T> BeanInstance<T> createContextualReference(BeanManager beanManager, Bean<T> bean, Type beanType) {

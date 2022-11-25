@@ -13,6 +13,11 @@ public class ContextClosedException extends ContextNotActiveException {
         this.context = context;
     }
 
+    public ContextClosedException() {
+        super("Context is already closed.");
+        this.context = null;
+    }
+
     public CloseableContext getContext() {
         return context;
     }

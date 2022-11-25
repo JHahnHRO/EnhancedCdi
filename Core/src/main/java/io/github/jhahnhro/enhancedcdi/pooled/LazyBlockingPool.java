@@ -1,13 +1,11 @@
 package io.github.jhahnhro.enhancedcdi.pooled;
 
-import io.github.jhahnhro.enhancedcdi.util.Cleaning;
-
 import java.lang.System.Logger.Level;
-import java.lang.ref.Cleaner;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -33,7 +31,7 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
     /**
      * The items that are not currently in use inside {@link #withItem(ThrowingFunction)}
      */
-    protected final Queue<T> itemsNotInUse;
+    protected final BlockingQueue<T> itemsNotInUse;
     /**
      * A semaphore with {@link #capacity} permits.
      */
@@ -45,11 +43,6 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
      * Whether this pool is closed.
      */
     private final AtomicBoolean closed = new AtomicBoolean(false);
-
-    /**
-     * Action to execute when this pool gets closed or garbage collected.
-     */
-    private final Cleaner.Cleanable cleanable;
 
     /**
      * Creates a new instance.
@@ -89,9 +82,6 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
         for (int i = 0; i < initialSize; i++) {
             itemsNotInUse.add(createInternal());
         }
-
-        // if this pool is not properly closed and gets garbage collected, all items will be destroyed.
-        this.cleanable = Cleaning.DEFAULT_CLEANER.register(this, new CleaningAction<>(this));
     }
 
     private static <U> Consumer<U> decorate(final ThrowingConsumer<U, ?> destroyer, AtomicInteger counter) {
@@ -120,6 +110,15 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
      */
     protected abstract T create();
 
+    /**
+     * Returns {@code true} iff the given item is still usable. This method is invoked in
+     * {@link #withItem(ThrowingFunction)} when an item is taken out of the pool, before it is passed to an action, and
+     * again after the action was performed, before the item is returned to the pool. In both cases, if the item is
+     * found to be invalid, it will be destroyed and not be (re)used.
+     *
+     * @param item an item of this pool
+     * @return {@code true} iff the given item is still usable.
+     */
     protected boolean isValid(T item) {
         return true;
     }
@@ -137,9 +136,9 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
     /**
      * Borrows an item from the pool to execute the given action on it, returning it to the pool afterwards.
      * <p>
-     * Creates a new item if all existing items in the pool are currently in use and the capacity has not been reached
-     * yet. If all items are in use and the capacity has been reached, the method blocks until an item becomes available
-     * or the thread gets interrupted.
+     * Creates a new item if all existing items in the pool are currently in use and the {@link #capacity()} has not
+     * been reached yet. If all items are in use and the capacity has been reached, the method blocks until an item
+     * becomes available or the thread gets interrupted.
      * <p>
      * If an item needs to be created, but {@link #create()} returns {@code null}, a {@link NullPointerException} will
      * be thrown. If {@code create()} throws an exception, it will be rethrown.
@@ -159,7 +158,7 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
      *                               action but {@link #create()} returned {@code null}.
      * @throws InterruptedException  if the current thread gets interrupted while waiting for an item to become
      *                               available.
-     * @apiNote The action MUST not let the item passed to it escape. Otherwise, non-predictable behaviour can occur. In
+     * @apiNote The action MUST NOT let the item passed to it escape. Otherwise, non-predictable behaviour can occur. In
      * particular: Other calls to this method may re-use the item concurrently, or it may get destroyed concurrently at
      * any moment.
      */
@@ -194,14 +193,14 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
 
     private T pollUntilValidOrEmpty() {
         T item;
-        while (true) {
-            item = itemsNotInUse.poll();
-            if (item != null && !isValid(item)) {
+        while (null != (item = itemsNotInUse.poll())) {
+            if (!isValid(item)) {
                 destroyer.accept(item);
                 continue;
             }
             return item;
         }
+        return null;
     }
 
     private void returnToPool(T item) {
@@ -212,6 +211,12 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
         }
     }
 
+    public void clear() {
+        List<T> list = new ArrayList<>(capacity);
+        itemsNotInUse.drainTo(list);
+        list.forEach(destroyer);
+    }
+
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
@@ -220,29 +225,14 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
                 // executions that were still running when this method got called have finished so that we don't
                 // destroy items that are still in use.
                 permissionToUseItem.acquire(capacity);
+                // Exceptions thrown by the destroyer are logged and swallowed, see {@link #decorate(Consumer)}, so we
+                // will not break out of the loop early.
+                this.itemsNotInUse.forEach(destroyer);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } finally {
-                cleanable.clean();
                 permissionToUseItem.release(capacity);
             }
-        }
-    }
-
-    private static class CleaningAction<T> implements Runnable {
-        private final Collection<T> items;
-        private final Consumer<? super T> destroyer;
-
-        public CleaningAction(LazyBlockingPool<T> pool) {
-            this.items = pool.itemsNotInUse;
-            this.destroyer = pool.destroyer;
-        }
-
-        @Override
-        public void run() {
-            // Exceptions thrown by the destroyer are logged and swallowed, see {@link #decorate(Consumer)}, so we
-            // will not break out of the loop early.
-            this.items.forEach(destroyer);
         }
     }
 }
