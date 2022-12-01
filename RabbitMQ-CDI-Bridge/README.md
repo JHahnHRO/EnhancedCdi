@@ -8,12 +8,12 @@ integrates it with a CDI container.
 * [RabbitMQ-CDI-Bridge](#rabbitmq-cdi-bridge)
     * [Features](#features)
         * [Events sent by the library](#events-sent-by-the-library)
+        * [RPC Endpoints](#rpc-endpoints)
         * [Topology discovery](#topology-discovery)
         * [Automatic Serialization and Deserialization](#automatic-serialization-and-deserialization)
     * [Beans required to use the library](#beans-required-to-use-the-library)
     * [Beans provided by the library](#beans-provided-by-the-library)
     * [Events consumed by the library](#events-consumed-by-the-library)
-        * [Synchronous Events](#synchronous-events)
         * [Asynchronous Events](#asynchronous-events)
 
 <!-- TOC -->
@@ -75,32 +75,23 @@ consumed from a queue.
 
 ## Beans provided by the library
 
-| Type                              | Scope and Qualifier          | Description                                                                                                                    |
-|-----------------------------------|------------------------------|--------------------------------------------------------------------------------------------------------------------------------|
-| `Connection`                      | `@ApplicationScoped`         | the single connection created by the library                                                                                   |
-| `BlockingPool<Channel>`           | `@ApplicationScoped`         | a shared pool of channels for the same connection                                                                              |
-| `Topology`                        | `@Dependent` `@Consolidated` | the union of all discovered beans of types `AMQP.Exchange.Declare`, `AMQP.Queue.Declare`, `AMQP.Queue.Bind`, and/or `Topology` |
-| `Infrastructure`                  | `@ApplicationScoped`         | Provides methods to declare exchanges and queues manually.                                                                     |
-| `Publisher`                       | `@ApplicationScoped`         | send messages to the RabbitMQ broker, optionally receiving a response                                                          |
-| `OutgoingMessageBuilder<REQ,RES>` | `@Dependent`                 | an instance of `OutgoingMessageBuilder` if the request scope is associated with an incoming request. `null` if not.            |
+| Type                              | Scope and Qualifier          | Description                                                                                                    |
+|-----------------------------------|------------------------------|----------------------------------------------------------------------------------------------------------------|
+| `Connection`                      | `@ApplicationScoped`         | The single connection created by the library                                                                   |
+| `BlockingPool<Channel>`           | `@ApplicationScoped`         | A shared pool of channels for the same connection                                                              |
+| `Topology`                        | `@Dependent` `@Consolidated` | The union of all beans of type `AMQP.Exchange.Declare`, `AMQP.Queue.Declare`, `AMQP.Queue.Bind`, or `Topology` |
+| `Publisher`                       | `@ApplicationScoped`         | Provides methods to send messages to the RabbitMQ broker, optionally receiving a response                      |
+| `Consumers`                       | `@ApplicationScoped`         | Provides methods to start and stop consuming from queues                                                       |
+| `OutgoingMessageBuilder<REQ,RES>` | `@Dependent`                 | An `OutgoingMessageBuilder` for the current request scope                                                      |
 
 ## Events consumed by the library
 
-### Synchronous Events
+Asynchronous Events of type `Outgoing<T>` will be consumed. They will be serialized and published to the broker.
 
-* `StartConsuming` starts consuming messages from a queue named in the event.
-    * The queue must be known, i.e. there must be `AMQP.Exchange.Declare`, `AMQP.Queue.Declare`, `AMQP.Queue.Bind`,
-      and/or `Topology` beans providing fitting declarations. Otherwise, an `IllegalArgumentException` will be thrown.
-* `StopConsuming` stops a previously started consumer (if it exists) from a queue named in the event. If no consumer was
-  started before, the event is ignored.
-
-### Asynchronous Events
-
-* `Outgoing<T>` serializes and publishes the message to the broker.
-    * This is intended to be used with `Outgoing.Cast<T>` or maybe `Outgoing.Response<REQ,RES>`, i.e. i.e.
-      fire-and-forget messages.
-    * If the event is an instance of `Outgoing.Request<T>`, then the response will be treated as other incoming messages
-      and sent as an CDI event in its own request scope (in its own thread). Use `Publisher#send` if you want to handle
-      the response more directly.
-    * The exchange to which the message is to be published must be known, i.e. there must be `AMQP.Exchange.Declare`
-      and/or `Topology` beans providing a fitting declaration. Otherwise, an `IllegalArgumentException` will be thrown.
+* This is intended to be used with `Outgoing.Cast<T>` or maybe `Outgoing.Response<REQ,RES>`, i.e. fire-and-forget
+  messages.
+* If the event is an instance of `Outgoing.Request<T>`, then the response will be treated as other incoming messages
+  and sent as an CDI event in its own request scope (in its own thread). Use `Publisher#send` if you want to handle
+  the response more directly.
+* The exchange to which the message is to be published must be known, i.e. there must be `AMQP.Exchange.Declare`
+  and/or `Topology` beans providing a fitting declaration. Otherwise, an `IllegalArgumentException` will be thrown.

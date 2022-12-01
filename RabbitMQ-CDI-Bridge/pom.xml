@@ -16,6 +16,6 @@
     <modules>
         <module>protobuf</module>
         <module>jsonb</module>
-        <module>bridge</module>
+        <module>core</module>
     </modules>
 </project>
