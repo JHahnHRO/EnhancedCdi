@@ -72,9 +72,8 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
             throw new IllegalArgumentException("initialSize must not be negative");
         }
         this.capacity = capacity;
-        final AtomicInteger counter = new AtomicInteger();
-        this.size = counter;
-        this.destroyer = decorate(destroyer, counter);
+        this.size = new AtomicInteger();
+        this.destroyer = decorate(destroyer, size);
 
         this.permissionToUseItem = new Semaphore(capacity);
 
@@ -84,11 +83,11 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
         }
     }
 
-    private static <U> Consumer<U> decorate(final ThrowingConsumer<U, ?> destroyer, AtomicInteger counter) {
+    private static <U> Consumer<U> decorate(final ThrowingConsumer<U, ?> destroyer, final AtomicInteger size) {
         Objects.requireNonNull(destroyer);
         return item -> {
             try {
-                counter.decrementAndGet();
+                size.decrementAndGet();
                 destroyer.accept(item);
             } catch (Exception e) {
                 // We will log and ignore exceptions during destruction, because we tried to destroy the item, then it
