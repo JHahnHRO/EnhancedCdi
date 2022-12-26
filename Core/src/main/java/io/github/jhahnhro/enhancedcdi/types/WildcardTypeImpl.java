@@ -14,6 +14,10 @@ public class WildcardTypeImpl implements WildcardType {
         Objects.requireNonNull(lowerBounds);
         this.upperBounds = Arrays.copyOf(upperBounds, upperBounds.length);
         this.lowerBounds = Arrays.copyOf(lowerBounds, lowerBounds.length);
+        if (lowerBounds.length > 0 && (upperBounds.length != 1 || !Object.class.equals(upperBounds[0]))) {
+            throw new IllegalArgumentException(
+                    "If there is a lower bound on a type variable, the upper bound must be {Object.class}");
+        }
     }
 
     @Override

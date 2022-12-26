@@ -1,13 +1,13 @@
 package io.github.jhahnhro.enhancedcdi.serialization.json;
 
-import io.github.jhahn.enhancedcdi.messaging.messages.Incoming;
-import io.github.jhahn.enhancedcdi.messaging.serialization.InvalidMessageException;
-import io.github.jhahn.enhancedcdi.messaging.serialization.MessageReader;
-
+import java.io.InputStream;
 import javax.annotation.PreDestroy;
 import javax.json.bind.Jsonb;
 import javax.json.bind.JsonbException;
-import java.io.InputStream;
+
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 
 public abstract class JsonMessageReader<T> implements MessageReader<T> {
     private final Jsonb jsonb;

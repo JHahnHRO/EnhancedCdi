@@ -1,3 +1,5 @@
+import io.github.jhahnhro.enhancedcdi.messaging.impl.RabbitMqExtension;
+
 open module enhancedcdi.rabbitmqCdiBridge {
     requires javax.inject;
     requires cdi.api;
@@ -6,11 +8,11 @@ open module enhancedcdi.rabbitmqCdiBridge {
     requires com.rabbitmq.client;
     requires enhancedcdi.core;
 
-    exports io.github.jhahn.enhancedcdi.messaging;
-    exports io.github.jhahn.enhancedcdi.messaging.messages;
-    exports io.github.jhahn.enhancedcdi.messaging.processing;
-    exports io.github.jhahn.enhancedcdi.messaging.rpc;
-    exports io.github.jhahn.enhancedcdi.messaging.serialization;
+    exports io.github.jhahnhro.enhancedcdi.messaging;
+    exports io.github.jhahnhro.enhancedcdi.messaging.messages;
+    exports io.github.jhahnhro.enhancedcdi.messaging.processing;
+    exports io.github.jhahnhro.enhancedcdi.messaging.rpc;
+    exports io.github.jhahnhro.enhancedcdi.messaging.serialization;
 
-    provides javax.enterprise.inject.spi.Extension with io.github.jhahn.enhancedcdi.messaging.impl.RabbitMqExtension;
+    provides javax.enterprise.inject.spi.Extension with RabbitMqExtension;
 }

@@ -1,13 +1,12 @@
 package io.github.jhahnhro.enhancedcdi.serialization.protobuf;
 
-import com.google.protobuf.MessageLite;
-import io.github.jhahn.enhancedcdi.messaging.messages.Outgoing;
-import io.github.jhahn.enhancedcdi.messaging.messages.OutgoingMessageBuilder;
-import io.github.jhahn.enhancedcdi.messaging.serialization.MessageWriter;
-
-import javax.enterprise.context.Dependent;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.enterprise.context.Dependent;
+
+import com.google.protobuf.MessageLite;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 
 @Dependent
 public class ProtobufMessageWriter<M extends MessageLite> implements MessageWriter<M> {
@@ -23,7 +22,7 @@ public class ProtobufMessageWriter<M extends MessageLite> implements MessageWrit
     }
 
     @Override
-    public void write(Outgoing<M> originalMessage, OutgoingMessageBuilder<?, OutputStream> outgoingMessageBuilder)
+    public void write(Outgoing<M> originalMessage, Outgoing.Builder<OutputStream> outgoingMessageBuilder)
             throws IOException {
         outgoingMessageBuilder.propertiesBuilder()
                 .contentType("application/x-protobuf")

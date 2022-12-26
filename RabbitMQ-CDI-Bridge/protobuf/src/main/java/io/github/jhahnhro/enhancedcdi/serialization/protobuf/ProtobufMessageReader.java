@@ -1,16 +1,16 @@
 package io.github.jhahnhro.enhancedcdi.serialization.protobuf;
 
-import com.google.protobuf.InvalidProtocolBufferException;
-import com.google.protobuf.Message;
-import com.google.protobuf.Parser;
-import io.github.jhahn.enhancedcdi.messaging.messages.Incoming;
-import io.github.jhahn.enhancedcdi.messaging.serialization.InvalidMessageException;
-import io.github.jhahn.enhancedcdi.messaging.serialization.MessageReader;
-
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+
+import com.google.protobuf.InvalidProtocolBufferException;
+import com.google.protobuf.Message;
+import com.google.protobuf.Parser;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 
 public abstract class ProtobufMessageReader<T extends Message> implements MessageReader<T> {
     private final Class<T> clazz;

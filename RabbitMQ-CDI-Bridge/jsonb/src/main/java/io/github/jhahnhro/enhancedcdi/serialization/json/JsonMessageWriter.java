@@ -1,13 +1,12 @@
 package io.github.jhahnhro.enhancedcdi.serialization.json;
 
-import io.github.jhahn.enhancedcdi.messaging.messages.Outgoing;
-import io.github.jhahn.enhancedcdi.messaging.messages.OutgoingMessageBuilder;
-import io.github.jhahn.enhancedcdi.messaging.serialization.MessageWriter;
-
-import javax.annotation.PreDestroy;
-import javax.json.bind.Jsonb;
 import java.io.IOException;
 import java.io.OutputStream;
+import javax.annotation.PreDestroy;
+import javax.json.bind.Jsonb;
+
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 
 public abstract class JsonMessageWriter<T> implements MessageWriter<T> {
 
@@ -28,7 +27,7 @@ public abstract class JsonMessageWriter<T> implements MessageWriter<T> {
     }
 
     @Override
-    public void write(Outgoing<T> originalMessage, OutgoingMessageBuilder<?, OutputStream> outgoingMessageBuilder)
+    public void write(Outgoing<T> originalMessage, Outgoing.Builder<OutputStream> outgoingMessageBuilder)
             throws IOException {
         outgoingMessageBuilder.propertiesBuilder()
                 .contentType("application/json")
