@@ -1,8 +1,8 @@
-module enhancedcdi.rabbitmqCdiBridge.json {
+module enhancedcdi.rabbitmqcdibridge.json {
     requires java.annotation;
     requires java.json.bind;
 
-    requires enhancedcdi.rabbitmqCdiBridge;
+    requires enhancedcdi.rabbitmqcdibridge;
     requires com.rabbitmq.client;
 
     exports io.github.jhahnhro.enhancedcdi.serialization.json;
