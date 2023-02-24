@@ -159,6 +159,24 @@ class TopologyTest {
             assertThat(topology.queueDeclarations()).contains(queue1, queue2);
             assertThat(topology.queueBindings()).contains(binding1, binding2);
         }
+
+        @Test
+        void testValidTopologyWithBindingForPredefinedExchange() {
+            AMQP.Queue.Declare queue1 = new AMQP.Queue.Declare.Builder().queue("queue1").durable().build();
+
+            AMQP.Queue.Bind binding1 = new AMQP.Queue.Bind.Builder().queue("queue1").exchange("") // default exchange
+                    .routingKey("my.routing.key").build();
+
+
+            final Topology topology = new Topology.Builder().setExchangeDeclarations(Collections.emptySet())
+                    .setQueueDeclarations(Set.of(queue1))
+                    .setQueueBindings(Set.of(binding1))
+                    .build();
+
+            assertThat(topology.exchangeDeclarations()).isEmpty();
+            assertThat(topology.queueDeclarations()).containsExactly(queue1);
+            assertThat(topology.queueBindings()).containsExactly(binding1);
+        }
     }
 
     @Nested

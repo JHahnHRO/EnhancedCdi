@@ -28,7 +28,6 @@ import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.junit.MockBean;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
-import org.jboss.weld.junit5.WeldJunit5Extension;
 import org.jboss.weld.junit5.WeldSetup;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -38,10 +37,10 @@ import org.mockito.Captor;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-@ExtendWith(WeldJunit5Extension.class)
 class RpcResultPublishingInterceptorTest {
 
-    Weld weld = new Weld().addBeanClasses(RpcResultPublishingInterceptor.class, ResponseBuilderProducer.class)
+    Weld weld = new Weld().disableDiscovery()
+            .addBeanClasses(RpcResultPublishingInterceptor.class, ResponseBuilderProducer.class)
             .interceptors(RpcResultPublishingInterceptor.class)
             .addBeanClass(RpcEventObserver.class);
 

@@ -119,7 +119,7 @@ public sealed interface Outgoing<T> extends Message<T> {
             requireNonNull(properties, "properties");
             requireNonNull(request, "request");
 
-            if (!properties.getCorrelationId().equals(request.properties().getCorrelationId())) {
+            if (!request.properties().getCorrelationId().equals(properties.getCorrelationId())) {
                 throw new IllegalArgumentException(
                         "The response does not belong to the request (correlation id differs).");
             }

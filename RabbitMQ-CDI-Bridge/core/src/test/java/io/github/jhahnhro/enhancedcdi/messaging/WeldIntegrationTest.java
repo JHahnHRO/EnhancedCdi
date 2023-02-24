@@ -22,7 +22,6 @@ import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Answers;
@@ -38,7 +37,8 @@ class WeldIntegrationTest {
     @Produces
     @Dependent
     static final Configuration configuration = new Configuration(CONNECTION_FACTORY, Configuration.Retry.NO_RETRY);
-    Weld weld = new Weld().addPackage(true, Incoming.class)
+    Weld weld = new Weld().disableDiscovery()
+            .addPackage(true, Incoming.class)
             .addExtension(new RabbitMqExtension())
             .addBeanClass(BeanHelper.class)
             .addBeanClasses(WeldIntegrationTest.class);
@@ -59,11 +59,12 @@ class WeldIntegrationTest {
 
     @BeforeEach
     void setUp() throws IOException, TimeoutException {
+        reset(CONNECTION_FACTORY);
         when(CONNECTION_FACTORY.newConnection()).thenReturn(connection);
     }
 
     @Test
-    void testBeansArePresent() throws IOException, TimeoutException {
+    void testBeansArePresent() {
         final Publisher publisher = w.select(Publisher.class).get();
         assertThat(publisher).isNotNull();
 
@@ -84,11 +85,11 @@ class WeldIntegrationTest {
 
         actualConnection.isOpen(); // trigger lazy initialization
         verify(CONNECTION_FACTORY).newConnection();
+        verify(connection).isOpen();
     }
 
     @Test
-    @Disabled("Some mysterious bug to do with weld's proxy class for BlockingPool, AutoCloseable and modules")
-    void testChannelPool() throws IOException {
+    void testChannelPool() throws IOException, InterruptedException {
         when(connection.createChannel()).thenAnswer(Answers.RETURNS_MOCKS);
         when(connection.getChannelMax()).thenReturn(100);
         final BlockingPool<Channel> channelPool = w.select(new TypeLiteral<BlockingPool<Channel>>() {}).get();
@@ -97,11 +98,14 @@ class WeldIntegrationTest {
         assertThat(channelPool.size()).isZero();
         assertThat(channelPool.capacity()).isEqualTo(100);
 
-        CountDownLatch cdl = new CountDownLatch(1);
+        CountDownLatch afterStart = new CountDownLatch(2);
+        CountDownLatch beforeEnd = new CountDownLatch(1);
         final Runnable runnable = () -> {
             try {
                 channelPool.withItem(channel -> {
-                    cdl.await();
+                    afterStart.countDown();
+
+                    beforeEnd.await();
                 });
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -110,11 +114,18 @@ class WeldIntegrationTest {
         };
 
         // start two thread that both occupy one channel.
-        new Thread(runnable).start();
-        new Thread(runnable).start();
+        final Thread t1 = new Thread(runnable);
+        t1.start();
+        final Thread t2 = new Thread(runnable);
+        t2.start();
+
+        // make sure both threads have started and acquired a channel
+        afterStart.await();
+        // make sure threads become unblocked and wait for them to shut down
+        beforeEnd.countDown();
+        t1.join();
+        t2.join();
 
         verify(connection, times(2)).createChannel();
-
-        cdl.countDown();
     }
 }

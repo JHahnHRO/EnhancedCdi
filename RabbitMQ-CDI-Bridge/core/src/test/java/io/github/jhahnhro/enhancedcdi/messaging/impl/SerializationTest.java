@@ -52,14 +52,14 @@ class SerializationTest {
                            new TypeLiteral<MessageReader<String>>() {}.getType())
                     .scope(Dependent.class)
                     .creating(new StringTestCodec(1))
-                    .destroy((instance, ctx) -> {destructionCounter++;})
+                    .destroy((instance, ctx) -> destructionCounter++)
                     .build(),
             // mock bean that should never be selected, but is also dependent
             MockBean.builder()
                     .types(new TypeLiteral<MessageWriter<Byte>>() {}.getType())
                     .scope(Dependent.class)
                     .creating(new ByteTestCodec(1))
-                    .destroy((instance, ctx) -> {destructionCounter++;})
+                    .destroy((instance, ctx) -> destructionCounter++)
                     .build()).build();
 
 
@@ -139,7 +139,7 @@ class SerializationTest {
     void givenStringMessage_whenDeserialize_thenDestroyDependentReaders() throws IOException {
         Incoming<byte[]> incoming = createPingRequest();
 
-        final Incoming<String> serializedMessage = serialization.deserialize(incoming);
+        serialization.deserialize(incoming);
 
         // verify that the dependent MockBean of type StringTestCodec was destroyed, but ByteTestCodec was not
         assertThat(destructionCounter).isEqualTo(1);
