@@ -1,6 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -69,31 +70,21 @@ class InfrastructureTest {
     }
 
     private void prepareChannelPool() throws InterruptedException {
-        when(channelPool.withItem(any(BlockingPool.ThrowingFunction.class))).then(invocationOnMock -> {
+        lenient().when(channelPool.withItem(any(BlockingPool.ThrowingFunction.class))).then(invocationOnMock -> {
             final BlockingPool.ThrowingFunction<Channel, ?, ?> function = invocationOnMock.getArgument(0);
             return function.apply(this.channel);
         });
-        doCallRealMethod().when(channelPool).withItem(any(BlockingPool.ThrowingConsumer.class));
+        lenient().doCallRealMethod().when(channelPool).withItem(any(BlockingPool.ThrowingConsumer.class));
     }
 
     @Test
     void testSetUpTopology() throws IOException, InterruptedException {
         infrastructure.setUpTopology(this.topology);
 
-        ArgumentCaptor<String> exchangeNames = ArgumentCaptor.forClass(String.class);
-        verify(channel, times(2)).exchangeDeclare(exchangeNames.capture(), any(String.class), anyBoolean(),
-                                                  anyBoolean(), any());
-        assertThat(exchangeNames.getAllValues()).containsExactlyInAnyOrder("exchange1", "exchange2");
-
-        ArgumentCaptor<String> queueNames = ArgumentCaptor.forClass(String.class);
-        verify(channel, times(2)).queueDeclare(queueNames.capture(), anyBoolean(), anyBoolean(), anyBoolean(), any());
-        assertThat(queueNames.getAllValues()).containsExactlyInAnyOrder("queue1", "queue2");
-
-        exchangeNames = ArgumentCaptor.forClass(String.class);
-        queueNames = ArgumentCaptor.forClass(String.class);
-        verify(channel, times(2)).queueBind(queueNames.capture(), exchangeNames.capture(), any(), any());
-        assertThat(exchangeNames.getAllValues()).containsExactlyInAnyOrder("exchange1", "exchange2");
-        assertThat(queueNames.getAllValues()).containsExactlyInAnyOrder("queue1", "queue2");
+        verifyExchangesWereDeclared("exchange1", "exchange2");
+        verifyQueuesWereDeclared("queue1", "queue2");
+        verifyQueueBinding("queue1", "exchange1");
+        verifyQueueBinding("queue2", "exchange2");
 
         verifyNoMoreInteractions(channel);
     }
@@ -102,31 +93,47 @@ class InfrastructureTest {
     void testSetUpForQueue() throws IOException, InterruptedException {
         infrastructure.setUpForQueue("queue1");
 
-        ArgumentCaptor<String> exchangeNames = ArgumentCaptor.forClass(String.class);
-        verify(channel).exchangeDeclare(exchangeNames.capture(), any(String.class), anyBoolean(), anyBoolean(), any());
-        assertThat(exchangeNames.getAllValues()).containsExactly("exchange1");
-
-        ArgumentCaptor<String> queueNames = ArgumentCaptor.forClass(String.class);
-        verify(channel).queueDeclare(queueNames.capture(), anyBoolean(), anyBoolean(), anyBoolean(), any());
-        assertThat(queueNames.getAllValues()).containsExactly("queue1");
-
-        exchangeNames = ArgumentCaptor.forClass(String.class);
-        queueNames = ArgumentCaptor.forClass(String.class);
-        verify(channel).queueBind(queueNames.capture(), exchangeNames.capture(), any(), any());
-        assertThat(exchangeNames.getAllValues()).containsExactly("exchange1");
-        assertThat(queueNames.getAllValues()).containsExactly("queue1");
+        verifyExchangesWereDeclared("exchange1");
+        verifyQueuesWereDeclared("queue1");
+        verifyQueueBinding("queue1", "exchange1");
 
         verifyNoMoreInteractions(channel);
+    }
+
+    @Test
+    void givenUnknownQueue_whenSetUpQueue_thenThrowIAE() {
+        assertThatIllegalArgumentException().isThrownBy(() -> infrastructure.setUpForQueue("unknown-queue"));
     }
 
     @Test
     void testSetUpForExchange() throws IOException, InterruptedException {
         infrastructure.setUpForExchange("exchange1");
 
-        ArgumentCaptor<String> exchangeNames = ArgumentCaptor.forClass(String.class);
-        verify(channel).exchangeDeclare(exchangeNames.capture(), any(String.class), anyBoolean(), anyBoolean(), any());
-        assertThat(exchangeNames.getAllValues()).containsExactly("exchange1");
+        verifyExchangesWereDeclared("exchange1");
 
         verifyNoMoreInteractions(channel);
+    }
+
+    @Test
+    void givenUnknownExchange_whenSetupExchange_thenThrowIAE() {
+        assertThatIllegalArgumentException().isThrownBy(() -> infrastructure.setUpForExchange("unknown-exchange"));
+    }
+
+    private void verifyQueueBinding(String queue, String exchange) throws IOException {
+        verify(channel).queueBind(eq(queue), eq(exchange), any(), any());
+    }
+
+    private void verifyQueuesWereDeclared(final String... queues) throws IOException {
+        ArgumentCaptor<String> queueNames = ArgumentCaptor.forClass(String.class);
+        verify(channel, times(queues.length)).queueDeclare(queueNames.capture(), anyBoolean(), anyBoolean(),
+                                                           anyBoolean(), any());
+        assertThat(queueNames.getAllValues()).containsExactlyInAnyOrder(queues);
+    }
+
+    private void verifyExchangesWereDeclared(final String... exchanges) throws IOException {
+        ArgumentCaptor<String> exchangeNames = ArgumentCaptor.forClass(String.class);
+        verify(channel, times(exchanges.length)).exchangeDeclare(exchangeNames.capture(), any(String.class),
+                                                                 anyBoolean(), anyBoolean(), any());
+        assertThat(exchangeNames.getAllValues()).containsExactlyInAnyOrder(exchanges);
     }
 }

@@ -26,7 +26,7 @@ class Infrastructure {
         channelPool.withItem(channel -> {setUpTopology(topology, channel);});
     }
 
-    private void setUpTopology(Topology topology, Channel channel) throws IOException {
+    void setUpTopology(Topology topology, Channel channel) throws IOException {
         setUpExchanges(topology.exchangeDeclarations(), channel);
         setUpQueues(topology.queueDeclarations(), channel);
         bindQueuesToExchanges(topology.queueBindings(), channel);
@@ -52,7 +52,14 @@ class Infrastructure {
     }
 
     public void setUpForQueue(final String queueName) throws IOException, InterruptedException {
-        setUpTopology(consolidatedTopology.subTopologyForQueue(queueName));
+        channelPool.withItem(channel -> {setUpForQueue(queueName, channel);});
+    }
+
+    void setUpForQueue(final String queueName, Channel channel) throws IOException {
+        if (consolidatedTopology.queueDeclarations().stream().noneMatch(q -> q.getQueue().equals(queueName))) {
+            throw new IllegalArgumentException("No declaration for queue \"" + queueName + "\" known");
+        }
+        setUpTopology(consolidatedTopology.subTopologyForQueue(queueName), channel);
     }
 
     public void setUpForExchange(final String exchangeName) throws IOException, InterruptedException {
