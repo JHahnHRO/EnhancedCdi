@@ -4,12 +4,12 @@ import java.io.IOException;
 import java.io.OutputStream;
 import javax.enterprise.context.Dependent;
 
-import com.google.protobuf.MessageLite;
+import com.google.protobuf.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 
 @Dependent
-public class ProtobufMessageWriter<M extends MessageLite> implements MessageWriter<M> {
+public class ProtobufMessageWriter<M extends Message> implements MessageWriter<M> {
 
     @Override
     public int getPriority() {
@@ -26,7 +26,7 @@ public class ProtobufMessageWriter<M extends MessageLite> implements MessageWrit
             throws IOException {
         outgoingMessageBuilder.propertiesBuilder()
                 .contentType("application/x-protobuf")
-                .type(originalMessage.content().getClass().getSimpleName());
+                .type(originalMessage.content().getDescriptorForType().getFullName());
         originalMessage.content().writeTo(outgoingMessageBuilder.content());
     }
 }
