@@ -23,7 +23,6 @@ class DispatchingConsumer extends DefaultConsumer {
     private final String queueName;
     private final Consumers.Options options;
     private final Event<InternalDelivery> dispatcher;
-    private final AtomicBoolean started;
 
     public DispatchingConsumer(final Channel channel, String queueName, Consumers.Options options,
                                Event<InternalDelivery> dispatcher) {
@@ -31,7 +30,6 @@ class DispatchingConsumer extends DefaultConsumer {
         this.queueName = queueName;
         this.options = options;
         this.dispatcher = dispatcher;
-        this.started = new AtomicBoolean(false);
     }
 
     @Override
@@ -73,14 +71,16 @@ class DispatchingConsumer extends DefaultConsumer {
 
     @Override
     public void handleCancel(String consumerTag) throws IOException {
-        // consumer was cancelled unexpectedly, for example because the queue was deleted on the broker
-        this.started.set(false);
+        LOG.log(Level.WARNING, "Consumer on queue \"%s\" (consumerTag \"%s\") was cancelled unexpectedly.", queueName,
+                consumerTag);
         this.closeChannel();
     }
 
     @Override
     public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
-        this.started.set(false);
+        LOG.log(Level.INFO,
+                "Channel for consumer on queue \"%s\" (consumerTag \"%s\") was shut down. Reason was \"%s\".",
+                queueName, consumerTag, sig.getReason());
     }
 
     public void stop() throws IOException {
@@ -89,9 +89,11 @@ class DispatchingConsumer extends DefaultConsumer {
     }
 
     private void cancel() throws IOException {
-        if (this.started.compareAndSet(true, false)) {
-            Channel channel = getChannel();
+        Channel channel = getChannel();
+        try {
             channel.basicCancel(getConsumerTag());
+        } catch (ShutdownSignalException sig) {
+            // nothing to do if channel is already closed
         }
     }
 
@@ -107,11 +109,14 @@ class DispatchingConsumer extends DefaultConsumer {
     }
 
     public void start() throws IOException {
-        if (this.started.compareAndSet(false, true)) {
-            getChannel().basicQos(options.qos());
-
-            final boolean autoAck = options.acknowledgementMode() == MessageAcknowledgment.Mode.AUTO;
-            getChannel().basicConsume(this.queueName, autoAck, this);
+        final Channel channel = getChannel();
+        try {
+            channel.basicQos(options.qos());
+            channel.basicConsume(this.queueName, options.autoAck(), this);
+        } catch (ShutdownSignalException sig) {
+            LOG.log(Level.ERROR,
+                    "Cannot start consumer on queue \"%s\", because channel is already closed (reason was \"%s\").",
+                    queueName, sig.getReason());
         }
     }
 
