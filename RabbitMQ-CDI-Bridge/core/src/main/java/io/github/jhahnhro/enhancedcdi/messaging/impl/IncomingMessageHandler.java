@@ -14,10 +14,10 @@ import javax.inject.Inject;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.FromExchange;
 import io.github.jhahnhro.enhancedcdi.messaging.FromQueue;
-import io.github.jhahnhro.enhancedcdi.messaging.MessageAcknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.Redelivered;
 import io.github.jhahnhro.enhancedcdi.messaging.WithRoutingKey;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.MessageMetaDataProducer;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 
 /**
@@ -42,7 +42,7 @@ class IncomingMessageHandler {
 
     void handleDelivery(@ObservesAsync InternalDelivery incomingDelivery) {
         final Incoming<byte[]> rawMessage = incomingDelivery.rawMessage();
-        final MessageAcknowledgment acknowledgment = incomingDelivery.ack();
+        final Acknowledgment acknowledgment = incomingDelivery.ack();
 
         final MessageMetaDataProducer metaData = messageMetaDataProducer.get();
         try {
@@ -63,16 +63,16 @@ class IncomingMessageHandler {
         }
     }
 
-    private void acknowledgeIfNecessary(MessageAcknowledgment acknowledgment) throws IOException {
-        if (acknowledgment.getState() == MessageAcknowledgment.State.UNACKNOWLEDGED) {
+    private void acknowledgeIfNecessary(Acknowledgment acknowledgment) throws IOException {
+        if (acknowledgment.getState() == Acknowledgment.State.UNACKNOWLEDGED) {
             LOG.log(WARNING, "Incoming delivery in manual acknowledge mode was not explicitly acknowledged. "
                              + "That is probably an error. It will be acknowledged now.");
             acknowledgment.ack();
         }
     }
 
-    private void rejectIfNecessary(MessageAcknowledgment acknowledgment, Exception e) {
-        if (acknowledgment.getState() == MessageAcknowledgment.State.UNACKNOWLEDGED) {
+    private void rejectIfNecessary(Acknowledgment acknowledgment, Exception e) {
+        if (acknowledgment.getState() == Acknowledgment.State.UNACKNOWLEDGED) {
             LOG.log(ERROR, "Could not handle incoming delivery. It will be rejected now without re-queueing it.", e);
             try {
                 acknowledgment.reject(false);

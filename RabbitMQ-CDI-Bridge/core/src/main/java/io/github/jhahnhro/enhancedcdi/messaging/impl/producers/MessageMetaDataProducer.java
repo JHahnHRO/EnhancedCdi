@@ -14,9 +14,9 @@ import javax.enterprise.util.TypeLiteral;
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.Exchange;
 import io.github.jhahnhro.enhancedcdi.messaging.Header;
-import io.github.jhahnhro.enhancedcdi.messaging.MessageAcknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.Queue;
 import io.github.jhahnhro.enhancedcdi.messaging.RoutingKey;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
@@ -25,12 +25,12 @@ public class MessageMetaDataProducer {
     private static final Type TYPE_OF_SERIALIZED_MESSAGE = new TypeLiteral<Incoming<byte[]>>() {}.getType();
 
     private Incoming<?> incomingMessage = null;
-    private MessageAcknowledgment acknowledgment = null;
+    private Acknowledgment acknowledgment = null;
 
     private Outgoing.Response.Builder<?, ?> responseBuilder = null;
     private boolean isStillSerialized;
 
-    public void setRawMessage(final Incoming<byte[]> incomingMessage, final MessageAcknowledgment acknowledgment) {
+    public void setRawMessage(final Incoming<byte[]> incomingMessage, final Acknowledgment acknowledgment) {
         this.incomingMessage = incomingMessage;
         this.isStillSerialized = true;
 
@@ -73,7 +73,7 @@ public class MessageMetaDataProducer {
 
     @Produces
     @Dependent
-    MessageAcknowledgment getAcknowledgement() {
+    Acknowledgment getAcknowledgement() {
         checkDelivery();
         return acknowledgment;
     }

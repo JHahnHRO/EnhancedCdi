@@ -1,11 +1,11 @@
-package io.github.jhahnhro.enhancedcdi.messaging;
+package io.github.jhahnhro.enhancedcdi.messaging.messages;
 
 import java.io.IOException;
 
 /**
  * Allows to acknowledge or reject a RabbitMQ message to the broker.
  */
-public interface MessageAcknowledgment {
+public interface Acknowledgment {
     /**
      * Acknowledges the message if not already acknowledged. Does nothing if it has been acknowledged before. Throws
      * {@link IllegalStateException} if it has been rejected before.

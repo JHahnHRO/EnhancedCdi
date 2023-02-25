@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
-import static io.github.jhahnhro.enhancedcdi.messaging.MessageAcknowledgment.State.*;
+import static io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment.State.*;
 
 import java.io.IOException;
 import java.lang.System.Logger.Level;
@@ -14,7 +14,7 @@ import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.ShutdownSignalException;
 import io.github.jhahnhro.enhancedcdi.messaging.Consumers;
-import io.github.jhahnhro.enhancedcdi.messaging.MessageAcknowledgment;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 
 class DispatchingConsumer extends DefaultConsumer {
@@ -42,7 +42,7 @@ class DispatchingConsumer extends DefaultConsumer {
         LOG.log(Level.INFO, msg);
 
         Incoming<byte[]> incomingMessage = createIncomingMessage(envelope, properties, body, queueName);
-        MessageAcknowledgment ack = createMessageAcknowledgement(envelope.getDeliveryTag());
+        Acknowledgment ack = createMessageAcknowledgement(envelope.getDeliveryTag());
 
         dispatcher.fireAsync(new InternalDelivery(incomingMessage, ack)).whenComplete((result, ex) -> {
             if (ex != null) {
@@ -51,7 +51,7 @@ class DispatchingConsumer extends DefaultConsumer {
         });
     }
 
-    private MessageAcknowledgment createMessageAcknowledgement(final long deliveryTag) {
+    private Acknowledgment createMessageAcknowledgement(final long deliveryTag) {
         return options.autoAck() ? AutoAck.INSTANCE : new ManualAck(deliveryTag, getChannel());
     }
 
@@ -121,7 +121,7 @@ class DispatchingConsumer extends DefaultConsumer {
         }
     }
 
-    private static class ManualAck implements MessageAcknowledgment {
+    private static class ManualAck implements Acknowledgment {
         private final long deliveryTag;
         private final Channel channel;
         private State state;
