@@ -79,7 +79,7 @@ class SerializationTest {
     void givenStringMessage_whenSerialize_thenHigherPriorityWriterIsSelected() throws IOException {
         Outgoing<String> outgoingMessage = createOutgoingMessage();
 
-        final Outgoing<byte[]> serializedMessage = serialization.serialize(outgoingMessage, String.class);
+        final Outgoing<byte[]> serializedMessage = serialization.serialize(outgoingMessage);
 
         assertThat(serializedMessage.content()).isEqualTo("pong".getBytes(StandardCharsets.UTF_8));
         // verify that the StringTestCodec was selected
@@ -90,7 +90,7 @@ class SerializationTest {
     void givenStringMessage_whenSerialize_thenDestroyDependentWriters() throws IOException {
         Outgoing<String> outgoingMessage = createOutgoingMessage();
 
-        serialization.serialize(outgoingMessage, String.class);
+        serialization.serialize(outgoingMessage);
 
         // verify that the dependent MockBean of type StringTestCodec was destroyed, but ByteTestCodec was not
         assertThat(destructionCounter).isEqualTo(1);
@@ -103,7 +103,7 @@ class SerializationTest {
                 .setType(Integer.class)
                 .build();
 
-        assertThatIllegalStateException().isThrownBy(() -> serialization.serialize(outgoingMessage, Integer.class));
+        assertThatIllegalStateException().isThrownBy(() -> serialization.serialize(outgoingMessage));
     }
 
     @Test
@@ -114,7 +114,7 @@ class SerializationTest {
                             + "ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong message")
                 .build();
 
-        assertThatThrownBy(() -> serialization.serialize(outgoing, String.class)).isInstanceOf(
+        assertThatThrownBy(() -> serialization.serialize(outgoing)).isInstanceOf(
                 MessageTooLargeException.class);
     }
 

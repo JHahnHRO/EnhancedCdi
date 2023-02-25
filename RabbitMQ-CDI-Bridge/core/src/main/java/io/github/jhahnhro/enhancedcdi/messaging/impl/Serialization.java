@@ -79,12 +79,12 @@ class Serialization {
                 .filter(reader -> reader.canRead(incoming));
     }
 
-    public <T> Outgoing<byte[]> serialize(Outgoing<T> outgoingMessage, final Type runtimeType) throws IOException {
+    public <T> Outgoing<byte[]> serialize(Outgoing<T> outgoingMessage) throws IOException {
         final Outgoing.Builder<?> builder = outgoingMessage.builder();
 
         try (var outputStream = new BoundedByteArrayOutputStream(maxMessageSize);
-             var applicableWriters = getApplicableWriters(outgoingMessage, runtimeType)) {
-            var selectedWriter = selectHighestPriority(applicableWriters, "No MessageWriter of type " + runtimeType
+             var applicableWriters = getApplicableWriters(outgoingMessage, outgoingMessage.type())) {
+            var selectedWriter = selectHighestPriority(applicableWriters, "No MessageWriter of type " + outgoingMessage.type()
                                                                           + " is applicable to the message.");
             selectedWriter.write(outgoingMessage, builder.setType(OutputStream.class).setContent(outputStream));
             outputStream.flush();

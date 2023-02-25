@@ -84,7 +84,7 @@ class OutgoingMessageHandler implements Publisher {
     @Override
     public <T, RES> Optional<Incoming.Response<T, RES>> send(Outgoing<T> message)
             throws IOException, InterruptedException {
-        final Optional<Incoming.Response<T, byte[]>> serializedResponse = serializeAndSend(message, message.type());
+        final Optional<Incoming.Response<T, byte[]>> serializedResponse = serializeAndSend(message);
 
         if (serializedResponse.isPresent()) {
             final Incoming<?> response = serialization.deserialize(serializedResponse.get());
@@ -94,9 +94,9 @@ class OutgoingMessageHandler implements Publisher {
         }
     }
 
-    private <T> Optional<Incoming.Response<T, byte[]>> serializeAndSend(Outgoing<T> message, Type runtimeType)
+    private <T> Optional<Incoming.Response<T, byte[]>> serializeAndSend(Outgoing<T> message)
             throws IOException, InterruptedException {
-        final Outgoing<byte[]> serializedMessage = serialization.serialize(message, runtimeType);
+        final Outgoing<byte[]> serializedMessage = serialization.serialize(message);
 
         return sendDirect(serializedMessage, message);
     }
@@ -104,7 +104,8 @@ class OutgoingMessageHandler implements Publisher {
     <T> void observeOutgoing(@ObservesAsync Outgoing<T> message, EventMetadata eventMetadata)
             throws IOException, InterruptedException {
         final Type runtimeType = ((ParameterizedType) eventMetadata.getType()).getActualTypeArguments()[0];
-        serializeAndSend(message, runtimeType).ifPresent(response -> {
+        final Outgoing<T> messageWithAdjustedType = message.builder().setType(runtimeType).build();
+        serializeAndSend(messageWithAdjustedType).ifPresent(response -> {
             final var internalDelivery = new InternalDelivery(response, AutoAck.INSTANCE);
             internalDeliveryEvent.fireAsync(internalDelivery);
         });
