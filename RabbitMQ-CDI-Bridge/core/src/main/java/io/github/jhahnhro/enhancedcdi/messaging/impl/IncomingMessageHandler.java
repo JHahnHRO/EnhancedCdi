@@ -1,5 +1,8 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.WARNING;
+
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import javax.enterprise.context.ApplicationScoped;
@@ -11,6 +14,7 @@ import javax.inject.Inject;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.FromExchange;
 import io.github.jhahnhro.enhancedcdi.messaging.FromQueue;
+import io.github.jhahnhro.enhancedcdi.messaging.MessageAcknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.Redelivered;
 import io.github.jhahnhro.enhancedcdi.messaging.WithRoutingKey;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.MessageMetaDataProducer;
@@ -37,28 +41,46 @@ class IncomingMessageHandler {
     Serialization serialization;
 
     void handleDelivery(@ObservesAsync InternalDelivery incomingDelivery) {
+        final Incoming<byte[]> rawMessage = incomingDelivery.rawMessage();
+        final MessageAcknowledgment acknowledgment = incomingDelivery.ack();
+
         final MessageMetaDataProducer metaData = messageMetaDataProducer.get();
         try {
             // make sure request metadata is available in the current request scope for injection into event observers
-            metaData.setRawMessage(incomingDelivery.rawMessage(), incomingDelivery.ack());
-            
-            Incoming<?> message = serialization.deserialize(incomingDelivery.rawMessage());
+            metaData.setRawMessage(rawMessage, acknowledgment);
+
+            Incoming<?> message = serialization.deserialize(rawMessage);
 
             metaData.setDeserializedMessage(message);
 
             fireEvent(message);
-            incomingDelivery.ack().ack();
+
+            acknowledgeIfNecessary(acknowledgment);
         } catch (Exception e) {
-            LOG.log(System.Logger.Level.ERROR,
-                    "Cannot handle incoming delivery. If it was not already acknowledged or rejected,"
-                    + " it will be rejected now without re-queueing it.", e);
-            try {
-                incomingDelivery.ack().reject(false);
-            } catch (IOException ex) {
-                LOG.log(System.Logger.Level.ERROR, "Incoming delivery could not be rejected.", ex);
-            }
+            rejectIfNecessary(acknowledgment, e);
         } finally {
             messageMetaDataProducer.destroy(metaData);
+        }
+    }
+
+    private void acknowledgeIfNecessary(MessageAcknowledgment acknowledgment) throws IOException {
+        if (acknowledgment.getState() == MessageAcknowledgment.State.UNACKNOWLEDGED) {
+            LOG.log(WARNING, "Incoming delivery in manual acknowledge mode was not explicitly acknowledged. "
+                             + "That is probably an error. It will be acknowledged now.");
+            acknowledgment.ack();
+        }
+    }
+
+    private void rejectIfNecessary(MessageAcknowledgment acknowledgment, Exception e) {
+        if (acknowledgment.getState() == MessageAcknowledgment.State.UNACKNOWLEDGED) {
+            LOG.log(ERROR, "Could not handle incoming delivery. It will be rejected now without re-queueing it.", e);
+            try {
+                acknowledgment.reject(false);
+            } catch (IOException ex) {
+                LOG.log(ERROR, "Incoming delivery could not be rejected.", ex);
+            }
+        } else {
+            LOG.log(ERROR, "Could not handle incoming delivery.", e);
         }
     }
 

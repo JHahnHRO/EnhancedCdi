@@ -15,6 +15,11 @@ enum AutoAck implements MessageAcknowledgment {
 
     @Override
     public void reject(boolean requeue) {
-        // no-op
+        throw new IllegalStateException("Message cannot be rejected, because it was received in auto-ack mode");
+    }
+
+    @Override
+    public State getState() {
+        return State.ACKNOWLEDGED;
     }
 }

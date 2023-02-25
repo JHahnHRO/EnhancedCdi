@@ -1,9 +1,10 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
+import static io.github.jhahnhro.enhancedcdi.messaging.MessageAcknowledgment.State.*;
+
 import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.enterprise.event.Event;
 
 import com.rabbitmq.client.AMQP;
@@ -123,17 +124,18 @@ class DispatchingConsumer extends DefaultConsumer {
     private static class ManualAck implements MessageAcknowledgment {
         private final long deliveryTag;
         private final Channel channel;
-        private final AtomicBoolean alreadyDone;
+        private State state;
 
         private ManualAck(long deliveryTag, Channel channel) {
             this.deliveryTag = deliveryTag;
             this.channel = channel;
-            this.alreadyDone = new AtomicBoolean(false);
+            this.state = UNACKNOWLEDGED;
         }
 
         @Override
         public void ack() throws IOException {
-            if (this.alreadyDone.compareAndSet(false, true)) {
+            if (this.state == UNACKNOWLEDGED) {
+                this.state = ACKNOWLEDGED;
                 try {
                     channel.basicAck(deliveryTag, false);
                 } catch (ShutdownSignalException sse) {
@@ -141,12 +143,15 @@ class DispatchingConsumer extends DefaultConsumer {
                                            + "because the channel on which it was received is already closed. "
                                            + "The broker will re-queue the message anyway.");
                 }
+            } else if (this.state == REJECTED) {
+                throw new IllegalStateException("Message cannot be acknowledged, because has already been rejected");
             }
         }
 
         @Override
         public void reject(final boolean requeue) throws IOException {
-            if (this.alreadyDone.compareAndSet(false, true)) {
+            if (this.state == UNACKNOWLEDGED) {
+                this.state = REJECTED;
                 try {
                     channel.basicReject(deliveryTag, requeue);
                 } catch (ShutdownSignalException sse) {
@@ -154,7 +159,14 @@ class DispatchingConsumer extends DefaultConsumer {
                                            + "because the channel on which it was received is already closed. "
                                            + "The broker will re-queue the message anyway.");
                 }
+            } else if (this.state == ACKNOWLEDGED) {
+                throw new IllegalStateException("Message cannot be rejected, because has already been acknowledged");
             }
+        }
+
+        @Override
+        public State getState() {
+            return this.state;
         }
     }
 }
