@@ -1,13 +1,13 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import io.github.jhahnhro.enhancedcdi.util.BeanInstance;
-
-import javax.enterprise.context.spi.Contextual;
-import javax.enterprise.context.spi.CreationalContext;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.enterprise.context.spi.Contextual;
+import javax.enterprise.context.spi.CreationalContext;
+
+import io.github.jhahnhro.enhancedcdi.util.BeanInstance;
 
 /**
  * The simplest non-trivial {@link CloseableContext}. It is created active for all threads and stays active until it is
@@ -79,7 +79,7 @@ public class GlobalContext implements SharedContext {
      */
     public void destroyAll() {
         final Map<Contextual<?>, BeanInstance<?>> instanceMap = map.getAndUpdate(
-                map -> map == null ? null : new ConcurrentHashMap<>());
+                m -> m == null ? null : new ConcurrentHashMap<>());
         if (instanceMap != null) { // no-op if already closed
             instanceMap.values().forEach(BeanInstance::destroy);
         }
