@@ -5,6 +5,7 @@ import java.lang.annotation.Annotation;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.ObservesAsync;
+import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 
 import com.rabbitmq.client.Envelope;
@@ -12,9 +13,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.FromExchange;
 import io.github.jhahnhro.enhancedcdi.messaging.FromQueue;
 import io.github.jhahnhro.enhancedcdi.messaging.Redelivered;
 import io.github.jhahnhro.enhancedcdi.messaging.WithRoutingKey;
-import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.MessageAcknowledgementProducer;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.MessageMetaDataProducer;
-import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.ResponseBuilderProducer;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 
 /**
@@ -32,22 +31,20 @@ class IncomingMessageHandler {
     Event<Object> processedEvent;
 
     @Inject
-    MessageMetaDataProducer messageMetaDataProducer;
-    @Inject
-    MessageAcknowledgementProducer messageAcknowledgementProducer;
-    @Inject
-    ResponseBuilderProducer responseBuilderProducer;
+    Instance<MessageMetaDataProducer> messageMetaDataProducer;
 
     @Inject
     Serialization serialization;
 
     void handleDelivery(@ObservesAsync InternalDelivery incomingDelivery) {
+        final MessageMetaDataProducer metaData = messageMetaDataProducer.get();
         try {
-            prepareMetaData(incomingDelivery);
+            // make sure request metadata is available in the current request scope for injection into event observers
+            metaData.setRawMessage(incomingDelivery.rawMessage(), incomingDelivery.ack());
+            
             Incoming<?> message = serialization.deserialize(incomingDelivery.rawMessage());
 
-            messageMetaDataProducer.setDeserializedMessage(message);
-            responseBuilderProducer.createResponseBuilderFor(message);
+            metaData.setDeserializedMessage(message);
 
             fireEvent(message);
             incomingDelivery.ack().ack();
@@ -60,14 +57,9 @@ class IncomingMessageHandler {
             } catch (IOException ex) {
                 LOG.log(System.Logger.Level.ERROR, "Incoming delivery could not be rejected.", ex);
             }
+        } finally {
+            messageMetaDataProducer.destroy(metaData);
         }
-    }
-
-    private void prepareMetaData(InternalDelivery incomingDelivery) {
-        // make sure request metadata is available in the current request scope for injection into event observers
-        messageMetaDataProducer.setRawMessage(incomingDelivery.rawMessage());
-        // make sure manual acknowledgement is possible in the current request scope
-        messageAcknowledgementProducer.setAcknowledgement(incomingDelivery.ack());
     }
 
     private void fireEvent(Incoming<?> message) {

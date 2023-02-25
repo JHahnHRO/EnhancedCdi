@@ -7,7 +7,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import javax.enterprise.context.Dependent;
-import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.util.TypeLiteral;
@@ -15,30 +14,48 @@ import javax.enterprise.util.TypeLiteral;
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.Exchange;
 import io.github.jhahnhro.enhancedcdi.messaging.Header;
+import io.github.jhahnhro.enhancedcdi.messaging.MessageAcknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.Queue;
 import io.github.jhahnhro.enhancedcdi.messaging.RoutingKey;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
-@RequestScoped
+@Dependent
 public class MessageMetaDataProducer {
     private static final Type TYPE_OF_SERIALIZED_MESSAGE = new TypeLiteral<Incoming<byte[]>>() {}.getType();
 
     private Incoming<?> incomingMessage = null;
+    private MessageAcknowledgment acknowledgment = null;
+
+    private Outgoing.Response.Builder<?, ?> responseBuilder = null;
     private boolean isStillSerialized;
 
-    public void setRawMessage(Incoming<byte[]> incomingMessage) {
+    public void setRawMessage(final Incoming<byte[]> incomingMessage, final MessageAcknowledgment acknowledgment) {
         this.incomingMessage = incomingMessage;
         this.isStillSerialized = true;
+
+        this.acknowledgment = acknowledgment;
+
+        if (incomingMessage instanceof Incoming.Request<byte[]> request) {
+            this.responseBuilder = new Outgoing.Response.Builder<>(request);
+        }
     }
 
-    public void setDeserializedMessage(Incoming<?> incomingMessage) {
+    public void setDeserializedMessage(final Incoming<?> incomingMessage) {
         this.incomingMessage = incomingMessage;
         this.isStillSerialized = false;
     }
 
     private void checkDelivery() {
         if (this.incomingMessage == null) {
-            throw new IllegalStateException("No RabbitMQ message received yet in the current RequestScope");
+            throw new IllegalStateException("No RabbitMQ message has been received in the current RequestScope");
+        }
+    }
+
+    private void checkRequest() {
+        checkDelivery();
+        if (responseBuilder == null) {
+            throw new IllegalStateException("No RabbitMQ request has been received in the current RequestScope");
         }
     }
 
@@ -52,6 +69,20 @@ public class MessageMetaDataProducer {
                     + "Incoming<byte[]>");
         }
         return (Incoming<T>) incomingMessage;
+    }
+
+    @Produces
+    @Dependent
+    MessageAcknowledgment getAcknowledgement() {
+        checkDelivery();
+        return acknowledgment;
+    }
+
+    @Produces
+    @Dependent
+    public <REQ, RES> Outgoing.Response.Builder<REQ, RES> getMessageBuilder() {
+        checkRequest();
+        return (Outgoing.Response.Builder<REQ, RES>) this.responseBuilder;
     }
 
     @Produces
@@ -79,7 +110,7 @@ public class MessageMetaDataProducer {
     }
 
     @Produces
-    @RequestScoped
+    @Dependent
     BasicProperties basicProperties() {
         checkDelivery();
         return this.incomingMessage.delivery().getProperties();

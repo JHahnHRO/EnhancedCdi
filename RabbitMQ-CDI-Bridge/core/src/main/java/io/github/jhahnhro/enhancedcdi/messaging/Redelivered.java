@@ -10,9 +10,10 @@ import javax.inject.Qualifier;
 public @interface Redelivered {
     boolean value();
 
+    @SuppressWarnings("java:S2160") // Sonar wants us to override equals(), but AnnotationLiteral does not need that
     class Literal extends AnnotationLiteral<Redelivered> implements Redelivered {
-        public final static Literal YES = new Literal(true);
-        public final static Literal NO = new Literal(false);
+        public static final Literal YES = new Literal(true);
+        public static final Literal NO = new Literal(false);
 
         public static Literal of(boolean value) {
             return value ? YES : NO;

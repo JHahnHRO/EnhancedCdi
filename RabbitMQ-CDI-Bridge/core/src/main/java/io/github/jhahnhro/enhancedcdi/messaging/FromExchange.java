@@ -10,6 +10,7 @@ import javax.inject.Qualifier;
 public @interface FromExchange {
     String value();
 
+    @SuppressWarnings("java:S2160") // Sonar wants us to override equals(), but AnnotationLiteral does not need that
     class Literal extends AnnotationLiteral<FromExchange> implements FromExchange {
         private final String name;
 
