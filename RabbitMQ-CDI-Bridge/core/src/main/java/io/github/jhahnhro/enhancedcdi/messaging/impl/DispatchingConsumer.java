@@ -53,11 +53,7 @@ class DispatchingConsumer extends DefaultConsumer {
     }
 
     private MessageAcknowledgment createMessageAcknowledgement(final long deliveryTag) {
-        if (options.acknowledgementMode() == MessageAcknowledgment.Mode.AUTO) {
-            return AutoAck.INSTANCE;
-        } else {
-            return new ManualAck(deliveryTag, getChannel());
-        }
+        return options.autoAck() ? AutoAck.INSTANCE : new ManualAck(deliveryTag, getChannel());
     }
 
     private Incoming<byte[]> createIncomingMessage(Envelope envelope, AMQP.BasicProperties properties, byte[] body,

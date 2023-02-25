@@ -1,34 +1,29 @@
 package io.github.jhahnhro.enhancedcdi.messaging;
 
 import java.io.IOException;
-import java.util.Objects;
 
 public interface Consumers {
 
-    default void startReceiving(String queue) throws IOException, InterruptedException {
+    default void startReceiving(String queue) throws IOException {
         startReceiving(queue, new Options());
     }
 
-    void startReceiving(String queue, Options options) throws IOException, InterruptedException;
+    void startReceiving(String queue, Options options) throws IOException;
 
     void stopReceiving(String queue) throws IOException;
 
 
-    record Options(MessageAcknowledgment.Mode acknowledgementMode, int qos) {
-        public Options {
-            Objects.requireNonNull(acknowledgementMode);
-        }
-
+    record Options(int qos, boolean autoAck) {
         public Options() {
-            this(MessageAcknowledgment.Mode.AUTO, 0);
+            this(0, true);
         }
 
-        public Options withAcknowledgementMode(MessageAcknowledgment.Mode acknowledgementMode) {
-            return new Options(acknowledgementMode, this.qos);
+        public Options withAutoAck(boolean autoAck) {
+            return new Options(this.qos, autoAck);
         }
 
         public Options withQoS(int qos) {
-            return new Options(this.acknowledgementMode, qos);
+            return new Options(qos, this.autoAck);
         }
     }
 }
