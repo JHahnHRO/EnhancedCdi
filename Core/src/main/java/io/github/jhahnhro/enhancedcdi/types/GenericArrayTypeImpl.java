@@ -15,7 +15,21 @@ public record GenericArrayTypeImpl(Type genericComponentType) implements Generic
     }
 
     @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        return o instanceof GenericArrayType that && Objects.equals(this.genericComponentType,
+                                                                    that.getGenericComponentType());
+    }
+
+    @Override
+    public int hashCode() {
+        return genericComponentType.hashCode();
+    }
+
+    @Override
     public String toString() {
-        return genericComponentType + "[]";
+        return genericComponentType.getTypeName() + "[]";
     }
 }

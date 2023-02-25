@@ -1,10 +1,19 @@
 package io.github.jhahnhro.enhancedcdi.types;
 
-import io.github.jhahnhro.enhancedcdi.types.Visit.GenericType.Hierarchy.RecursiveVisitor;
-
-import java.lang.reflect.*;
-import java.util.*;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import io.github.jhahnhro.enhancedcdi.types.Visit.GenericType.Hierarchy.RecursiveVisitor;
 
 public class TypeVariableResolver {
     private final Map<TypeVariable<?>, Type> resolvedVariables;
@@ -87,7 +96,11 @@ public class TypeVariableResolver {
 
     private static Type normalize(Class<?> clazz) {
         if (clazz.isArray()) {
-            return new GenericArrayTypeImpl(normalize(clazz.getComponentType()));
+            final Type normalizedComponentType = normalize(clazz.getComponentType());
+            if (clazz.getComponentType() == normalizedComponentType) {
+                return clazz;
+            }
+            return new GenericArrayTypeImpl(normalizedComponentType);
         } else if (clazz.getTypeParameters().length > 0) {
             return new ParameterizedTypeImpl(clazz, clazz.getDeclaringClass(), clazz.getTypeParameters());
         } else {

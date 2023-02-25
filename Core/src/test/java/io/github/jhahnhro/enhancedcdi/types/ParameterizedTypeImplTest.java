@@ -1,17 +1,17 @@
 package io.github.jhahnhro.enhancedcdi.types;
 
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
+import static org.assertj.core.api.Assertions.assertThat;
 
-import javax.enterprise.util.TypeLiteral;
 import java.lang.reflect.ParameterizedType;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+import javax.enterprise.util.TypeLiteral;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 class ParameterizedTypeImplTest {
 
@@ -33,7 +33,7 @@ class ParameterizedTypeImplTest {
             final var myType = new ParameterizedTypeImpl((Class<?>) jdkType.getRawType(), jdkType.getOwnerType(),
                                                          jdkType.getActualTypeArguments());
 
-            assertThat(myType.hashCode()).isEqualTo(jdkType.hashCode());
+            assertThat(myType).hasSameHashCodeAs(jdkType);
         }
     }
 
