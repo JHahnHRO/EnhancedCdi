@@ -6,7 +6,6 @@ import java.util.Optional;
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing.Request;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 
 /**
@@ -15,8 +14,8 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 public interface Publisher {
 
     /**
-     * Sends the given message to the broker. If the message is a {@link Request}, the method blocks until a response is
-     * received (or until the current thread is interrupted) which is then returned to the caller.
+     * Sends the given message to the broker. If the message is a {@link Outgoing.Request}, the method blocks until a
+     * response is received (or until the current thread is interrupted) which is then returned to the caller.
      *
      * @param message the outgoing message
      * @param <T>     the type of the content of the message
@@ -47,8 +46,9 @@ public interface Publisher {
      * @throws IllegalStateException if no {@link MessageWriter} for the content can be found.
      */
     @SuppressWarnings({"OptionalGetWithoutIsPresent", "java:S3655"})
-    default <T, RES> Incoming.Response<T, RES> send(Request<T> request) throws IOException, InterruptedException {
-        return this.<T, RES>send((Outgoing<T>) request).get();
+    default <T, RES> Incoming.Response<T, RES> rpc(Outgoing.Request<T> request)
+            throws IOException, InterruptedException {
+        return this.<T, RES>send(request).get();
     }
 
     /**
