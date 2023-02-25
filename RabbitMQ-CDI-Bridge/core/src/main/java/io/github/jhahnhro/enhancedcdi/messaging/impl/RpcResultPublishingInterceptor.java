@@ -74,9 +74,9 @@ class RpcResultPublishingInterceptor {
 
         Object result = invocationContext.proceed();
 
-        final Outgoing<?> response = responseBuilder.setContent(result).build();
         final Type responseType = invocationContext.getMethod().getGenericReturnType();
-        publisher.send(response, responseType);
+        final Outgoing<?> response = responseBuilder.setContent(result).setType(responseType).build();
+        publisher.send(response);
 
         return result;
     }

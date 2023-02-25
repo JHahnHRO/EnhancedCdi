@@ -2,16 +2,17 @@ package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import java.util.function.Consumer;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.Observes;
+import javax.enterprise.util.TypeLiteral;
 import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
@@ -19,11 +20,9 @@ import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.Publisher;
-import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.ResponseBuilderProducer;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcEndpoint;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
-import org.assertj.core.api.Assertions;
 import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.junit.MockBean;
 import org.jboss.weld.junit5.EnableWeld;
@@ -39,28 +38,32 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 class RpcResultPublishingInterceptorTest {
 
+    private static final Type INCOMING_TYPE =
+            new TypeLiteral<io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming<String>>() {}.getType();
+    private static final Type INCOMING_REQUEST_TYPE =
+            new TypeLiteral<io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<String>>() {}.getType();
+
+    private static final Type RESPONSE_BUILDER_TYPE =
+            new TypeLiteral<Outgoing.Response.Builder<String, Object>>() {}.getType();
+    private static final io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<String> INCOMING_REQUEST
+            = createIncomingRequest();
+
     Weld weld = new Weld().disableDiscovery()
-            .addBeanClasses(RpcResultPublishingInterceptor.class, ResponseBuilderProducer.class)
+            .addBeanClasses(RpcResultPublishingInterceptor.class)
             .interceptors(RpcResultPublishingInterceptor.class)
             .addBeanClass(RpcEventObserver.class);
 
+    @Inject
+    @Incoming
+    Event<Object> incomingEvent;
 
-    @Inject
-    @Incoming
-    Event<String> incomingString;
-    @Inject
-    @Incoming
-    Event<Integer> incomingInteger;
-    @Inject
-    @Incoming
-    Event<Consumer<Integer>> incomingConsumer;
     @Inject
     RpcEventObserver rpcEventObserver;
 
     @Inject
     Publisher publisherMock;
 
-    private io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<String> createIncomingRequest() {
+    private static io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<String> createIncomingRequest() {
         final Envelope envelope = new Envelope(0L, false, "exchange", "routing.key");
         final AMQP.BasicProperties requestProperties = new AMQP.BasicProperties.Builder().replyTo(
                 "auto-generated-reply-queue").correlationId("myCorrelationID").build();
@@ -84,9 +87,8 @@ class RpcResultPublishingInterceptorTest {
         }
 
         @RpcEndpoint(nonRpcInvocations = RpcEndpoint.NonRpcInvocation.DO_NOT_PROCEED)
-        Consumer<Integer> acceptNumber(@Observes @Incoming Consumer<Integer> input) {
-            input.accept(42);
-            return input;
+        Boolean negate(@Observes @Incoming Boolean input) {
+            return !input;
         }
     }
 
@@ -96,12 +98,14 @@ class RpcResultPublishingInterceptorTest {
 
         @WeldSetup
         WeldInitiator w = WeldInitiator.from(weld)
-                .addBeans(MockBean.of(Mockito.mock(Publisher.class), Publisher.class))
+                .addBeans(MockBean.of(null, INCOMING_REQUEST_TYPE, INCOMING_TYPE),
+                          MockBean.of(null, RESPONSE_BUILDER_TYPE),
+                          MockBean.of(Mockito.mock(Publisher.class), Publisher.class))
                 .build();
 
         @Test
-        void givenRequestContextNotActiveAndModeEqualsProceed_whenRpcEvent_thenCallTheMethod() {
-            incomingString.fire("ping");
+        void givenNoRequestAndModeEqualsProceed_whenRpcEvent_thenCallTheMethod() {
+            incomingEvent.select(String.class).fire("ping");
             final String result = rpcEventObserver.pingpong("ping");
 
             verifyNoInteractions(publisherMock);
@@ -109,7 +113,8 @@ class RpcResultPublishingInterceptorTest {
         }
 
         @Test
-        void givenRequestContextNotActiveAndModeEqualsThrow_whenRpcEvent_thenThrowException() {
+        void givenNoRequestAndModeEqualsThrow_whenRpcEvent_thenThrowException() {
+            final Event<Integer> incomingInteger = incomingEvent.select(Integer.class);
             assertThatThrownBy(() -> incomingInteger.fire(42)).isInstanceOf(RpcNotActiveException.class);
             assertThatThrownBy(() -> rpcEventObserver.timesTwo(42)).isInstanceOf(RpcNotActiveException.class);
 
@@ -118,49 +123,35 @@ class RpcResultPublishingInterceptorTest {
 
 
         @Test
-        void givenRequestContextNotActiveAndModeEqualsDoNotProceed_whenRpcEvent_thenDoNotProceed() {
-            Consumer<Integer> consumerMock = mock(Consumer.class);
-
-            incomingConsumer.fire(consumerMock);
-            final Consumer<Integer> result = rpcEventObserver.acceptNumber(consumerMock);
+        void givenNoRequestAndModeEqualsDoNotProceed_whenRpcEvent_thenDoNotProceed() {
+            incomingEvent.select(Boolean.class).fire(false);
+            final Boolean result = rpcEventObserver.negate(false);
 
             verifyNoInteractions(publisherMock);
-            verifyNoInteractions(consumerMock);
 
             assertThat(result).isNull();
         }
-
     }
 
     @Nested
     @EnableWeld
     @ExtendWith(MockitoExtension.class)
     class TestRpcHandling {
-
         @WeldSetup
         WeldInitiator w = WeldInitiator.from(weld)
                 .activate(RequestScoped.class)
-                .addBeans(MockBean.of(Mockito.mock(Publisher.class), Publisher.class))
+                .addBeans(MockBean.of(INCOMING_REQUEST, INCOMING_REQUEST_TYPE, INCOMING_TYPE),
+                          MockBean.of(new Outgoing.Response.Builder<>(INCOMING_REQUEST), RESPONSE_BUILDER_TYPE),
+                          MockBean.of(Mockito.mock(Publisher.class), Publisher.class))
                 .build();
         @Captor
-        ArgumentCaptor<Outgoing.Response<String, String>> response;
-
-        @Inject
-        ResponseBuilderProducer responseBuilderProducer;
+        ArgumentCaptor<Outgoing<?>> response;
 
         @Test
-        void givenNoResponseBuilder_whenRpcEvent_thenHandleNonRpcCall() {
-            incomingString.fire("ping");
-            Mockito.verifyNoInteractions(publisherMock);
+        void givenRequestExists_whenRpcEvent_thenHandleRpcCall() throws IOException, InterruptedException {
+            incomingEvent.select(String.class).fire("ping");
+            verify(publisherMock).send(response.capture());
+            assertThat(response.getValue().content()).isEqualTo("pong");
         }
-
-        @Test
-        void givenResponseBuilderExists_whenRpcEvent_thenHandleRpcCall() throws IOException, InterruptedException {
-            responseBuilderProducer.createResponseBuilderFor(createIncomingRequest());
-            incomingString.fire("ping");
-            verify(publisherMock).send(response.capture(), eq(String.class));
-            Assertions.assertThat(response.getValue().content()).isEqualTo("pong");
-        }
-
     }
 }

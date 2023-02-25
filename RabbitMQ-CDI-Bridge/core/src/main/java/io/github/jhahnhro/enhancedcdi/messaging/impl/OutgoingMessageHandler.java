@@ -82,9 +82,9 @@ class OutgoingMessageHandler implements Publisher {
     //endregion
 
     @Override
-    public <T, RES> Optional<Incoming.Response<T, RES>> send(Outgoing<T> message, Type messageContentType)
+    public <T, RES> Optional<Incoming.Response<T, RES>> send(Outgoing<T> message)
             throws IOException, InterruptedException {
-        final Optional<Incoming.Response<T, byte[]>> serializedResponse = serializeAndSend(message, messageContentType);
+        final Optional<Incoming.Response<T, byte[]>> serializedResponse = serializeAndSend(message, message.type());
 
         if (serializedResponse.isPresent()) {
             final Incoming<?> response = serialization.deserialize(serializedResponse.get());
@@ -96,9 +96,6 @@ class OutgoingMessageHandler implements Publisher {
 
     private <T> Optional<Incoming.Response<T, byte[]>> serializeAndSend(Outgoing<T> message, Type runtimeType)
             throws IOException, InterruptedException {
-        if (runtimeType == null) {
-            runtimeType = message.content().getClass();
-        }
         final Outgoing<byte[]> serializedMessage = serialization.serialize(message, runtimeType);
 
         return sendDirect(serializedMessage, message);
