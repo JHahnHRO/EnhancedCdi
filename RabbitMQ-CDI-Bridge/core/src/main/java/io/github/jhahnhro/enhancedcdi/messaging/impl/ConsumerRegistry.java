@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
@@ -23,6 +25,7 @@ class ConsumerRegistry implements Consumers {
      * be one consumer per queue)
      */
     private final Map<String, DispatchingConsumer> consumers = new ConcurrentHashMap<>();
+    private final Map<String, Lock> locks = new ConcurrentHashMap<>();
     @Inject
     Event<InternalDelivery> dispatcher;
     @Inject
@@ -31,37 +34,56 @@ class ConsumerRegistry implements Consumers {
     Infrastructure infrastructure;
 
     @Override
-    public void startReceiving(String queue, Options options) throws IOException, InterruptedException {
-        infrastructure.setUpForQueue(queue);
-        final Channel channel = createChannel();
+    public void startReceiving(String queue, Options options) throws IOException {
+        underQueueLock(queue, queueName -> startInternal(queueName, options));
+    }
 
-        final DispatchingConsumer consumer = createConsumer(queue, channel, options);
+    private void underQueueLock(String queue, QueueAction action) throws IOException {
+        final Lock lock = locks.computeIfAbsent(queue, __ -> new ReentrantLock());
+        try {
+            lock.lock();
+            action.run(queue);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private void startInternal(String queue, Options options) throws IOException {
+        final DispatchingConsumer previousConsumer = consumers.remove(queue);
+        if (previousConsumer != null) {
+            previousConsumer.stop();
+        }
+
+        final DispatchingConsumer consumer = createConsumer(queue, options);
         consumers.put(queue, consumer);
 
+        infrastructure.setUpForQueue(queue, consumer.getChannel());
         consumer.start();
     }
 
     @Override
     public void stopReceiving(String queue) throws IOException {
+        underQueueLock(queue, this::stopInternal);
+    }
+
+    private void stopInternal(String queue) throws IOException {
         final DispatchingConsumer consumer = consumers.remove(queue);
-        if (consumer == null) {
-            return;
+        if (consumer != null) {
+            consumer.stop();
         }
-        consumer.stop();
     }
 
     @PreDestroy
     void stopRemainingConsumers() {
-        for (var entry : consumers.entrySet()) {
-            final String queueName = entry.getKey();
-            final DispatchingConsumer consumer = entry.getValue();
+        consumers.forEach((queueName, consumer) -> {
             try {
                 consumer.stop();
             } catch (IOException ex) {
-                LOG.log(Level.ERROR, "Consumer for queue \"" + queueName
-                                     + "\" could not be shut down in an orderly fashion. Continuing anyway.", ex);
+                final String msg = ("Consumer for queue \"%s\" could not be shut down in an orderly fashion. "
+                                    + "Continuing anyway.").formatted(queueName);
+                LOG.log(Level.ERROR, msg, ex);
             }
-        }
+        });
     }
 
     private Channel createChannel() throws IOException {
@@ -72,25 +94,25 @@ class ConsumerRegistry implements Consumers {
         return channel;
     }
 
-    private DispatchingConsumer createConsumer(final String queueName, final Channel channel, Options options) {
+    private DispatchingConsumer createConsumer(final String queueName, Options options) throws IOException {
+        final Channel channel = createChannel();
         return new DispatchingConsumer(channel, queueName, options, dispatcher) {
             @Override
             public void handleCancel(String consumerTag) throws IOException {
                 super.handleCancel(consumerTag);
-                LOG.log(Level.WARNING, "Consumer on queue \"%s\" (consumerTag \"%s\") was cancelled unexpectedly.", queueName,
-                        consumerTag);
                 consumers.remove(queueName);
             }
 
             @Override
             public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
                 super.handleShutdownSignal(consumerTag, sig);
-                LOG.log(Level.INFO,
-                        "Channel for consumer on queue \"%s\" (consumerTag \"%s\") was shut down. Reason was \"%s\".",
-                        queueName, consumerTag, sig.getReason());
                 consumers.remove(queueName);
             }
         };
     }
 
+    @FunctionalInterface
+    private interface QueueAction {
+        void run(String queue) throws IOException;
+    }
 }

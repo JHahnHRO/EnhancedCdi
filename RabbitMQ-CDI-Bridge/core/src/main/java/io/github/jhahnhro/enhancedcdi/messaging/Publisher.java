@@ -30,7 +30,7 @@ public interface Publisher {
      *
      * @see #send(Outgoing, Type)
      */
-    default <T, RES> Optional<io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Response<T, RES>> send(Outgoing<T> message)
+    default <T, RES> Optional<Incoming.Response<T, RES>> send(Outgoing<T> message)
             throws IOException, InterruptedException {
         return send(message, message.content().getClass());
     }
@@ -49,7 +49,7 @@ public interface Publisher {
      *
      * @see #send(Request, Type)
      */
-    default <T, RES> io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Response<T, RES> send(Request<T> request) throws IOException, InterruptedException {
+    default <T, RES> Incoming.Response<T, RES> send(Request<T> request) throws IOException, InterruptedException {
         return send(request, request.content().getClass());
     }
 
@@ -70,10 +70,10 @@ public interface Publisher {
      *                               {@link com.rabbitmq.client.Channel} to publish the message.
      * @throws IllegalStateException if no {@link MessageWriter} for the content can be found.
      */
-    default <T, RES> io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Response<T, RES> send(Request<T> request, Type runtimeType)
+    default <T, RES> Incoming.Response<T, RES> send(Request<T> request, Type runtimeType)
             throws IOException, InterruptedException {
         //noinspection unchecked,OptionalGetWithoutIsPresent
-        return (io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Response<T, RES>) send((Outgoing<T>) request, runtimeType).get();
+        return (Incoming.Response<T, RES>) send((Outgoing<T>) request, runtimeType).get();
     }
 
     /**
@@ -96,7 +96,7 @@ public interface Publisher {
      * {@link ClassCastException} may be thrown if the response was in fact deserialized to something incompatible with
      * {@code RES}.
      */
-    <T, RES> Optional<io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Response<T, RES>> send(Outgoing<T> message, final Type messageContentType)
+    <T, RES> Optional<Incoming.Response<T, RES>> send(Outgoing<T> message, final Type messageContentType)
             throws IOException, InterruptedException;
 
     /**

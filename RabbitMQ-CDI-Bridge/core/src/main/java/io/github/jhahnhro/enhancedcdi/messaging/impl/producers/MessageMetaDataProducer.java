@@ -1,5 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Date;
@@ -20,6 +21,8 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 
 @RequestScoped
 public class MessageMetaDataProducer {
+    private static final Type TYPE_OF_SERIALIZED_MESSAGE = new TypeLiteral<Incoming<byte[]>>() {}.getType();
+
     private Incoming<?> incomingMessage = null;
     private boolean isStillSerialized;
 
@@ -43,7 +46,7 @@ public class MessageMetaDataProducer {
     @Dependent
     <T> Incoming<T> message(InjectionPoint ip) {
         checkDelivery();
-        if (isStillSerialized && ip.getType() != new TypeLiteral<Incoming<byte[]>>() {}.getType()) {
+        if (isStillSerialized && !TYPE_OF_SERIALIZED_MESSAGE.equals(ip.getType())) {
             throw new IllegalStateException(
                     "Until the message is de-serialized, it can only be injected into injection points of type "
                     + "Incoming<byte[]>");
