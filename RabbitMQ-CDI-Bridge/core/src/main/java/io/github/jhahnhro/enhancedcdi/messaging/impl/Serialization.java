@@ -5,14 +5,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.Any;
-import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.Prioritized;
 import javax.inject.Inject;
 
@@ -62,64 +57,45 @@ class Serialization {
     }
 
     public <T> Incoming<T> deserialize(Incoming<byte[]> incomingMessage) throws IOException {
-        final var readers = partitionReaders(incomingMessage, Object.class);
 
-        MessageReader<?> selectedReader = selectHighestPriority(readers.get(true)).orElseThrow(
-                () -> new IllegalStateException("No MessageReader is applicable to the message."));
-
-        try (var inputStream = new ByteArrayInputStream(incomingMessage.content())) {
+        try (var inputStream = new ByteArrayInputStream(incomingMessage.content());
+             var applicableReaders = getApplicableReaders(incomingMessage, Object.class)) {
+            var selectedReader = selectHighestPriority(applicableReaders,
+                                                       "No MessageReader is applicable to the message.");
             final Object content = selectedReader.read(incomingMessage.withContent(inputStream));
             return (Incoming<T>) incomingMessage.withContent(content);
-        } finally {
-            destroyDependents(readers.get(true));
-            destroyDependents(readers.get(false));
         }
     }
 
-    private <X extends Prioritized> Optional<X> selectHighestPriority(final List<BeanInstance<X>> instances) {
-        return instances.stream().map(BeanInstance::instance).min(HIGHEST_PRIORITY_FIRST);
+    private <X extends Prioritized> X selectHighestPriority(Stream<X> instances, final String msg) {
+        return instances.min(HIGHEST_PRIORITY_FIRST).orElseThrow(() -> new IllegalStateException(msg));
     }
 
-    private <X> void destroyDependents(List<BeanInstance<X>> beanInstances) {
-        beanInstances.stream()
-                .filter(beanInstance -> beanInstance.contextual() instanceof Bean<?> bean && bean.getScope()
-                        .equals(Dependent.class))
-                .forEach(BeanInstance::destroy);
-    }
-
-    private <T> Map<Boolean, List<BeanInstance<MessageReader<T>>>> partitionReaders(Incoming<byte[]> incoming,
-                                                                                    final Type typeHint) {
+    private <T> Stream<MessageReader<T>> getApplicableReaders(Incoming<byte[]> incoming, final Type typeHint) {
         Type messageReaderType = getMessageReaderType(typeHint);
-        return beanHelper.<MessageReader<T>>select(messageReaderType, Any.Literal.INSTANCE)
-                .stream()
-                .collect(Collectors.partitioningBy(beanInstance -> beanInstance.instance().canRead(incoming)));
+        return beanHelper.<MessageReader<T>>safeStream(messageReaderType, Any.Literal.INSTANCE)
+                .map(BeanInstance::instance)
+                .filter(reader -> reader.canRead(incoming));
     }
 
     public <T> Outgoing<byte[]> serialize(Outgoing<T> outgoingMessage, final Type runtimeType) throws IOException {
-        final var writers = partitionWriters(outgoingMessage, runtimeType);
-
-        final MessageWriter<T> selectedWriter = selectHighestPriority(writers.get(true)).orElseThrow(
-                () -> new IllegalStateException(
-                        "No MessageWriter of type " + runtimeType + " is applicable to the message."));
-
         final Outgoing.Builder<?> builder = outgoingMessage.builder();
 
-        try (var outputStream = new BoundedByteArrayOutputStream(maxMessageSize)) {
+        try (var outputStream = new BoundedByteArrayOutputStream(maxMessageSize);
+             var applicableWriters = getApplicableWriters(outgoingMessage, runtimeType)) {
+            var selectedWriter = selectHighestPriority(applicableWriters, "No MessageWriter of type " + runtimeType
+                                                                          + " is applicable to the message.");
             selectedWriter.write(outgoingMessage, builder.setContent(outputStream));
             outputStream.flush();
             return builder.setContent(outputStream.toByteArray()).build();
-        } finally {
-            destroyDependents(writers.get(true));
-            destroyDependents(writers.get(false));
         }
     }
 
-    private <T> Map<Boolean, List<BeanInstance<MessageWriter<T>>>> partitionWriters(Outgoing<T> outgoingMessage,
-                                                                                    final Type typeHint) {
+    private <T> Stream<MessageWriter<T>> getApplicableWriters(Outgoing<T> outgoingMessage, final Type typeHint) {
         Type messageWriterType = getMessageWriterType(typeHint);
-        return beanHelper.<MessageWriter<T>>select(messageWriterType, Any.Literal.INSTANCE)
-                .stream()
-                .collect(Collectors.partitioningBy(beanInstance -> beanInstance.instance().canWrite(outgoingMessage)));
+        return beanHelper.<MessageWriter<T>>safeStream(messageWriterType, Any.Literal.INSTANCE)
+                .map(BeanInstance::instance)
+                .filter(writer -> writer.canWrite(outgoingMessage));
     }
 
     private static class BoundedByteArrayOutputStream extends ByteArrayOutputStream {
