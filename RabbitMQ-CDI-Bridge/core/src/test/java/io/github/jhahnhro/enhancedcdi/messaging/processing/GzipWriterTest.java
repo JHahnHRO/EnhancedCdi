@@ -129,9 +129,11 @@ class GzipWriterTest {
 
     private Outgoing<byte[]> getActualBytes(Outgoing<FooBar> outgoingMessage) throws IOException {
         try (ByteArrayOutputStream boas = new ByteArrayOutputStream()) {
-            final Outgoing.Builder<OutputStream> messageBuilder = outgoingMessage.builder().setContent(boas);
+            final Outgoing.Builder<OutputStream> messageBuilder = outgoingMessage.builder()
+                    .setType(OutputStream.class)
+                    .setContent(boas);
             gzipWriter.write(outgoingMessage, messageBuilder);
-            return messageBuilder.setContent(boas.toByteArray()).build();
+            return messageBuilder.setType(byte[].class).setContent(boas.toByteArray()).build();
         }
     }
 

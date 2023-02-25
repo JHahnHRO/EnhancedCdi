@@ -3,6 +3,7 @@ package io.github.jhahnhro.enhancedcdi.messaging.impl;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.util.Comparator;
 import java.util.stream.Stream;
@@ -85,9 +86,9 @@ class Serialization {
              var applicableWriters = getApplicableWriters(outgoingMessage, runtimeType)) {
             var selectedWriter = selectHighestPriority(applicableWriters, "No MessageWriter of type " + runtimeType
                                                                           + " is applicable to the message.");
-            selectedWriter.write(outgoingMessage, builder.setContent(outputStream));
+            selectedWriter.write(outgoingMessage, builder.setType(OutputStream.class).setContent(outputStream));
             outputStream.flush();
-            return builder.setContent(outputStream.toByteArray()).build();
+            return builder.setType(byte[].class).setContent(outputStream.toByteArray()).build();
         }
     }
 

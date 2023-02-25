@@ -98,7 +98,10 @@ class SerializationTest {
 
     @Test
     void givenMessageWithoutWriter_whenSerialize_thenThrowISE() {
-        Outgoing<Integer> outgoingMessage = createOutgoingMessage().builder().setContent(42).build();
+        Outgoing<Integer> outgoingMessage = createOutgoingMessage().builder()
+                .setContent(42)
+                .setType(Integer.class)
+                .build();
 
         assertThatIllegalStateException().isThrownBy(() -> serialization.serialize(outgoingMessage, Integer.class));
     }

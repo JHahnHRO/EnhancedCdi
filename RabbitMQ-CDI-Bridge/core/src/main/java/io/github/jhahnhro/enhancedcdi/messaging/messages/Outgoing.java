@@ -1,11 +1,14 @@
 package io.github.jhahnhro.enhancedcdi.messaging.messages;
 
+import java.lang.reflect.Type;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
+import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
 
 
 /**
@@ -24,23 +27,61 @@ public sealed interface Outgoing<T> extends Message<T> {
         }
     }
 
+    private static Type validateType(Object content, Type type) {
+        requireNonNull(content, "content");
+        if (type == null) {
+            type = content.getClass();
+        }
+
+        final TypeVariableResolver resolver = TypeVariableResolver.withKnownTypesOf(type);
+        if (resolver.hasUnresolvedVariables()) {
+            throw new IllegalArgumentException("type has unresolved type variables");
+        }
+
+        final Class<?> clazz = content.getClass();
+        if (type == content) {
+            return type;
+        }
+        final Set<Type> superTypes = resolver.resolvedTypeClosure(clazz);
+        if (!superTypes.contains(type)) {
+            throw new IllegalArgumentException(
+                    "content class %s is not compatible with given type %s".formatted(clazz, type));
+        }
+
+        return type;
+    }
+
+    /**
+     * The runtime type of this message's content, i.e. it could be {@code List<Integer>} if
+     * {@code content().getClass() == List.class}.
+     *
+     * @return the runtime type of this message's content
+     */
+    Type type();
+
     /**
      * @return An {@link Builder} initialized with the metadata and content of this message.
      */
     Builder<T> builder();
 
-    record Cast<T>(String exchange, String routingKey, AMQP.BasicProperties properties, T content)
+    record Cast<T>(String exchange, String routingKey, AMQP.BasicProperties properties, T content, Type type)
             implements Outgoing<T> {
+
         public Cast {
             requireNonNull(exchange, "exchange");
             requireNonNull(routingKey, "routingKey");
             requireNonNull(properties, "properties");
+            type = validateType(content, type);
+        }
+
+        public Cast(String exchange, String routingKey, AMQP.BasicProperties properties, T content) {
+            this(exchange, routingKey, properties, content, null);
         }
 
         @Override
         public Builder<T> builder() {
             final Builder<T> builder = new Builder<>(this.exchange(), this.routingKey());
-            builder.setContent(this.content()).setProperties(this.properties());
+            builder.setContent(this.content).setType(this.type).setProperties(this.properties);
             return builder;
         }
 
@@ -62,17 +103,19 @@ public sealed interface Outgoing<T> extends Message<T> {
 
             @Override
             public Cast<T> build() {
-                return new Cast<>(exchange, routingKey, this.properties(), this.content());
+                return new Cast<>(exchange, routingKey, this.properties(), this.content(), this.type());
             }
         }
     }
 
-    record Request<T>(String exchange, String routingKey, AMQP.BasicProperties properties, T content)
+    record Request<T>(String exchange, String routingKey, AMQP.BasicProperties properties, T content, Type type)
             implements Outgoing<T> {
+
         public Request {
             requireNonNull(exchange, "exchange");
             requireNonNull(routingKey, "routingKey");
             requireNonNull(properties, "properties");
+            type = validateType(content, type);
 
             if (properties.getReplyTo() == null) {
                 properties = properties.builder().replyTo(Topology.RABBITMQ_REPLY_TO).build();
@@ -82,10 +125,14 @@ public sealed interface Outgoing<T> extends Message<T> {
             }
         }
 
+        public Request(String exchange, String routingKey, AMQP.BasicProperties properties, T content) {
+            this(exchange, routingKey, properties, content, null);
+        }
+
         @Override
         public Builder<T> builder() {
             final Builder<T> builder = new Builder<>(this.exchange(), this.routingKey());
-            builder.setContent(this.content()).setProperties(this.properties());
+            builder.setContent(this.content).setType(this.type).setProperties(this.properties);
             return builder;
         }
 
@@ -107,22 +154,27 @@ public sealed interface Outgoing<T> extends Message<T> {
 
             @Override
             public Request<T> build() {
-                return new Request<>(exchange, routingKey, super.properties(), super.content());
+                return new Request<>(exchange, routingKey, this.properties(), this.content(), this.type());
             }
         }
     }
 
-    record Response<REQ, RES>(AMQP.BasicProperties properties, RES content, Incoming.Request<REQ> request)
+    record Response<REQ, RES>(AMQP.BasicProperties properties, RES content, Type type, Incoming.Request<REQ> request)
             implements Outgoing<RES> {
 
         public Response {
             requireNonNull(properties, "properties");
             requireNonNull(request, "request");
+            type = validateType(content, type);
 
             if (!request.properties().getCorrelationId().equals(properties.getCorrelationId())) {
                 throw new IllegalArgumentException(
                         "The response does not belong to the request (correlation id differs).");
             }
+        }
+
+        public Response(AMQP.BasicProperties properties, RES content, Incoming.Request<REQ> request) {
+            this(properties, content, null, request);
         }
 
         /**
@@ -148,7 +200,7 @@ public sealed interface Outgoing<T> extends Message<T> {
          */
         @Override
         public Response.Builder<REQ, RES> builder() {
-            return new Builder<>(request).setContent(this.content).setProperties(this.properties());
+            return new Builder<>(request).setContent(this.content).setType(this.type).setProperties(this.properties);
         }
 
         public static final class Builder<REQ, RES> extends Outgoing.Builder<RES> {
@@ -175,8 +227,14 @@ public sealed interface Outgoing<T> extends Message<T> {
             }
 
             @Override
+            public Builder<REQ, RES> setType(Type type) {
+                super.setType(type);
+                return this;
+            }
+
+            @Override
             public Outgoing.Response<REQ, RES> build() {
-                return new Response<>(super.properties(), super.content(), request);
+                return new Response<>(this.properties(), this.content(), this.type(), request);
             }
 
             public Incoming.Request<REQ> getRequest() {
@@ -188,7 +246,8 @@ public sealed interface Outgoing<T> extends Message<T> {
     sealed class Builder<RES> implements Message<RES> permits Cast.Builder, Request.Builder, Response.Builder {
 
         protected final AMQP.BasicProperties.Builder propertiesBuilder;
-        protected Object content; // mutable for all
+        protected Object content = null; // mutable for all
+        protected Type type = null; // mutable for all
 
         protected String exchange; // immutable for Response.Builder
         protected String routingKey; // immutable for Response.Builder
@@ -251,12 +310,21 @@ public sealed interface Outgoing<T> extends Message<T> {
             return (Builder<T>) this;
         }
 
+        public Type type() {
+            return type;
+        }
+
+        public Builder<RES> setType(Type type) {
+            this.type = type;
+            return this;
+        }
+
         public Outgoing<RES> build() {
             final AMQP.BasicProperties properties = properties();
             if (properties.getReplyTo() != null) {
-                return new Request<>(exchange(), routingKey(), properties, content());
+                return new Request<>(exchange(), routingKey(), properties, content(), type());
             }
-            return new Cast<>(exchange(), routingKey(), properties, content());
+            return new Cast<>(exchange(), routingKey(), properties, content(), type());
         }
     }
 }
