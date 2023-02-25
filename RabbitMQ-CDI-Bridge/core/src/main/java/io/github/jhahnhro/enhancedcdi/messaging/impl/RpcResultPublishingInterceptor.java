@@ -12,7 +12,8 @@ import javax.interceptor.Interceptor;
 import javax.interceptor.InvocationContext;
 
 import io.github.jhahnhro.enhancedcdi.messaging.Publisher;
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing.Response;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcEndpoint;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
 
@@ -32,22 +33,22 @@ class RpcResultPublishingInterceptor {
 
     // Instance because Builder is @Dependent and we need lazy lookup
     @Inject
-    Instance<Outgoing.Response.Builder<?, ?>> responseBuilderInstance;
+    Instance<Response.Builder<?, ?>> responseBuilderInstance;
 
     @Inject
     Publisher publisher;
 
     @AroundInvoke
     Object publishReturnValue(InvocationContext invocationContext) throws Exception {
-        Outgoing.Response.Builder<?, ?> responseBuilder = isRpcRequestContext();
-        if (responseBuilder == null) {
-            return handleNonRpcInvocation(invocationContext);
-        } else {
+        Response.Builder<?, ?> responseBuilder = isRpcRequestContext();
+        if (responseBuilder != null) {
             return handleRpcInvocation(invocationContext, responseBuilder);
+        } else {
+            return handleNonRpcInvocation(invocationContext);
         }
     }
 
-    private Outgoing.Response.Builder<?, ?> isRpcRequestContext() {
+    private Response.Builder<?, ?> isRpcRequestContext() {
         try {
             return responseBuilderInstance.get();
         } catch (ContextNotActiveException ex) {
@@ -68,16 +69,40 @@ class RpcResultPublishingInterceptor {
         };
     }
 
-    private Object handleRpcInvocation(InvocationContext invocationContext,
-                                       Outgoing.Response.Builder<?, ?> responseBuilder)
+    private Object handleRpcInvocation(InvocationContext invocationContext, Response.Builder<?, ?> responseBuilder)
             throws Exception {
 
-        Object result = invocationContext.proceed();
+        final Method method = invocationContext.getMethod();
 
-        final Type responseType = invocationContext.getMethod().getGenericReturnType();
-        final Outgoing<?> response = responseBuilder.setContent(result).setType(responseType).build();
+        Object result = invocationContext.proceed();
+        // TODO exception mapper
+        Response<?, ?> response;
+        if (Response.class == method.getReturnType()) {
+            response = useResultDirectly(method, responseBuilder.getRequest(), (Response<?, ?>) result);
+        } else {
+            response = transformResult(method, responseBuilder, result);
+        }
+
         publisher.send(response);
 
         return result;
+    }
+
+    private Response<?, Object> transformResult(Method method, Response.Builder<?, ?> responseBuilder, Object result) {
+        final Type genericResponseType = method.getGenericReturnType();
+        return responseBuilder.setType(genericResponseType).setContent(result).build();
+    }
+
+    private Response<?, ?> useResultDirectly(Method method, Incoming.Request<?> request,
+                                             final Response<?, ?> response) {
+        if (response == null) {
+            throw new IllegalStateException("The RpcMethod %s returned null".formatted(method));
+        }
+        if (!response.request().equals(request)) {
+            throw new IllegalStateException(
+                    ("The RpcMethod %s returned a response to a different request than the one in the currently "
+                     + "active request scope (%s)").formatted(method, request));
+        }
+        return response;
     }
 }

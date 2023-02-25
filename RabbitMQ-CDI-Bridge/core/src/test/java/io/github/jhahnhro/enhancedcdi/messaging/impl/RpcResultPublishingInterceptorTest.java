@@ -1,13 +1,15 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.event.Event;
@@ -90,6 +92,20 @@ class RpcResultPublishingInterceptorTest {
         Boolean negate(@Observes @Incoming Boolean input) {
             return !input;
         }
+
+        @RpcEndpoint
+        Outgoing.Response<String, Instant> plusThreeHours(@Observes @Incoming Instant input) {
+            final var responseBuilder = new Outgoing.Response.Builder<String, Instant>(INCOMING_REQUEST).setContent(
+                    input.plus(3, ChronoUnit.HOURS));
+            responseBuilder.propertiesBuilder().type("special");
+            return responseBuilder.build();
+        }
+
+        @RpcEndpoint
+        Outgoing.Response<LocalTime, LocalTime> responseToWrongRequest(@Observes @Incoming LocalTime input) {
+            return new Outgoing.Response.Builder<>(INCOMING_REQUEST.withContent(input)).setContent(
+                    input.plus(3, ChronoUnit.HOURS)).build();
+        }
     }
 
     @Nested
@@ -152,6 +168,25 @@ class RpcResultPublishingInterceptorTest {
             incomingEvent.select(String.class).fire("ping");
             verify(publisherMock).send(response.capture());
             assertThat(response.getValue().content()).isEqualTo("pong");
+        }
+
+        @Test
+        void givenRpcMethodThatReturnsOutgoing_whenRpcEvent_thenSendReturnedObject()
+                throws IOException, InterruptedException {
+
+            incomingEvent.select(Instant.class).fire(Instant.now());
+            verify(publisherMock).send(response.capture());
+            // verify that the returned object is sent, not the manually constructed
+            assertThat(response.getValue().properties().getType()).isEqualTo("special");
+        }
+
+        @Test
+        void givenRpcMethodThatReturnsOutgoingResponseToWrongRequest_whenRpcEvent_thenThrowIllegalStateException() {
+            final Event<LocalTime> localTimeEvent = incomingEvent.select(LocalTime.class);
+
+            assertThatIllegalStateException().isThrownBy(() -> localTimeEvent.fire(LocalTime.now()));
+
+            verifyNoInteractions(publisherMock);
         }
     }
 }
