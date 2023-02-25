@@ -10,10 +10,14 @@ import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.Produces;
 import javax.enterprise.util.AnnotationLiteral;
 import javax.enterprise.util.TypeLiteral;
+import javax.inject.Inject;
 
+import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.BuiltinExchangeType;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Consumer;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.RabbitMqExtension;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
 import io.github.jhahnhro.enhancedcdi.util.BeanHelper;
@@ -29,6 +33,9 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+/**
+ * Tests basic functionality of all the public CDI beans without actually touching RabbitMQ.
+ */
 @ExtendWith(MockitoExtension.class)
 @EnableWeld
 class WeldIntegrationTest {
@@ -37,6 +44,20 @@ class WeldIntegrationTest {
     @Produces
     @Dependent
     static final Configuration configuration = new Configuration(CONNECTION_FACTORY, Configuration.Retry.NO_RETRY);
+
+    @Produces
+    static final AMQP.Exchange.Declare exchange = new AMQP.Exchange.Declare.Builder().exchange("exchange")
+            .type(BuiltinExchangeType.TOPIC.getType())
+            .durable(true)
+            .build();
+    @Produces
+    static final AMQP.Queue.Declare queue = new AMQP.Queue.Declare.Builder().queue("queue").durable(false).build();
+    @Produces
+    static final AMQP.Queue.Bind queueBinding = new AMQP.Queue.Bind.Builder().exchange("exchange")
+            .queue("queue")
+            .routingKey("routing.key")
+            .build();
+
     Weld weld = new Weld().disableDiscovery()
             .addPackage(true, Incoming.class)
             .addExtension(new RabbitMqExtension())
@@ -46,6 +67,10 @@ class WeldIntegrationTest {
     WeldInitiator w = WeldInitiator.from(weld).build();
     @Mock
     Connection connection;
+
+    @Inject
+    @Consolidated
+    Topology consolidatedTopology;
 
     private static ConnectionFactory createConnectionFactoryMock() {
         final ConnectionFactory connectionFactory = Mockito.mock(ConnectionFactory.class);
@@ -96,7 +121,7 @@ class WeldIntegrationTest {
 
         assertThat(channelPool).isNotNull();
         assertThat(channelPool.size()).isZero();
-        assertThat(channelPool.capacity()).isEqualTo(100);
+        assertThat(channelPool.capacity()).isEqualTo(100 - consolidatedTopology.queueDeclarations().size());
 
         CountDownLatch afterStart = new CountDownLatch(2);
         CountDownLatch beforeEnd = new CountDownLatch(1);
@@ -109,7 +134,6 @@ class WeldIntegrationTest {
                 });
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                throw new RuntimeException(e);
             }
         };
 
@@ -127,5 +151,29 @@ class WeldIntegrationTest {
         t2.join();
 
         verify(connection, times(2)).createChannel();
+    }
+
+    @Test
+    void testConsumers() throws IOException {
+        Channel channel = mock(Channel.class);
+        when(connection.createChannel()).thenReturn(channel);
+        final String consumerTag = "server-generated-consumer-tag";
+        when(channel.basicConsume(anyString(), anyBoolean(), any(Consumer.class))).thenAnswer(invocationOnMock -> {
+            Consumer consumer = invocationOnMock.getArgument(2);
+            consumer.handleConsumeOk(consumerTag);
+            return consumerTag;
+        });
+
+        final Consumers consumers = w.select(Consumers.class).get();
+
+        consumers.startReceiving(queue.getQueue());
+
+        verify(channel).queueDeclare(queue.getQueue(), queue.getDurable(), queue.getExclusive(), queue.getAutoDelete(),
+                                     queue.getArguments());
+        verify(channel).basicConsume(eq(queue.getQueue()), anyBoolean(), any(Consumer.class));
+
+        consumers.stopReceiving(queue.getQueue());
+
+        verify(channel).basicCancel(consumerTag);
     }
 }
