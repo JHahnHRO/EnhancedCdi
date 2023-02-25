@@ -7,23 +7,4 @@ public interface MessageAcknowledgment {
 
     void reject(final boolean requeue) throws IOException;
 
-    enum Mode {
-        AUTO, MANUAL
-    }
-
-    /**
-     * A no-op implementation for consumers in auto-ack mode.
-     */
-    class AutoAck implements MessageAcknowledgment {
-
-        @Override
-        public void ack() {
-            // no-op
-        }
-
-        @Override
-        public void reject(boolean requeue) {
-            // no-op
-        }
-    }
 }

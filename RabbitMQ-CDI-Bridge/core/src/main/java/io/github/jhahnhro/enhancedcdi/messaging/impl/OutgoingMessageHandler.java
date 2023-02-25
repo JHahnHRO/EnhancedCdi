@@ -16,7 +16,6 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.RpcClient;
 import com.rabbitmq.client.RpcClientParams;
-import io.github.jhahnhro.enhancedcdi.messaging.MessageAcknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.Publisher;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
@@ -109,7 +108,7 @@ class OutgoingMessageHandler implements Publisher {
             throws IOException, InterruptedException {
         final Type runtimeType = ((ParameterizedType) eventMetadata.getType()).getActualTypeArguments()[0];
         serializeAndSend(message, runtimeType).ifPresent(response -> {
-            final var internalDelivery = new InternalDelivery(response, new MessageAcknowledgment.AutoAck());
+            final var internalDelivery = new InternalDelivery(response, AutoAck.INSTANCE);
             internalDeliveryEvent.fireAsync(internalDelivery);
         });
     }
