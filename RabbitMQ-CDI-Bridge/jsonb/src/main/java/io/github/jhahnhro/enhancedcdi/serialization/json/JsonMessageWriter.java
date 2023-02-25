@@ -8,6 +8,13 @@ import javax.json.bind.Jsonb;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 
+/**
+ * A general purpose {@link MessageWriter} that serializes arbitrary Java objects to RabbitMQ string messages using
+ * JSON-B. Use the {@link JsonMessageWriter#JsonMessageWriter(Jsonb) protected constructor} to supply a {@link Jsonb}
+ * instance - which you can probably get by letting whatever container you are running in inject it for you.
+ *
+ * @param <T> the java type to serialize
+ */
 public abstract class JsonMessageWriter<T> implements MessageWriter<T> {
 
     private final Jsonb jsonb;
@@ -31,7 +38,7 @@ public abstract class JsonMessageWriter<T> implements MessageWriter<T> {
             throws IOException {
         outgoingMessageBuilder.propertiesBuilder()
                 .contentType("application/json")
-                .type(originalMessage.content().getClass().getSimpleName());
+                .type(originalMessage.content().getClass().getCanonicalName());
         jsonb.toJson(originalMessage.content(), outgoingMessageBuilder.content());
     }
 
