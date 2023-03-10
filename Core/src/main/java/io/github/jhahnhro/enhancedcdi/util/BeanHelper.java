@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.Dependent;
-import javax.enterprise.inject.AmbiguousResolutionException;
 import javax.enterprise.inject.Instance;
 import javax.enterprise.inject.UnsatisfiedResolutionException;
 import javax.enterprise.inject.spi.Bean;
@@ -41,17 +40,17 @@ public class BeanHelper {
 
         if (beanInstances.isEmpty()) {
             throw new UnsatisfiedResolutionException();
-        } else if (beanInstances.size() > 1) {
-            final String errMsg = beanInstances.stream()
-                    .map(BeanInstance::contextual)
-                    .map(Object::toString)
-                    .collect(Collectors.joining("\n\t-",
-                                                "Multiple beans match the qualifiers %s and type %s:".formatted(
-                                                        qualifiers, type), ""));
-            throw new AmbiguousResolutionException(errMsg);
         }
-        final BeanInstance<T> beanInstance = beanInstances.get(0);
-        if (beanInstance.contextual() instanceof Bean<T> bean && bean.getScope() == Dependent.class) {
+        final Bean<? extends T> resolvedBean = beanManager.resolve(beanInstances.stream()
+                                                                           .filter(bi -> bi.contextual() instanceof Bean)
+                                                                           .map(bi -> (Bean<T>) bi.contextual())
+                                                                           .collect(Collectors.toSet()));
+
+        final BeanInstance<T> beanInstance = beanInstances.stream()
+                .filter(bi -> bi.contextual() == resolvedBean)
+                .findAny()
+                .orElseThrow();
+        if (resolvedBean.getScope() == Dependent.class) {
             dependentInstances.add(beanInstance);
         }
 
