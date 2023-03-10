@@ -23,7 +23,7 @@ class Infrastructure {
     BlockingPool<Channel> channelPool;
 
     public void setUpTopology(Topology topology) throws IOException, InterruptedException {
-        channelPool.withItem(channel -> {setUpTopology(topology, channel);});
+        channelPool.run(channel -> {setUpTopology(topology, channel);});
     }
 
     void setUpTopology(Topology topology, Channel channel) throws IOException {
@@ -52,7 +52,7 @@ class Infrastructure {
     }
 
     public void setUpForQueue(final String queueName) throws IOException, InterruptedException {
-        channelPool.withItem(channel -> {setUpForQueue(queueName, channel);});
+        channelPool.run(channel -> {setUpForQueue(queueName, channel);});
     }
 
     void setUpForQueue(final String queueName, Channel channel) throws IOException {
@@ -72,7 +72,7 @@ class Infrastructure {
             throw new IllegalArgumentException("No declaration for exchange \"" + exchangeName + "\" known");
         }
 
-        channelPool.withItem(channel -> {
+        channelPool.run(channel -> {
             setUpExchanges(exchangeDeclaration, channel);
         });
     }

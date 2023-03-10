@@ -233,7 +233,7 @@ class WeldIntegrationTest {
             CountDownLatch beforeEnd = new CountDownLatch(1);
             final Runnable runnable = () -> {
                 try {
-                    channelPool.withItem(channel -> {
+                    channelPool.run(channel -> {
                         afterStart.countDown();
 
                         beforeEnd.await();

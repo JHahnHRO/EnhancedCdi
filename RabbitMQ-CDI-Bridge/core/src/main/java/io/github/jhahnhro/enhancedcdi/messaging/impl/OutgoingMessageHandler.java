@@ -56,13 +56,13 @@ class OutgoingMessageHandler implements Publisher {
     }
 
     private void cast(Outgoing<byte[]> message) throws InterruptedException, IOException {
-        publisherChannels.withItem(channel -> {
-            channel.basicPublish(message.exchange(), message.routingKey(), message.properties(), message.content());
-        });
+        publisherChannels.run(
+                channel -> channel.basicPublish(message.exchange(), message.routingKey(), message.properties(),
+                                                message.content()));
     }
 
     private RpcClient.Response doRpc(Outgoing.Request<byte[]> request) throws IOException, InterruptedException {
-        return publisherChannels.withItem(channel -> {
+        return publisherChannels.apply(channel -> {
             final RpcClientParams rpcClientParams = new RpcClientParams().channel(channel)
                     .exchange(request.exchange())
                     .routingKey(request.routingKey())
@@ -114,7 +114,7 @@ class OutgoingMessageHandler implements Publisher {
     @Override
     public boolean checkReplyQueue(Incoming.Request<?> request) throws InterruptedException {
         try {
-            return publisherChannels.withItem(channel -> {
+            return publisherChannels.apply(channel -> {
                 final AMQP.Queue.DeclareOk declareOk = channel.queueDeclarePassive(request.properties().getReplyTo());
                 return declareOk.getConsumerCount() > 0;
             });

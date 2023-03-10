@@ -2,9 +2,9 @@ package io.github.jhahnhro.enhancedcdi.pooled;
 
 /**
  * A pool of reusable objects. An object can be borrowed from the pool to
- * {@link #withItem(ThrowingFunction) perform some action} with it. The pool guarantees that other threads will not
- * perform actions on the same item concurrently. If all items are currently in use, {@link #withItem(ThrowingFunction)}
- * blocks the calling thread until an item becomes available.
+ * {@link #apply(ThrowingFunction) perform some action} with it. The pool guarantees that other threads will not perform
+ * actions on the same item concurrently. If all items are currently in use, {@link #apply(ThrowingFunction)} blocks the
+ * calling thread until an item becomes available.
  *
  * @param <T> type of the pooled objects
  */
@@ -43,25 +43,25 @@ public interface BlockingPool<T> extends AutoCloseable {
      * particular: Other calls to this method may re-use the item concurrently, or it may get destroyed concurrently at
      * any moment.
      */
-    <V, EX extends Exception> V withItem(ThrowingFunction<T, V, EX> action) throws InterruptedException, EX;
+    <V, EX extends Exception> V apply(ThrowingFunction<T, V, EX> action) throws InterruptedException, EX;
 
     /**
      * Borrows an item from the pool to execute an action without return value on it, returning the item to the pool
      * afterwards.
      *
-     * @see #withItem(ThrowingFunction)
+     * @see #apply(ThrowingFunction)
      */
-    default <EX extends Exception> void withItem(ThrowingConsumer<T, EX> action) throws InterruptedException, EX {
-        this.withItem(item -> {
+    default <EX extends Exception> void run(ThrowingConsumer<T, EX> action) throws InterruptedException, EX {
+        this.apply(item -> {
             action.accept(item);
             return null;
         });
     }
 
     /**
-     * Closes this pool. This will cause any further calls to {@link #withItem(ThrowingFunction)} to throw an
-     * {@link IllegalStateException}. Then blocks until all items currently in use are returned to the pool (or
-     * destroyed because of exceptions), then destroys all remaining items.
+     * Closes this pool. This will cause any further calls to {@link #apply(ThrowingFunction)} and
+     * {@link #run(ThrowingConsumer)} to throw an {@link IllegalStateException}. Then blocks until all items currently
+     * in use are returned to the pool (or destroyed because of exceptions), then destroys all remaining items.
      */
     @Override
     void close();

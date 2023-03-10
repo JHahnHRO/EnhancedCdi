@@ -70,11 +70,11 @@ class InfrastructureTest {
     }
 
     private void prepareChannelPool() throws InterruptedException {
-        lenient().when(channelPool.withItem(any(BlockingPool.ThrowingFunction.class))).then(invocationOnMock -> {
+        lenient().when(channelPool.apply(any(BlockingPool.ThrowingFunction.class))).then(invocationOnMock -> {
             final BlockingPool.ThrowingFunction<Channel, ?, ?> function = invocationOnMock.getArgument(0);
             return function.apply(this.channel);
         });
-        lenient().doCallRealMethod().when(channelPool).withItem(any(BlockingPool.ThrowingConsumer.class));
+        lenient().doCallRealMethod().when(channelPool).run(any(BlockingPool.ThrowingConsumer.class));
     }
 
     @Test

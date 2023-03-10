@@ -23,13 +23,13 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
     private static final System.Logger LOG = System.getLogger(LazyBlockingPool.class.getCanonicalName());
 
     /**
-     * Used to destroy items when the pool gets closed or an action passed to {@link #withItem(ThrowingFunction)} threw
+     * Used to destroy items when the pool gets closed or an action passed to {@link #apply(ThrowingFunction)} threw
      * an exception.
      */
     protected final Consumer<? super T> destroyer;
 
     /**
-     * The items that are not currently in use inside {@link #withItem(ThrowingFunction)}
+     * The items that are not currently in use inside {@link #apply(ThrowingFunction)}
      */
     protected final BlockingQueue<T> itemsNotInUse;
     /**
@@ -103,7 +103,7 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
     }
 
     /**
-     * Called whenever the constructor or {@link #withItem(ThrowingFunction)} needs to create a new item for the pool.
+     * Called whenever the constructor or {@link #apply(ThrowingFunction)} needs to create a new item for the pool.
      *
      * @return A new item to use in the pool. Must not be null.
      */
@@ -111,7 +111,7 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
 
     /**
      * Returns {@code true} iff the given item is still usable. This method is invoked in
-     * {@link #withItem(ThrowingFunction)} when an item is taken out of the pool, before it is passed to an action, and
+     * {@link #apply(ThrowingFunction)} when an item is taken out of the pool, before it is passed to an action, and
      * again after the action was performed, before the item is returned to the pool. In both cases, if the item is
      * found to be invalid, it will be destroyed and not be (re)used.
      *
@@ -162,7 +162,7 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
      * any moment.
      */
     @Override
-    public <V, EX extends Exception> V withItem(ThrowingFunction<T, V, EX> action) throws InterruptedException, EX {
+    public <V, EX extends Exception> V apply(ThrowingFunction<T, V, EX> action) throws InterruptedException, EX {
         permissionToUseItem.acquire();
 
         if (closed.get()) {
@@ -220,7 +220,7 @@ public abstract class LazyBlockingPool<T> implements BlockingPool<T> {
     public void close() {
         if (closed.compareAndSet(false, true)) {
             try {
-                // closed is now true, so all future calls to withItem(..) fail. Now we block here until concurrent
+                // closed is now true, so all future calls to apply(..) fail. Now we block here until concurrent
                 // executions that were still running when this method got called have finished so that we don't
                 // destroy items that are still in use.
                 permissionToUseItem.acquire(capacity);
