@@ -9,12 +9,12 @@ import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 
 /**
- * Deserializes Java objects from an {@link InputStream}. A {@code MessageReader} decides whether it is applicable to a
- * given delivery by examining the metadata, i.e. the delivery's {@link Envelope} (containing the name of the exchange
- * and the routing key) and {@link BasicProperties}.
+ * Deserializes Java objects from an {@link InputStream}. The {@link #canRead(Incoming)} method decides whether this
+ * {@link MessageReader} is applicable to a given {@link Incoming incoming message} by examining the metadata, i.e. the
+ * delivery's {@link Envelope} (containing the name of the exchange and the routing key) and {@link BasicProperties}.
  * <p>
- * It should always be tested (with {@link #canRead(Incoming)}) whether a specific
- * {@code MessageReader} is applicable to a given message before attempting serialization.
+ * It should always be tested (with {@link #canRead(Incoming)}) whether a specific {@code MessageReader} is applicable
+ * to a given message before attempting serialization.
  * <p>
  * The {@code MessageReader} to use for any given delivery is determined by selecting the {@code MessageReader} with the
  * highest {@link #getPriority() priority} among those that are {@link #canRead(Incoming)}. If multiple
@@ -22,8 +22,6 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
  * be selected.
  *
  * @param <T> type of the deserialized objects
- * @implSpec {@code MessageReader} instances should be thread-safe and re-entrant. Ideally they are completely
- * stateless.
  * @see ByteArrayReaderWriter
  * @see PlainTextReaderWriter
  */
@@ -33,7 +31,7 @@ public interface MessageReader<T> extends Prioritized {
      * Automatic {@code MessageReader}-selection uses {@link #canRead(Incoming)} to determine the {@code MessageReader}s
      * that are applicable to an incoming message and then selects the one with the highest priority.
      *
-     * @return the priority of this MessageReader
+     * @return the priority of this {@link MessageReader}.
      */
     @Override
     int getPriority();
@@ -41,11 +39,11 @@ public interface MessageReader<T> extends Prioritized {
     /**
      * A (reasonably quick) test whether this {@code MessageReader} is applicable to the message, e.g. by evaluating the
      * message's {@link BasicProperties#getContentType() content type}, its {@link BasicProperties#getHeaders() headers}
-     * or something else. It is not recommended to make an attempt at deserialization of the content, because this
-     * method will be called on all {@code MessageReader}-instances to determine which should perform the
-     * deserialization in the end.
+     * or something else
      *
      * @return {@code true} iff this {@code MessageReader} can read the given message.
+     * @implNote It is not recommended to make an attempt at deserialization of the content, because this method will be
+     * called on all {@code MessageReader}-instances to determine which should perform the deserialization in the end.
      */
     boolean canRead(Incoming<byte[]> message);
 
