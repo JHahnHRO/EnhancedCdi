@@ -14,8 +14,8 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>core</module>
         <module>protobuf</module>
         <module>jsonb</module>
-        <module>core</module>
     </modules>
 </project>
