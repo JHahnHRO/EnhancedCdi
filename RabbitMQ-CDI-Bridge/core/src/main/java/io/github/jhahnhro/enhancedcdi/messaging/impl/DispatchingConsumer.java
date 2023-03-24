@@ -4,6 +4,7 @@ import static io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment.S
 
 import java.io.IOException;
 import java.lang.System.Logger.Level;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import javax.enterprise.event.Event;
 
@@ -20,6 +21,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 
 class DispatchingConsumer extends DefaultConsumer {
 
+    private static final String SERVER_GENERATED_CONSUMER_TAG = "";
     private static final System.Logger LOG = System.getLogger(DispatchingConsumer.class.getName());
 
     private final String queueName;
@@ -114,7 +116,12 @@ class DispatchingConsumer extends DefaultConsumer {
         final Channel channel = getChannel();
         try {
             channel.basicQos(options.qos());
-            channel.basicConsume(this.queueName, options.autoAck(), this);
+
+            // RabbitMQ Client lib uses null instead of empty map for absence of arguments
+            final Map<String, Object> arguments = options.arguments().isEmpty() ? null : options.arguments();
+
+            channel.basicConsume(this.queueName, options.autoAck(), SERVER_GENERATED_CONSUMER_TAG, false,
+                                 options.exclusive(), arguments, this);
         } catch (AlreadyClosedException sig) {
             LOG.log(Level.ERROR,
                     "Cannot start consumer on queue \"%s\", because channel is already closed (reason was \"%s\").",
