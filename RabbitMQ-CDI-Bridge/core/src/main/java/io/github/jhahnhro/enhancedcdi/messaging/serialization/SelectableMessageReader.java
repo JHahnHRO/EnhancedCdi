@@ -1,6 +1,5 @@
 package io.github.jhahnhro.enhancedcdi.messaging.serialization;
 
-import java.io.IOException;
 import java.io.InputStream;
 import javax.enterprise.inject.spi.Prioritized;
 
@@ -25,7 +24,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
  * @see ByteArrayReaderWriter
  * @see PlainTextReaderWriter
  */
-public interface SelectableMessageReader<T> extends Prioritized {
+public interface SelectableMessageReader<T> extends Prioritized, MessageReader<T> {
 
     /**
      * Automatic {@code SelectableMessageReader}-selection uses {@link #canRead(Incoming)} to determine the {@code SelectableMessageReader}s
@@ -46,17 +45,5 @@ public interface SelectableMessageReader<T> extends Prioritized {
      * called on all {@code SelectableMessageReader}-instances to determine which should perform the deserialization in the end.
      */
     boolean canRead(Incoming<byte[]> message);
-
-    /**
-     * Deserializes an incoming message by reading from the given {@link InputStream}.
-     *
-     * @param message the incoming message and its metadata.
-     * @return the content of the message
-     * @throws IllegalArgumentException if this {@code SelectableMessageReader} is not applicable to a message with the provided
-     *                                  metadata
-     * @throws InvalidMessageException  if the message could not be serialized
-     * @throws IOException              if the message could not be read from the InputStream
-     */
-    T read(Incoming<InputStream> message) throws InvalidMessageException, IOException;
 
 }
