@@ -1,4 +1,4 @@
-package io.github.jhahnhro.enhancedcdi.messaging;
+package io.github.jhahnhro.enhancedcdi.messaging.serialization;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -7,10 +7,10 @@ import javax.inject.Qualifier;
 
 @Qualifier
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Incoming {
+public @interface Selected {
 
     @SuppressWarnings("java:S2160") // Sonar wants us to override equals(), but AnnotationLiteral does not need that
-    final class Literal extends AnnotationLiteral<Incoming> implements Incoming {
+    final class Literal extends AnnotationLiteral<Selected> {
         public static final Literal INSTANCE = new Literal();
 
         private Literal() {}

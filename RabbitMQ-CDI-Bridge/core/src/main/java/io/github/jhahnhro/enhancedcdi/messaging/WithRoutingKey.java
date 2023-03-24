@@ -11,7 +11,7 @@ public @interface WithRoutingKey {
     String value();
 
     @SuppressWarnings("java:S2160") // Sonar wants us to override equals(), but AnnotationLiteral does not need that
-    class Literal extends AnnotationLiteral<WithRoutingKey> implements WithRoutingKey {
+    final class Literal extends AnnotationLiteral<WithRoutingKey> implements WithRoutingKey {
 
         private final String routingKey;
 

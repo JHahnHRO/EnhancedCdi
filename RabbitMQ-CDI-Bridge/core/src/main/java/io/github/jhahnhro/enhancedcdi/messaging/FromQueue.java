@@ -11,7 +11,7 @@ public @interface FromQueue {
     String value();
 
     @SuppressWarnings("java:S2160") // Sonar wants us to override equals(), but AnnotationLiteral does not need that
-    class Literal extends AnnotationLiteral<FromQueue> implements FromQueue {
+    final class Literal extends AnnotationLiteral<FromQueue> implements FromQueue {
         private final String name;
 
         public Literal(String name) {this.name = name;}
