@@ -10,7 +10,6 @@ import java.util.zip.GZIPOutputStream;
 import javax.annotation.Priority;
 import javax.decorator.Decorator;
 import javax.decorator.Delegate;
-import javax.enterprise.inject.Any;
 import javax.inject.Inject;
 import javax.interceptor.Interceptor;
 
@@ -18,6 +17,7 @@ import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
 
 /**
  * Decorator that adds automatic gzip or deflate compression to outgoing responses if

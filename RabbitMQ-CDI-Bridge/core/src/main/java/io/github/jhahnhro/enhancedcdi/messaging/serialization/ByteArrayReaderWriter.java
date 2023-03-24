@@ -9,7 +9,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
 @Singleton
-public class ByteArrayReaderWriter implements MessageReader<byte[]>, MessageWriter<byte[]> {
+public class ByteArrayReaderWriter implements SelectableMessageReader<byte[]>, SelectableMessageWriter<byte[]> {
 
     private static final String APPLICATION_OCTET_STREAM = "application/octet-stream";
 

@@ -6,7 +6,7 @@ import java.util.Optional;
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
 
 /**
  * Provides methods to publish {@link Outgoing} messages to the RabbitMQ broker.
@@ -24,7 +24,7 @@ public interface Publisher {
      * @throws IOException           if anything goes wrong
      * @throws InterruptedException  if the current thread gets interrupted while waiting for an available
      *                               {@link com.rabbitmq.client.Channel} to publish the message.
-     * @throws IllegalStateException if no {@link MessageWriter} for the content can be found.
+     * @throws IllegalStateException if no {@link SelectableMessageWriter} for the content can be found.
      * @apiNote Note that this method does not perform any type checks on the response content, i.e. a
      * {@link ClassCastException} may be thrown if the response was in fact deserialized to something incompatible with
      * {@code RES}.
@@ -43,7 +43,7 @@ public interface Publisher {
      * @throws IOException           if anything goes wrong
      * @throws InterruptedException  if the current thread gets interrupted while waiting for an available
      *                               {@link com.rabbitmq.client.Channel} to publish the message.
-     * @throws IllegalStateException if no {@link MessageWriter} for the content can be found.
+     * @throws IllegalStateException if no {@link SelectableMessageWriter} for the content can be found.
      */
     @SuppressWarnings({"OptionalGetWithoutIsPresent", "java:S3655"})
     default <T, RES> Incoming.Response<T, RES> rpc(Outgoing.Request<T> request)

@@ -6,10 +6,10 @@ import javax.enterprise.context.Dependent;
 
 import com.google.protobuf.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
 
 @Dependent
-public class ProtobufMessageWriter<M extends Message> implements MessageWriter<M> {
+public class ProtobufMessageWriter<M extends Message> implements SelectableMessageWriter<M> {
 
     @Override
     public int getPriority() {

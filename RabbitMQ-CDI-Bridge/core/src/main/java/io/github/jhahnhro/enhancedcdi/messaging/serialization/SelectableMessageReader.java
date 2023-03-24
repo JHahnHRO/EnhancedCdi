@@ -10,40 +10,40 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 
 /**
  * Deserializes Java objects from an {@link InputStream}. The {@link #canRead(Incoming)} method decides whether this
- * {@link MessageReader} is applicable to a given {@link Incoming incoming message} by examining the metadata, i.e. the
+ * {@link SelectableMessageReader} is applicable to a given {@link Incoming incoming message} by examining the metadata, i.e. the
  * delivery's {@link Envelope} (containing the name of the exchange and the routing key) and {@link BasicProperties}.
  * <p>
- * It should always be tested (with {@link #canRead(Incoming)}) whether a specific {@code MessageReader} is applicable
+ * It should always be tested (with {@link #canRead(Incoming)}) whether a specific {@code SelectableMessageReader} is applicable
  * to a given message before attempting serialization.
  * <p>
- * The {@code MessageReader} to use for any given delivery is determined by selecting the {@code MessageReader} with the
+ * The {@code SelectableMessageReader} to use for any given delivery is determined by selecting the {@code SelectableMessageReader} with the
  * highest {@link #getPriority() priority} among those that are {@link #canRead(Incoming)}. If multiple
- * {@code MessageReader} instances with the same priority are applicable to a delivery, it is undefined which one will
+ * {@code SelectableMessageReader} instances with the same priority are applicable to a delivery, it is undefined which one will
  * be selected.
  *
  * @param <T> type of the deserialized objects
  * @see ByteArrayReaderWriter
  * @see PlainTextReaderWriter
  */
-public interface MessageReader<T> extends Prioritized {
+public interface SelectableMessageReader<T> extends Prioritized {
 
     /**
-     * Automatic {@code MessageReader}-selection uses {@link #canRead(Incoming)} to determine the {@code MessageReader}s
+     * Automatic {@code SelectableMessageReader}-selection uses {@link #canRead(Incoming)} to determine the {@code SelectableMessageReader}s
      * that are applicable to an incoming message and then selects the one with the highest priority.
      *
-     * @return the priority of this {@link MessageReader}.
+     * @return the priority of this {@link SelectableMessageReader}.
      */
     @Override
     int getPriority();
 
     /**
-     * A (reasonably quick) test whether this {@code MessageReader} is applicable to the message, e.g. by evaluating the
+     * A (reasonably quick) test whether this {@code SelectableMessageReader} is applicable to the message, e.g. by evaluating the
      * message's {@link BasicProperties#getContentType() content type}, its {@link BasicProperties#getHeaders() headers}
      * or something else
      *
-     * @return {@code true} iff this {@code MessageReader} can read the given message.
+     * @return {@code true} iff this {@code SelectableMessageReader} can read the given message.
      * @implNote It is not recommended to make an attempt at deserialization of the content, because this method will be
-     * called on all {@code MessageReader}-instances to determine which should perform the deserialization in the end.
+     * called on all {@code SelectableMessageReader}-instances to determine which should perform the deserialization in the end.
      */
     boolean canRead(Incoming<byte[]> message);
 
@@ -52,7 +52,7 @@ public interface MessageReader<T> extends Prioritized {
      *
      * @param message the incoming message and its metadata.
      * @return the content of the message
-     * @throws IllegalArgumentException if this {@code MessageReader} is not applicable to a message with the provided
+     * @throws IllegalArgumentException if this {@code SelectableMessageReader} is not applicable to a message with the provided
      *                                  metadata
      * @throws InvalidMessageException  if the message could not be serialized
      * @throws IOException              if the message could not be read from the InputStream

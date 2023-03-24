@@ -14,7 +14,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
 @Singleton
-public class PlainTextReaderWriter implements MessageReader<String>, MessageWriter<String> {
+public class PlainTextReaderWriter implements SelectableMessageReader<String>, SelectableMessageWriter<String> {
 
     private static final Pattern CONTENT_TYPE = Pattern.compile(
             "^text/plain(; charset=(?<charset>[a-zA-Z0-9][a-zA-Z0-9\\-+.:_]*))?$");

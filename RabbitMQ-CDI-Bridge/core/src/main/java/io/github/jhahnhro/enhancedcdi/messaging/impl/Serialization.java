@@ -15,9 +15,9 @@ import javax.inject.Inject;
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
 import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
 import io.github.jhahnhro.enhancedcdi.types.WildcardTypeImpl;
 import io.github.jhahnhro.enhancedcdi.util.BeanHelper;
@@ -35,20 +35,20 @@ class Serialization {
     /**
      * Increased Visibility because there is a test case for this method.
      *
-     * @return the Type {@code MessageReader<? extends T>} where {@code T} is the given type.
+     * @return the Type {@code SelectableMessageReader<? extends T>} where {@code T} is the given type.
      */
     static Type getMessageReaderType(final Type runtimeType) {
-        return new ParameterizedTypeImpl(MessageReader.class, null,
+        return new ParameterizedTypeImpl(SelectableMessageReader.class, null,
                                          new WildcardTypeImpl(new Type[]{runtimeType}, new Type[0]));
     }
 
     /**
      * Increased Visibility because there is a test case for this method.
      *
-     * @return the Type {@code MessageWriter<? super T>} where {@code T} is the given type.
+     * @return the Type {@code SelectableMessageWriter<? super T>} where {@code T} is the given type.
      */
     static Type getMessageWriterType(final Type runtimeType) {
-        return new ParameterizedTypeImpl(MessageWriter.class, null,
+        return new ParameterizedTypeImpl(SelectableMessageWriter.class, null,
                                          new WildcardTypeImpl(new Type[]{Object.class}, new Type[]{runtimeType}));
     }
 
@@ -72,9 +72,9 @@ class Serialization {
         return instances.min(HIGHEST_PRIORITY_FIRST).orElseThrow(() -> new IllegalStateException(msg));
     }
 
-    private <T> Stream<MessageReader<T>> getApplicableReaders(Incoming<byte[]> incoming, final Type typeHint) {
+    private <T> Stream<SelectableMessageReader<T>> getApplicableReaders(Incoming<byte[]> incoming, final Type typeHint) {
         Type messageReaderType = getMessageReaderType(typeHint);
-        return beanHelper.<MessageReader<T>>safeStream(messageReaderType, Any.Literal.INSTANCE)
+        return beanHelper.<SelectableMessageReader<T>>safeStream(messageReaderType, Any.Literal.INSTANCE)
                 .map(BeanInstance::instance)
                 .filter(reader -> reader.canRead(incoming));
     }
@@ -92,9 +92,9 @@ class Serialization {
         }
     }
 
-    private <T> Stream<MessageWriter<T>> getApplicableWriters(Outgoing<T> outgoingMessage, final Type typeHint) {
+    private <T> Stream<SelectableMessageWriter<T>> getApplicableWriters(Outgoing<T> outgoingMessage, final Type typeHint) {
         Type messageWriterType = getMessageWriterType(typeHint);
-        return beanHelper.<MessageWriter<T>>safeStream(messageWriterType, Any.Literal.INSTANCE)
+        return beanHelper.<SelectableMessageWriter<T>>safeStream(messageWriterType, Any.Literal.INSTANCE)
                 .map(BeanInstance::instance)
                 .filter(writer -> writer.canWrite(outgoingMessage));
     }

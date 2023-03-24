@@ -17,6 +17,7 @@ import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
@@ -139,7 +140,7 @@ class GzipWriterTest {
 
     private static class FooBar {}
 
-    static class FooBarWriter implements MessageWriter<FooBar> {
+    static class FooBarWriter implements SelectableMessageWriter<FooBar> {
         protected FooBarWriter() {
         }
 

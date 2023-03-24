@@ -17,6 +17,7 @@ import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
@@ -92,7 +93,7 @@ class GzipReaderTest {
 
     private static class FooBar {}
 
-    static class FooBarReader implements MessageReader<FooBar> {
+    static class FooBarReader implements SelectableMessageReader<FooBar> {
 
         protected FooBarReader() {
         }

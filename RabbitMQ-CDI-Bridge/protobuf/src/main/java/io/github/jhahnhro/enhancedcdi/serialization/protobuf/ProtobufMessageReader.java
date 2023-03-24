@@ -11,9 +11,9 @@ import com.google.protobuf.Message;
 import com.google.protobuf.Parser;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
 
-public abstract class ProtobufMessageReader<T extends Message> implements MessageReader<T> {
+public abstract class ProtobufMessageReader<T extends Message> implements SelectableMessageReader<T> {
     private final Class<T> clazz;
     private final Parser<T> parser;
     private final Descriptors.Descriptor descriptor;

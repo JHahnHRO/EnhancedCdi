@@ -18,10 +18,10 @@ import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.ByteArrayReaderWriter;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.PlainTextReaderWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
 import io.github.jhahnhro.enhancedcdi.util.BeanHelper;
 import org.jboss.weld.junit.MockBean;
 import org.jboss.weld.junit5.WeldInitiator;
@@ -48,15 +48,15 @@ class SerializationTest {
 
             // mock bean that does basically the same as PlainTextReaderWriter, but has higher priority
             MockBean.builder()
-                    .types(new TypeLiteral<MessageWriter<String>>() {}.getType(),
-                           new TypeLiteral<MessageReader<String>>() {}.getType())
+                    .types(new TypeLiteral<SelectableMessageWriter<String>>() {}.getType(),
+                           new TypeLiteral<SelectableMessageReader<String>>() {}.getType())
                     .scope(Dependent.class)
                     .creating(new StringTestCodec(1))
                     .destroy((instance, ctx) -> destructionCounter++)
                     .build(),
             // mock bean that should never be selected, but is also dependent
             MockBean.builder()
-                    .types(new TypeLiteral<MessageWriter<Byte>>() {}.getType())
+                    .types(new TypeLiteral<SelectableMessageWriter<Byte>>() {}.getType())
                     .scope(Dependent.class)
                     .creating(new ByteTestCodec(1))
                     .destroy((instance, ctx) -> destructionCounter++)
@@ -69,7 +69,7 @@ class SerializationTest {
     //region Serialization
     @Test
     void givenStringMessage_whenGetMessageWriterType_thenReturnCorrect() {
-        final Type expectedType = new TypeLiteral<MessageWriter<? super String>>() {}.getType();
+        final Type expectedType = new TypeLiteral<SelectableMessageWriter<? super String>>() {}.getType();
         final Type actualType = Serialization.getMessageWriterType(String.class);
 
         assertThat(actualType).isEqualTo(expectedType);
@@ -123,7 +123,7 @@ class SerializationTest {
     //region Deserialization
     @Test
     void givenStringIntMessage_whenGetMessageReaderType_thenReturnCorrect() {
-        final Type expectedType = new TypeLiteral<MessageReader<? extends CharSequence>>() {}.getType();
+        final Type expectedType = new TypeLiteral<SelectableMessageReader<? extends CharSequence>>() {}.getType();
         final Type actualType = Serialization.getMessageReaderType(CharSequence.class);
 
         assertThat(actualType).isEqualTo(expectedType);
