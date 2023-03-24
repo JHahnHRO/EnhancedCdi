@@ -3,15 +3,17 @@ package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.CreationException;
 import javax.enterprise.inject.Disposes;
 import javax.enterprise.inject.Produces;
 import javax.inject.Singleton;
 
+import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ShutdownSignalException;
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
+import io.github.jhahnhro.enhancedcdi.messaging.Retry;
 
 @Singleton
 class ConnectionProducer {
@@ -28,7 +30,7 @@ class ConnectionProducer {
         LOG.log(Level.INFO, "Shutting down connection to RabbitMQ broker...");
         try {
             connection.close();
-        } catch (ShutdownSignalException sse) {
+        } catch (AlreadyClosedException sse) {
             LOG.log(Level.DEBUG, "Connection to RabbitMQ broker was already shut down");
         }
     }
@@ -59,30 +61,20 @@ class ConnectionProducer {
 
     private Connection newConnectionWithRetry(Configuration configuration)
             throws TimeoutException, InterruptedException {
-        final Configuration.Retry retry = configuration.initialConnectionRetry();
-        final String ofMaxAttempts = retry.maxAttempts() == Integer.MAX_VALUE ? "" : " of " + retry.maxAttempts();
 
-        final long deadline = System.nanoTime() + retry.maxWaitingTime().toNanos();
+        final Retry retry = configuration.initialConnectionRetry();
+        final String msg = getMsgForFailedAttempt(retry);
+        final BiConsumer<Integer, Exception> logFailures = (nr, e) -> LOG.log(Level.INFO,
+                                                                              msg.formatted(nr, e.getMessage()));
+        return retry.call(() -> configuration.connectionFactory().newConnection(), logFailures);
+    }
 
-        long delay = retry.initialDelay().toNanos();
-        for (int attempt = 1; attempt <= retry.maxAttempts(); attempt++) {
-            try {
-                return configuration.connectionFactory().newConnection();
-            } catch (IOException | TimeoutException ex) {
-                LOG.log(Level.INFO, "Connection attempt %d%s failed: %s", attempt, ofMaxAttempts, ex.getMessage());
-            }
-
-            // calculate next delay with exponential backoff
-            delay = Math.min(delay * 2, retry.maxDelay().toNanos());
-
-            final long now = System.nanoTime();
-            if (now + delay > deadline) {
-                throw new TimeoutException("Maximum wait time (which is " + retry.maxWaitingTime() + ") reached");
-            }
-
-            Thread.sleep(delay / 1_000_000);
+    private String getMsgForFailedAttempt(Retry retry) {
+        if (retry.maxAttempts() == Integer.MAX_VALUE) {
+            return "Attempt %d failed: %s.";
+        } else {
+            return "Attempt %d of " + retry.maxAttempts() + " failed: %s.";
         }
-        throw new TimeoutException("Maximum number of attempts (which is " + retry.maxAttempts() + ") reached");
     }
 
 }
