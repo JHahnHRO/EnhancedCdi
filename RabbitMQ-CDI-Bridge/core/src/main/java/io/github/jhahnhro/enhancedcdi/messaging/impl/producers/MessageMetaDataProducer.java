@@ -1,54 +1,57 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 
-import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import javax.enterprise.context.Dependent;
+import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.spi.InjectionPoint;
-import javax.enterprise.util.TypeLiteral;
 
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.Exchange;
 import io.github.jhahnhro.enhancedcdi.messaging.Header;
 import io.github.jhahnhro.enhancedcdi.messaging.Queue;
 import io.github.jhahnhro.enhancedcdi.messaging.RoutingKey;
+import io.github.jhahnhro.enhancedcdi.messaging.Serialized;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
-@Dependent
+@RequestScoped
 public class MessageMetaDataProducer {
-    private static final Type TYPE_OF_SERIALIZED_MESSAGE = new TypeLiteral<Incoming<byte[]>>() {}.getType();
 
-    private Incoming<?> incomingMessage = null;
+    private Incoming<byte[]> incomingMessage = null;
+    private Incoming<?> deserializedMessage = null;
     private Acknowledgment acknowledgment = null;
 
     private Outgoing.Response.Builder<?, ?> responseBuilder = null;
-    private boolean isStillSerialized;
 
-    public void setRawMessage(final Incoming<byte[]> incomingMessage, final Acknowledgment acknowledgment) {
-        this.incomingMessage = incomingMessage;
-        this.isStillSerialized = true;
-
+    public void setRawMessage(final Incoming<byte[]> rawMessage, final Acknowledgment acknowledgment) {
+        this.incomingMessage = rawMessage;
         this.acknowledgment = acknowledgment;
 
-        if (incomingMessage instanceof Incoming.Request<byte[]> request) {
+        if (rawMessage instanceof Incoming.Request<byte[]> request) {
             this.responseBuilder = new Outgoing.Response.Builder<>(request);
         }
     }
 
     public void setDeserializedMessage(final Incoming<?> incomingMessage) {
-        this.incomingMessage = incomingMessage;
-        this.isStillSerialized = false;
+        this.deserializedMessage = incomingMessage;
     }
 
     private void checkDelivery() {
         if (this.incomingMessage == null) {
             throw new IllegalStateException("No RabbitMQ message has been received in the current RequestScope");
+        }
+    }
+
+    private void checkDeserializedMessage() {
+        checkDelivery();
+        if (this.deserializedMessage == null) {
+            throw new IllegalStateException("RabbitMQ message has been not been serialized yet");
         }
     }
 
@@ -61,26 +64,29 @@ public class MessageMetaDataProducer {
 
     @Produces
     @Dependent
-    <T> Incoming<T> message(InjectionPoint ip) {
+    @Serialized
+    Incoming<byte[]> serializedMessage() {
         checkDelivery();
-        if (isStillSerialized && !TYPE_OF_SERIALIZED_MESSAGE.equals(ip.getType())) {
-            throw new IllegalStateException(
-                    "Until the message is de-serialized, it can only be injected into injection points of type "
-                    + "Incoming<byte[]>");
-        }
-        return (Incoming<T>) incomingMessage;
+        return this.incomingMessage;
     }
 
     @Produces
     @Dependent
-    Acknowledgment getAcknowledgement() {
+    <T> Incoming<T> deserializedMessage() {
+        checkDeserializedMessage();
+        return (Incoming<T>) deserializedMessage;
+    }
+
+    @Produces
+    @Dependent
+    Acknowledgment acknowledgement() {
         checkDelivery();
         return acknowledgment;
     }
 
     @Produces
     @Dependent
-    public <REQ, RES> Outgoing.Response.Builder<REQ, RES> getMessageBuilder() {
+    <REQ, RES> Outgoing.Response.Builder<REQ, RES> responseBuilder() {
         checkRequest();
         return (Outgoing.Response.Builder<REQ, RES>) this.responseBuilder;
     }
@@ -209,6 +215,8 @@ public class MessageMetaDataProducer {
     }
 
     private <T> T header(InjectionPoint injectionPoint, Class<T> clazz) {
+        checkDelivery();
+
         final Map<String, Object> headers = basicProperties().getHeaders();
         if (headers == null) {
             return null;

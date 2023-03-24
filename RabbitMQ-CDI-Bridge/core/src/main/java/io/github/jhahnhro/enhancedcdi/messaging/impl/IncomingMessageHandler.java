@@ -8,7 +8,6 @@ import java.lang.annotation.Annotation;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.ObservesAsync;
-import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 
 import com.rabbitmq.client.Envelope;
@@ -35,7 +34,7 @@ class IncomingMessageHandler {
     Event<Object> processedEvent;
 
     @Inject
-    Instance<MessageMetaDataProducer> messageMetaDataProducer;
+    MessageMetaDataProducer metaData;
 
     @Inject
     Serialization serialization;
@@ -44,7 +43,6 @@ class IncomingMessageHandler {
         final Incoming<byte[]> rawMessage = incomingDelivery.rawMessage();
         final Acknowledgment acknowledgment = incomingDelivery.ack();
 
-        final MessageMetaDataProducer metaData = messageMetaDataProducer.get();
         try {
             // make sure request metadata is available in the current request scope for injection into event observers
             metaData.setRawMessage(rawMessage, acknowledgment);
@@ -58,8 +56,6 @@ class IncomingMessageHandler {
             acknowledgeIfNecessary(acknowledgment);
         } catch (Exception e) {
             rejectIfNecessary(acknowledgment, e);
-        } finally {
-            messageMetaDataProducer.destroy(metaData);
         }
     }
 
