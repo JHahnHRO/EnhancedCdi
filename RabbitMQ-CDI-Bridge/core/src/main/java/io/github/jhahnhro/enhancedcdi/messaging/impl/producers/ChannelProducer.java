@@ -2,15 +2,16 @@ package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 
 import java.io.IOException;
 import java.lang.System.Logger.Level;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Disposes;
 import javax.enterprise.inject.Produces;
 import javax.inject.Singleton;
 
+import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ShutdownSignalException;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.RuntimeIOException;
@@ -57,19 +58,13 @@ class ChannelProducer {
 
         @Override
         protected Channel create() {
-            Channel channel = createChannel();
-            if (channel == null) {
-                throw new IllegalStateException("No channels available");
-            }
-            return channel;
-        }
-
-        private Channel createChannel() {
+            Optional<Channel> maybeChannel;
             try {
-                return connection.createChannel();
+                maybeChannel = connection.openChannel();
             } catch (IOException e) {
                 throw new RuntimeIOException(e);
             }
+            return maybeChannel.orElseThrow(() -> new IllegalStateException("No channels available"));
         }
 
         @Override

@@ -54,10 +54,13 @@ class ConsumerRegistry implements Consumers {
             previousConsumer.stop();
         }
 
-        final DispatchingConsumer consumer = createConsumer(queue, options);
+        final Channel channel = connection.openChannel()
+                .orElseThrow(() -> new IllegalStateException("No channel available"));
+
+        final DispatchingConsumer consumer = new RegistryAwareConsumer(channel, queue, options);
         consumers.put(queue, consumer);
 
-        infrastructure.setUpForQueue(queue, consumer.getChannel());
+        infrastructure.setUpForQueue(queue, channel);
         consumer.start();
     }
 
@@ -86,29 +89,27 @@ class ConsumerRegistry implements Consumers {
         });
     }
 
-    private Channel createChannel() throws IOException {
-        final Channel channel = connection.createChannel();
-        if (channel == null) {
-            throw new IllegalStateException("No channel available");
+    private class RegistryAwareConsumer extends DispatchingConsumer {
+
+        private final String queueName;
+
+        public RegistryAwareConsumer(Channel channel, String queueName, Options options) {
+            super(channel, queueName, options, dispatcher);
+            this.queueName = queueName;
         }
-        return channel;
-    }
 
-    private DispatchingConsumer createConsumer(final String queueName, Options options) throws IOException {
-        final Channel channel = createChannel();
-        return new DispatchingConsumer(channel, queueName, options, dispatcher) {
-            @Override
-            public void handleCancel(String consumerTag) throws IOException {
-                super.handleCancel(consumerTag);
-                consumers.remove(queueName);
-            }
+        @Override
+        public void handleCancel(String consumerTag) throws IOException {
+            super.handleCancel(consumerTag);
+            consumers.remove(queueName);
+        }
 
-            @Override
-            public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
-                super.handleShutdownSignal(consumerTag, sig);
-                consumers.remove(queueName);
-            }
-        };
+        @Override
+        public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
+            super.handleShutdownSignal(consumerTag, sig);
+            consumers.remove(queueName);
+        }
+
     }
 
     @FunctionalInterface
