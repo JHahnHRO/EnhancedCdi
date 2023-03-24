@@ -8,6 +8,7 @@ import java.util.concurrent.TimeoutException;
 import javax.enterprise.event.Event;
 
 import com.rabbitmq.client.AMQP;
+import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.DefaultConsumer;
 import com.rabbitmq.client.Delivery;
@@ -93,7 +94,7 @@ class DispatchingConsumer extends DefaultConsumer {
         Channel channel = getChannel();
         try {
             channel.basicCancel(getConsumerTag());
-        } catch (ShutdownSignalException sig) {
+        } catch (AlreadyClosedException sig) {
             // nothing to do if channel is already closed
         }
     }
@@ -102,7 +103,7 @@ class DispatchingConsumer extends DefaultConsumer {
         Channel channel = getChannel();
         try {
             channel.close();
-        } catch (ShutdownSignalException sse) {
+        } catch (AlreadyClosedException sse) {
             // already closed
         } catch (TimeoutException e) {
             throw new IOException(e);
@@ -114,7 +115,7 @@ class DispatchingConsumer extends DefaultConsumer {
         try {
             channel.basicQos(options.qos());
             channel.basicConsume(this.queueName, options.autoAck(), this);
-        } catch (ShutdownSignalException sig) {
+        } catch (AlreadyClosedException sig) {
             LOG.log(Level.ERROR,
                     "Cannot start consumer on queue \"%s\", because channel is already closed (reason was \"%s\").",
                     queueName, sig.getReason());
@@ -138,7 +139,7 @@ class DispatchingConsumer extends DefaultConsumer {
                 this.state = ACKNOWLEDGED;
                 try {
                     channel.basicAck(deliveryTag, false);
-                } catch (ShutdownSignalException sse) {
+                } catch (AlreadyClosedException ace) {
                     LOG.log(Level.WARNING, "Cannot acknowledge message, "
                                            + "because the channel on which it was received is already closed. "
                                            + "The broker will re-queue the message anyway.");
@@ -154,7 +155,7 @@ class DispatchingConsumer extends DefaultConsumer {
                 this.state = REJECTED;
                 try {
                     channel.basicReject(deliveryTag, requeue);
-                } catch (ShutdownSignalException sse) {
+                } catch (AlreadyClosedException ace) {
                     LOG.log(Level.WARNING, "Cannot reject message, "
                                            + "because the channel on which it was received is already closed. "
                                            + "The broker will re-queue the message anyway.");

@@ -50,7 +50,7 @@ class ChannelProducer {
         private static void closeIfNecessary(Channel channel) throws IOException, TimeoutException {
             try {
                 channel.close();
-            } catch (ShutdownSignalException sse) {
+            } catch (AlreadyClosedException sse) {
                 // already shut down
             }
         }
