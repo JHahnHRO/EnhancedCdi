@@ -28,7 +28,7 @@ class OutgoingMessageHandler implements Publisher {
     BlockingPool<Channel> publisherChannels;
 
     @Inject
-    Event<InternalDelivery> internalDeliveryEvent;
+    Event<InternalDelivery> responseEvent;
 
     @Inject
     Infrastructure infrastructure;
@@ -37,6 +37,13 @@ class OutgoingMessageHandler implements Publisher {
     Serialization serialization;
 
     //region low-level
+    private <T> Optional<Incoming.Response<T, byte[]>> serializeAndSend(Outgoing<T> message)
+            throws IOException, InterruptedException {
+        final Outgoing<byte[]> serializedMessage = serialization.serialize(message);
+
+        return sendDirect(serializedMessage, message);
+    }
+
     private <T> Optional<Incoming.Response<T, byte[]>> sendDirect(Outgoing<byte[]> serializedMessage,
                                                                   Outgoing<T> originalMessage)
             throws IOException, InterruptedException {
@@ -50,35 +57,38 @@ class OutgoingMessageHandler implements Publisher {
                                                            response.getBody());
             return Optional.of(new Incoming.Response<>(responseDelivery, response.getBody(), originalRequest));
         } else {
-            cast(serializedMessage);
+            publish(serializedMessage);
             return Optional.empty();
         }
     }
 
-    private void cast(Outgoing<byte[]> message) throws InterruptedException, IOException {
+    private void publish(Outgoing<byte[]> message) throws InterruptedException, IOException {
         publisherChannels.run(
                 channel -> channel.basicPublish(message.exchange(), message.routingKey(), message.properties(),
                                                 message.content()));
     }
 
     private RpcClient.Response doRpc(Outgoing.Request<byte[]> request) throws IOException, InterruptedException {
-        return publisherChannels.apply(channel -> {
-            final RpcClientParams rpcClientParams = new RpcClientParams().channel(channel)
-                    .exchange(request.exchange())
-                    .routingKey(request.routingKey())
-                    .replyTo(request.properties().getReplyTo())
-                    .correlationIdSupplier(() -> request.properties().getCorrelationId());
-            final RpcClient rpcClient = new RpcClient(rpcClientParams);
-
-            try {
-                return rpcClient.doCall(request.properties(), request.content());
-            } catch (TimeoutException timeoutException) {
-                // should not happen, because we do not use RpcClientParams with a timeout so that it defaults to no
-                // timeout at all.
-                throw new AssertionError(timeoutException);
-            }
-        });
+        return publisherChannels.apply(channel -> doRpc(request, channel));
     }
+
+    private RpcClient.Response doRpc(Outgoing.Request<byte[]> request, Channel channel) throws IOException {
+        final RpcClientParams rpcClientParams = new RpcClientParams().channel(channel)
+                .exchange(request.exchange())
+                .routingKey(request.routingKey())
+                .replyTo(request.properties().getReplyTo())
+                .correlationIdSupplier(() -> request.properties().getCorrelationId());
+        final RpcClient rpcClient = new RpcClient(rpcClientParams);
+
+        try {
+            return rpcClient.doCall(request.properties(), request.content());
+        } catch (TimeoutException timeoutException) {
+            // should not happen, because we do not use RpcClientParams with a timeout so that it defaults to no
+            // timeout at all.
+            throw new AssertionError(timeoutException);
+        }
+    }
+
     //endregion
 
     @Override
@@ -94,21 +104,12 @@ class OutgoingMessageHandler implements Publisher {
         }
     }
 
-    private <T> Optional<Incoming.Response<T, byte[]>> serializeAndSend(Outgoing<T> message)
-            throws IOException, InterruptedException {
-        final Outgoing<byte[]> serializedMessage = serialization.serialize(message);
-
-        return sendDirect(serializedMessage, message);
-    }
-
     <T> void observeOutgoing(@ObservesAsync Outgoing<T> message, EventMetadata eventMetadata)
             throws IOException, InterruptedException {
         final Type runtimeType = ((ParameterizedType) eventMetadata.getType()).getActualTypeArguments()[0];
         final Outgoing<T> messageWithAdjustedType = message.builder().setType(runtimeType).build();
-        serializeAndSend(messageWithAdjustedType).ifPresent(response -> {
-            final var internalDelivery = new InternalDelivery(response, AutoAck.INSTANCE);
-            internalDeliveryEvent.fireAsync(internalDelivery);
-        });
+        serializeAndSend(messageWithAdjustedType).ifPresent(
+                response -> responseEvent.fireAsync(new InternalDelivery(response, AutoAck.INSTANCE)));
     }
 
     @Override
