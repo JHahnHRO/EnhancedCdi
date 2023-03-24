@@ -1,5 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.messaging.messages;
 
+import static java.util.Objects.requireNonNull;
+
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.BasicProperties;
 import com.rabbitmq.client.Delivery;
@@ -10,11 +12,15 @@ import com.rabbitmq.client.Delivery;
  * value, or a {@link Response}, i.e. a response to a previously sent {@link Outgoing.Request}.
  *
  * @param <T> the type of the payload, e.g. {@code byte[]} for messages in their serialized form, {@code InputStream}
- *            during de-serialization from bytes to Java objects, or any Java type after serialization.
+ *            during de-serialization from bytes to Java objects, or any Java type after de-serialization.
  */
 public sealed interface Incoming<T> extends Message<T> {
 
-    Delivery delivery();
+    private static void validate(Delivery delivery) {
+        requireNonNull(delivery, "delivery");
+        requireNonNull(delivery.getEnvelope(), "envelope of the delivery");
+        requireNonNull(delivery.getProperties(), "properties");
+    }
 
     @Override
     default String exchange() {
@@ -29,12 +35,6 @@ public sealed interface Incoming<T> extends Message<T> {
     @Override
     default AMQP.BasicProperties properties() {
         return delivery().getProperties();
-    }
-
-    private static void requireNonNull(Object param, String name) {
-        if (param == null) {
-            throw new IllegalArgumentException(name + " must not be null.");
-        }
     }
 
     /**
@@ -54,12 +54,14 @@ public sealed interface Incoming<T> extends Message<T> {
      */
     String queue();
 
+    /**
+     * @return the raw delivery that is represented by this incoming message.
+     */
+    Delivery delivery();
+
     record Cast<T>(Delivery delivery, String queue, T content) implements Incoming<T> {
         public Cast {
-            requireNonNull(delivery, "delivery");
-            requireNonNull(delivery.getEnvelope(), "envelope of the delivery");
-            requireNonNull(delivery.getProperties(), "properties");
-
+            validate(delivery);
             requireNonNull(queue, "queue");
         }
 
@@ -72,10 +74,7 @@ public sealed interface Incoming<T> extends Message<T> {
     record Request<T>(Delivery delivery, String queue, T content) implements Incoming<T> {
 
         public Request {
-            requireNonNull(delivery, "delivery");
-            requireNonNull(delivery.getEnvelope(), "envelope of the delivery");
-            requireNonNull(delivery.getProperties(), "properties");
-
+            validate(delivery);
             requireNonNull(queue, "queue");
 
             requireNonNull(delivery.getProperties().getReplyTo(), "replyTo property");
@@ -90,10 +89,7 @@ public sealed interface Incoming<T> extends Message<T> {
 
     record Response<REQ, RES>(Delivery delivery, RES content, Outgoing.Request<REQ> request) implements Incoming<RES> {
         public Response {
-            requireNonNull(delivery, "delivery");
-            requireNonNull(delivery.getEnvelope(), "envelope of the delivery");
-            requireNonNull(delivery.getProperties(), "properties");
-
+            validate(delivery);
             requireNonNull(request, "request");
         }
 

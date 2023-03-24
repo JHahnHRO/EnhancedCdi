@@ -1,7 +1,8 @@
 package io.github.jhahnhro.enhancedcdi.messaging.messages;
 
+import static java.util.Objects.requireNonNull;
+
 import java.lang.reflect.Type;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -21,12 +22,7 @@ import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
  */
 public sealed interface Outgoing<T> extends Message<T> {
 
-    private static void requireNonNull(Object param, String name) {
-        if (param == null) {
-            throw new IllegalArgumentException(name + " must not be null.");
-        }
-    }
-
+    //region private helper methods
     private static Type validateType(Object content, Type type) {
         requireNonNull(content, "content");
         if (type == null) {
@@ -34,10 +30,6 @@ public sealed interface Outgoing<T> extends Message<T> {
         }
 
         final TypeVariableResolver resolver = TypeVariableResolver.withKnownTypesOf(type);
-        if (resolver.hasUnresolvedVariables()) {
-            throw new IllegalArgumentException("type has unresolved type variables");
-        }
-
         final Class<?> clazz = content.getClass();
         if (type == content) {
             return type;
@@ -92,12 +84,12 @@ public sealed interface Outgoing<T> extends Message<T> {
             }
 
             public Builder<T> setExchange(String exchange) {
-                this.exchange = Objects.requireNonNull(exchange);
+                this.exchange = requireNonNull(exchange);
                 return this;
             }
 
             public Builder<T> setRoutingKey(String routingKey) {
-                this.routingKey = Objects.requireNonNull(routingKey);
+                this.routingKey = requireNonNull(routingKey);
                 return this;
             }
 
@@ -105,6 +97,7 @@ public sealed interface Outgoing<T> extends Message<T> {
             public Cast<T> build() {
                 return new Cast<>(exchange, routingKey, this.properties(), this.content(), this.type());
             }
+
         }
     }
 
@@ -143,12 +136,12 @@ public sealed interface Outgoing<T> extends Message<T> {
             }
 
             public Builder<T> setExchange(String exchange) {
-                this.exchange = Objects.requireNonNull(exchange);
+                this.exchange = requireNonNull(exchange);
                 return this;
             }
 
             public Builder<T> setRoutingKey(String routingKey) {
-                this.routingKey = Objects.requireNonNull(routingKey);
+                this.routingKey = requireNonNull(routingKey);
                 return this;
             }
 
@@ -156,6 +149,7 @@ public sealed interface Outgoing<T> extends Message<T> {
             public Request<T> build() {
                 return new Request<>(exchange, routingKey, this.properties(), this.content(), this.type());
             }
+
         }
     }
 
@@ -240,22 +234,24 @@ public sealed interface Outgoing<T> extends Message<T> {
             public Incoming.Request<REQ> getRequest() {
                 return request;
             }
+
         }
     }
 
     sealed class Builder<RES> implements Message<RES> permits Cast.Builder, Request.Builder, Response.Builder {
 
         protected final AMQP.BasicProperties.Builder propertiesBuilder;
+
         protected Object content = null; // mutable for all
         protected Type type = null; // mutable for all
-
         protected String exchange; // immutable for Response.Builder
+
         protected String routingKey; // immutable for Response.Builder
 
         public Builder(final String exchange, final String routingKey) {
             this.propertiesBuilder = new AMQP.BasicProperties.Builder();
-            this.exchange = Objects.requireNonNull(exchange);
-            this.routingKey = Objects.requireNonNull(routingKey);
+            this.exchange = requireNonNull(exchange);
+            this.routingKey = requireNonNull(routingKey);
         }
 
         @Override
@@ -326,5 +322,7 @@ public sealed interface Outgoing<T> extends Message<T> {
             }
             return new Cast<>(exchange(), routingKey(), properties, content(), type());
         }
+
     }
+    //endregion
 }
