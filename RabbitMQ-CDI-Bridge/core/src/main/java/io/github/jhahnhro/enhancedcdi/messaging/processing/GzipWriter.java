@@ -24,7 +24,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
  * <ul>
  *     <li>the corresponding request had a header named "Accept-Encoding". It is interpreted the same way as the
  *     <a href="https://datatracker.ietf.org/doc/html/rfc2616#section-14.3">HTTP-header of the same name</a>,
- *     i.e. as a list of QValues where higher weights indicate the preferred choice of encoding.</li>
+ *     i.e. as {@link QValues} where higher weights indicate the preferred choice of encoding.</li>
  *     <li>No other {@link BasicProperties#getContentEncoding() content encoding} has been set on the outgoing
  *     message.</li>
  * </ul>
@@ -34,16 +34,25 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
  */
 @Decorator
 @Priority(Interceptor.Priority.LIBRARY_BEFORE + 500)
-abstract class GzipWriter<T> implements MessageWriter<T> {
+class GzipWriter<T> implements MessageWriter<T> {
     private static final Set<String> SUPPORTED_ENCODINGS = Set.of("*", "gzip", "deflate");
     @Inject
-    @Any
+    @Selected
     @Delegate
     MessageWriter<T> messageWriter;
 
 
     @Override
     public void write(Outgoing<T> originalMessage, Outgoing.Builder<OutputStream> messageBuilder) throws IOException {
+        try (var decoratedStream = decorateOutputStream(originalMessage, messageBuilder)) {
+            messageBuilder.setContent(decoratedStream);
+            messageWriter.write(originalMessage, messageBuilder);
+        }
+    }
+
+    protected OutputStream decorateOutputStream(Outgoing<T> originalMessage,
+                                                Outgoing.Builder<OutputStream> messageBuilder)
+            throws IOException {
         OutputStream outputStream = messageBuilder.content();
 
         if (messageBuilder.properties().getContentEncoding() == null
@@ -52,23 +61,19 @@ abstract class GzipWriter<T> implements MessageWriter<T> {
 
             if ("*".equals(contentEncoding) || "gzip".equals(contentEncoding)) {
                 messageBuilder.propertiesBuilder().contentEncoding("gzip");
-                outputStream = new GZIPOutputStream(outputStream);
-            } else if ("deflate".equalsIgnoreCase(contentEncoding)) {
+                return new GZIPOutputStream(outputStream);
+            } else if ("deflate".equals(contentEncoding)) {
                 messageBuilder.propertiesBuilder().contentEncoding("deflate");
-                outputStream = new DeflaterOutputStream(outputStream);
+                return new DeflaterOutputStream(outputStream);
             }
         }
-
-        try (var decoratedStream = outputStream) {
-            messageBuilder.setContent(decoratedStream);
-            messageWriter.write(originalMessage, messageBuilder);
-        }
+        return outputStream;
     }
 
     /**
-     * Returns  the acceptable content encoding with the highest weight or {@code null} if none of the supported
-     * encodings is acceptable. Absence of the "Accept-Encoding" header is interpreted as "any encoding is acceptable"
-     * in accordance with RFC 2616.
+     * Returns the acceptable content-encoding with the highest weight or {@code null} if none of the supported
+     * encodings is acceptable. Absence of the "Accept-Encoding" header is interpreted as "identity" encoding in
+     * accordance with RFC 2616.
      *
      * @param request the original request
      * @return the acceptable content encoding with the highest weight or {@code null} if none of the supported
@@ -78,6 +83,7 @@ abstract class GzipWriter<T> implements MessageWriter<T> {
         final String acceptEncodingHeader = Optional.ofNullable(request.properties().getHeaders())
                 .map(headers -> headers.get("Accept-Encoding"))
                 .map(String.class::cast)
+                .map(s -> s.toLowerCase(Locale.ROOT))
                 // From RFC 2616 section 14.3:
                 // "If no Accept-Encoding field is present in a request, the server MAY
                 //  assume that the client will accept any content coding. In this case,
@@ -94,7 +100,6 @@ abstract class GzipWriter<T> implements MessageWriter<T> {
                 .getAcceptableValues()
                 .stream()
                 .map(QValues.QValue::value)
-                .map(s -> s.toLowerCase(Locale.ROOT))
                 .filter(SUPPORTED_ENCODINGS::contains)
                 .findFirst();
     }

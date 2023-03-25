@@ -18,19 +18,17 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
 /**
  * A decorator that adds automatic decompression for incoming messages with
  * {@link AMQP.BasicProperties#getContentEncoding() content encoding} set to "gzip" or "deflate".
- *
- * @param <T> type of the read message.
  */
 @Decorator
 @Priority(Interceptor.Priority.LIBRARY_BEFORE + 500)
-abstract class GzipReader<T> implements MessageReader<T> {
+class GzipReader implements MessageReader<Object> {
     @Inject
-    @Any
+    @Selected
     @Delegate
-    MessageReader<T> messageReader;
+    MessageReader<Object> messageReader;
 
     @Override
-    public T read(Incoming<InputStream> message) throws IOException {
+    public Object read(Incoming<InputStream> message) throws IOException {
         final String contentEncoding = message.properties().getContentEncoding();
 
         InputStream inputStream = message.content();

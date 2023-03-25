@@ -17,7 +17,7 @@ import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
@@ -34,7 +34,8 @@ class GzipReaderTest {
     WeldInitiator w = WeldInitiator.from(GzipReader.class, FooBarReader.class).build();
 
     @Inject
-    MessageReader<FooBar> gzipReader;
+    @Selected
+    MessageReader<Object> gzipReader;
 
     private static byte[] createCompressedBytes() {
         try (var os = new ByteArrayOutputStream(); var gzos = new GZIPOutputStream(os)) {
@@ -60,24 +61,24 @@ class GzipReaderTest {
     void givenOtherEncodedIncomingMessage_whenRead_thenDecompress() throws IOException {
         final Incoming.Cast<InputStream> incoming = getIncoming("other", BYTES);
 
-        final FooBar fooBar = gzipReader.read(incoming);
-        assertThat(fooBar).isNotNull();
+        final Object fooBar = gzipReader.read(incoming);
+        assertThat(fooBar).isNotNull().isInstanceOf(FooBar.class);
     }
 
     @Test
     void givenGzipEncodedIncomingMessage_whenRead_thenDecompress() throws IOException {
         final Incoming.Cast<InputStream> incoming = getIncoming("gzip", GZIPPED_BYTES);
 
-        final FooBar fooBar = gzipReader.read(incoming);
-        assertThat(fooBar).isNotNull();
+        final Object fooBar = gzipReader.read(incoming);
+        assertThat(fooBar).isNotNull().isInstanceOf(FooBar.class);
     }
 
     @Test
     void givenDeflateEncodedIncomingMessage_whenRead_thenDecompress() throws IOException {
         final Incoming.Cast<InputStream> incoming = getIncoming("deflate", DEFLATED_BYTES);
 
-        final FooBar fooBar = gzipReader.read(incoming);
-        assertThat(fooBar).isNotNull();
+        final Object fooBar = gzipReader.read(incoming);
+        assertThat(fooBar).isNotNull().isInstanceOf(FooBar.class);
     }
 
     private Incoming.Cast<InputStream> getIncoming(String encoding, byte[] bytes) {
@@ -93,19 +94,10 @@ class GzipReaderTest {
 
     private static class FooBar {}
 
-    static class FooBarReader implements SelectableMessageReader<FooBar> {
+    @Selected
+    static class FooBarReader implements MessageReader<Object> {
 
         protected FooBarReader() {
-        }
-
-        @Override
-        public int getPriority() {
-            return 0;
-        }
-
-        @Override
-        public boolean canRead(Incoming<byte[]> message) {
-            return true;
         }
 
         @Override

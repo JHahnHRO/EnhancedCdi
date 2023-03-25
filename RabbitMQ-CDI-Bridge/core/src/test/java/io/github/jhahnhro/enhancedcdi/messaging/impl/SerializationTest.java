@@ -1,170 +1,184 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
-import javax.enterprise.context.Dependent;
-import javax.enterprise.util.TypeLiteral;
-import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
+import io.github.jhahnhro.enhancedcdi.messaging.Retry;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.ByteArrayReaderWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.PlainTextReaderWriter;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
-import io.github.jhahnhro.enhancedcdi.util.BeanHelper;
-import org.jboss.weld.junit.MockBean;
-import org.jboss.weld.junit5.WeldInitiator;
-import org.jboss.weld.junit5.WeldJunit5Extension;
-import org.jboss.weld.junit5.WeldSetup;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
+import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InOrder;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.stubbing.Answer;
 
 @ExtendWith(MockitoExtension.class)
-@ExtendWith(WeldJunit5Extension.class)
 class SerializationTest {
 
-    static final int MAX_MESSAGE_SIZE = 100;
-    static final Configuration CONFIGURATION = new Configuration(new ConnectionFactory(), Configuration.Retry.NO_RETRY,
-                                                                 MAX_MESSAGE_SIZE);
-
-    int destructionCounter = 0;
-    @WeldSetup
-    WeldInitiator w = WeldInitiator.from(Serialization.class, BeanHelper.class, PlainTextReaderWriter.class,
-                                         PlainTextReaderWriter.class).addBeans(
-            // configuration bean for the maximal message size
-            MockBean.of(CONFIGURATION, Configuration.class),
-
-            // mock bean that does basically the same as PlainTextReaderWriter, but has higher priority
-            MockBean.builder()
-                    .types(new TypeLiteral<SelectableMessageWriter<String>>() {}.getType(),
-                           new TypeLiteral<SelectableMessageReader<String>>() {}.getType())
-                    .scope(Dependent.class)
-                    .creating(new StringTestCodec(1))
-                    .destroy((instance, ctx) -> destructionCounter++)
-                    .build(),
-            // mock bean that should never be selected, but is also dependent
-            MockBean.builder()
-                    .types(new TypeLiteral<SelectableMessageWriter<Byte>>() {}.getType())
-                    .scope(Dependent.class)
-                    .creating(new ByteTestCodec(1))
-                    .destroy((instance, ctx) -> destructionCounter++)
-                    .build()).build();
-
-
-    @Inject
+    @Mock
+    MessageReader<Object> selectedMessageReader;
+    @Mock
+    EnhancedInstance<Object> enhancedInstance;
+    @InjectMocks
     Serialization serialization;
 
-    //region Serialization
-    @Test
-    void givenStringMessage_whenGetMessageWriterType_thenReturnCorrect() {
-        final Type expectedType = new TypeLiteral<SelectableMessageWriter<? super String>>() {}.getType();
-        final Type actualType = Serialization.getMessageWriterType(String.class);
-
-        assertThat(actualType).isEqualTo(expectedType);
-    }
-
-    @Test
-    void givenStringMessage_whenSerialize_thenHigherPriorityWriterIsSelected() throws IOException {
-        Outgoing<String> outgoingMessage = createOutgoingMessage();
-
-        final Outgoing<byte[]> serializedMessage = serialization.serialize(outgoingMessage);
-
-        assertThat(serializedMessage.content()).isEqualTo("pong".getBytes(StandardCharsets.UTF_8));
-        // verify that the StringTestCodec was selected
-        assertThat(serializedMessage.properties().getType()).isEqualTo("test");
-    }
-
-    @Test
-    void givenStringMessage_whenSerialize_thenDestroyDependentWriters() throws IOException {
-        Outgoing<String> outgoingMessage = createOutgoingMessage();
-
-        serialization.serialize(outgoingMessage);
-
-        // verify that the dependent MockBean of type StringTestCodec was destroyed, but ByteTestCodec was not
-        assertThat(destructionCounter).isEqualTo(1);
-    }
-
-    @Test
-    void givenMessageWithoutWriter_whenSerialize_thenThrowISE() {
-        Outgoing<Integer> outgoingMessage = createOutgoingMessage().builder()
-                .setContent(42)
-                .setType(Integer.class)
-                .build();
-
-        assertThatIllegalStateException().isThrownBy(() -> serialization.serialize(outgoingMessage));
-    }
-
-    @Test
-    void givenLargeMessage_whenSerialize_thenThrowMessageTooLargeException() {
-        final Outgoing<String> outgoing = createOutgoingMessage().builder()
-                .setContent("reeeeeeeeeeeeeeeeeeeeeeeeeeeeeeaaaaaaaaaaaaaaaaaaaaaaaaaaaaaally"
-                            + "looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo"
-                            + "ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong message")
-                .build();
-
-        assertThatThrownBy(() -> serialization.serialize(outgoing)).isInstanceOf(
-                MessageTooLargeException.class);
-    }
-
-    //endregion
-
-    //region Deserialization
-    @Test
-    void givenStringIntMessage_whenGetMessageReaderType_thenReturnCorrect() {
-        final Type expectedType = new TypeLiteral<SelectableMessageReader<? extends CharSequence>>() {}.getType();
-        final Type actualType = Serialization.getMessageReaderType(CharSequence.class);
-
-        assertThat(actualType).isEqualTo(expectedType);
-    }
-
-    @Test
-    void givenStringMessage_whenDeserialize_thenSucceed() throws IOException {
-        Incoming<byte[]> incoming = createPingRequest();
-
-        final Incoming<String> serializedMessage = serialization.deserialize(incoming);
-
-        assertThat(serializedMessage.content()).isEqualTo("ping");
-    }
-
-    @Test
-    void givenStringMessage_whenDeserialize_thenDestroyDependentReaders() throws IOException {
-        Incoming<byte[]> incoming = createPingRequest();
-
-        serialization.deserialize(incoming);
-
-        // verify that the dependent MockBean of type StringTestCodec was destroyed, but ByteTestCodec was not
-        assertThat(destructionCounter).isEqualTo(1);
-    }
-
-    @Test
-    void givenMessageWithoutReader_whenSerialize_thenThrowISE() {
-        byte[] bytes = new byte[]{42};
-        final Envelope envelope = new Envelope(0L, false, "exchange", "routing.key");
-        final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().contentType("unsupportedContentType")
-                .build();
-        final Delivery delivery = new Delivery(envelope, properties, bytes);
-        Incoming<byte[]> incoming = new Incoming.Cast<>(delivery, "queue", bytes);
-
-        assertThatIllegalStateException().isThrownBy(() -> serialization.deserialize(incoming));
-    }
-    //endregion
-
     private Outgoing.Response<byte[], String> createOutgoingMessage() {
-        final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().correlationId("myCorrelationID")
-                .build();
+        final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().deliveryMode(
+                Outgoing.DeliveryMode.PERSISTENT.nr).correlationId("myCorrelationID").build();
         return new Outgoing.Response<>(properties, "pong", createPingRequest());
+    }
+
+    @Nested
+    class TestSerialization {
+
+        @Mock
+        private MessageWriter<String> messageWriter;
+        @Captor
+        private ArgumentCaptor<Outgoing.Builder<OutputStream>> streamCaptor;
+
+        @BeforeEach
+        void mockEnhancedInstance() {
+            when(enhancedInstance.select(any(Type.class), eq(Selected.Literal.INSTANCE))).thenReturn(enhancedInstance);
+        }
+
+        private void mockSelectedMessageWriter() {
+            when(enhancedInstance.get()).thenReturn(messageWriter);
+        }
+
+        @Test
+        void givenOutgoingMessageWithAvailableMessageWriter_whenSerialize_thenBuilderIsInitializedWithOutgoingMessage()
+                throws IOException {
+            mockSelectedMessageWriter();
+
+            Outgoing<String> outgoingMessage = createOutgoingMessage();
+            serialization.serialize(outgoingMessage);
+
+            verify(messageWriter).write(eq(outgoingMessage), streamCaptor.capture());
+            final Outgoing.Builder<OutputStream> builder = streamCaptor.getValue();
+
+            assertThat(builder.exchange()).isEqualTo(outgoingMessage.exchange());
+            assertThat(builder.routingKey()).isEqualTo(outgoingMessage.routingKey());
+            assertThat(builder.properties()).isEqualTo(outgoingMessage.properties());
+        }
+
+        @Test
+        void givenOutgoingMessageWithAvailableMessageWriter_whenSerialize_thenMessageWriterIsDestroyedAfterWrite()
+                throws IOException {
+            mockSelectedMessageWriter();
+
+            Outgoing<String> outgoingMessage = createOutgoingMessage();
+            serialization.serialize(outgoingMessage);
+
+            final InOrder inOrder = inOrder(messageWriter, enhancedInstance);
+            inOrder.verify(messageWriter).write(any(), any());
+            inOrder.verify(enhancedInstance).destroy(messageWriter);
+        }
+
+        @Test
+        void givenOutgoingMessageWithoutAnyMessageWriter_whenSerialize_thenThroeISE() {
+            final Exception exception = new IllegalStateException();
+            when(enhancedInstance.get()).thenThrow(exception);
+
+            final Outgoing<String> outgoingMessage = createOutgoingMessage();
+            assertThatThrownBy(() -> serialization.serialize(outgoingMessage)).isSameAs(exception);
+        }
+
+        @Test
+        void givenOutgoingMessageWithoutApplicableMessageWriter_whenSerialize_thenThroeISE() throws IOException {
+            mockSelectedMessageWriter();
+
+            final Outgoing<String> outgoingMessage = createOutgoingMessage();
+            final Exception exception = new IllegalStateException();
+            doThrow(exception).when(messageWriter).write(eq(outgoingMessage), any());
+
+            assertThatThrownBy(() -> serialization.serialize(outgoingMessage)).isSameAs(exception);
+        }
+
+        @Nested
+        class TestMaxMessageSize {
+
+            private static final int MAX_MESSAGE_SIZE = 100;
+
+            @BeforeEach
+            void setUp() {
+                mockSelectedMessageWriter();
+                serialization.setMaxMessageSize(
+                        new Configuration(new ConnectionFactory(), Retry.NO_RETRY, MAX_MESSAGE_SIZE));
+            }
+
+            @Test
+            void givenOutgoingMessageIsNotTooLarge_whenSerialize_thenSucceed() throws IOException {
+                final Outgoing<String> outgoing = createOutgoingMessage();
+                doAnswer(writeBytes(new byte[MAX_MESSAGE_SIZE])).when(messageWriter).write(eq(outgoing), any());
+
+                assertThatNoException().isThrownBy(() -> serialization.serialize(outgoing));
+            }
+
+            @Test
+            void givenOutgoingMessageIsTooLarge_whenSerialize_thenThrowMessageTooLargeException() throws IOException {
+                final Outgoing<String> outgoing = createOutgoingMessage();
+                doAnswer(writeBytes(new byte[MAX_MESSAGE_SIZE + 1])).when(messageWriter).write(eq(outgoing), any());
+
+                assertThatThrownBy(() -> serialization.serialize(outgoing)).isInstanceOf(
+                        MessageTooLargeException.class);
+            }
+
+            private Answer<Void> writeBytes(final byte[] bytes) {
+                return invocation -> {
+                    final Outgoing.Builder<OutputStream> builder = invocation.getArgument(1);
+                    builder.content().write(bytes);
+                    return null; // void method
+                };
+            }
+        }
+    }
+    //endregion
+
+    @Nested
+    class TestDeserialization {
+
+        @Test
+        void givenStringMessage_whenDeserialize_thenSucceed() throws IOException {
+            Incoming<byte[]> incoming = createPingRequest();
+            when(selectedMessageReader.read(any())).thenReturn("ping");
+
+            final Incoming<?> actual = serialization.deserialize(incoming);
+
+            final Incoming<String> expected = incoming.withContent("ping");
+            assertThat(actual).isEqualTo(expected);
+        }
+
+        @Test
+        void givenMessageWithoutReader_whenSerialize_thenThrowISE() throws IOException {
+            Exception ex = new IllegalStateException();
+            when(selectedMessageReader.read(any())).thenThrow(ex);
+
+            Incoming<byte[]> incoming = createPingRequest();
+            assertThatThrownBy(() -> serialization.deserialize(incoming)).isSameAs(ex);
+        }
     }
 
     private Incoming.Request<byte[]> createPingRequest() {
@@ -177,40 +191,5 @@ class SerializationTest {
                 .build();
         final Delivery delivery = new Delivery(envelope, properties, bytes);
         return new Incoming.Request<>(delivery, "queue", bytes);
-    }
-
-    static class StringTestCodec extends PlainTextReaderWriter {
-
-        private final int priority;
-
-        StringTestCodec(int priority) {
-            this.priority = priority;
-        }
-
-        @Override
-        public void write(Outgoing<String> originalMessage, Outgoing.Builder<OutputStream> serializedMessage)
-                throws IOException {
-            super.write(originalMessage, serializedMessage);
-            serializedMessage.propertiesBuilder().type("test");
-        }
-
-        @Override
-        public int getPriority() {
-            return this.priority;
-        }
-    }
-
-    static class ByteTestCodec extends ByteArrayReaderWriter {
-
-        private final int priority;
-
-        ByteTestCodec(int priority) {
-            this.priority = priority;
-        }
-
-        @Override
-        public int getPriority() {
-            return this.priority;
-        }
     }
 }

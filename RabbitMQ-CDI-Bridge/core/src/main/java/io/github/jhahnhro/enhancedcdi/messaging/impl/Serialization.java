@@ -4,100 +4,79 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.lang.reflect.Type;
 import java.util.Comparator;
-import java.util.stream.Stream;
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.Prioritized;
 import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
 import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
-import io.github.jhahnhro.enhancedcdi.types.WildcardTypeImpl;
-import io.github.jhahnhro.enhancedcdi.util.BeanHelper;
-import io.github.jhahnhro.enhancedcdi.util.BeanInstance;
+import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
 
 @ApplicationScoped
 class Serialization {
 
-    private static final Comparator<Prioritized> HIGHEST_PRIORITY_FIRST = Comparator.comparingInt(
-            Prioritized::getPriority).reversed();
+    static final Comparator<Prioritized> HIGHEST_PRIORITY_FIRST = Comparator.comparingInt(Prioritized::getPriority)
+            .reversed();
+
+    //region Deserialization
     @Inject
-    BeanHelper beanHelper;
+    @Selected
+    MessageReader<Object> selectedMessageReader;
+
+    public Incoming<Object> deserialize(Incoming<byte[]> incomingMessage) throws IOException {
+        try (var inputStream = new ByteArrayInputStream(incomingMessage.content())) {
+            final Object content = selectedMessageReader.read(incomingMessage.withContent(inputStream));
+            return incomingMessage.withContent(content);
+        }
+    }
+    //endregion
+
+
+    //region Serialization
+    @Inject
+    EnhancedInstance<Object> enhancedInstance;
     private int maxMessageSize;
-
-    /**
-     * Increased Visibility because there is a test case for this method.
-     *
-     * @return the Type {@code SelectableMessageReader<? extends T>} where {@code T} is the given type.
-     */
-    static Type getMessageReaderType(final Type runtimeType) {
-        return new ParameterizedTypeImpl(SelectableMessageReader.class, null,
-                                         new WildcardTypeImpl(new Type[]{runtimeType}, new Type[0]));
-    }
-
-    /**
-     * Increased Visibility because there is a test case for this method.
-     *
-     * @return the Type {@code SelectableMessageWriter<? super T>} where {@code T} is the given type.
-     */
-    static Type getMessageWriterType(final Type runtimeType) {
-        return new ParameterizedTypeImpl(SelectableMessageWriter.class, null,
-                                         new WildcardTypeImpl(new Type[]{Object.class}, new Type[]{runtimeType}));
-    }
 
     @Inject
     void setMaxMessageSize(Configuration configuration) {
         this.maxMessageSize = configuration.maxMessageSize();
     }
 
-    public <T> Incoming<T> deserialize(Incoming<byte[]> incomingMessage) throws IOException {
-
-        try (var inputStream = new ByteArrayInputStream(incomingMessage.content());
-             var applicableReaders = getApplicableReaders(incomingMessage, Object.class)) {
-            var selectedReader = selectHighestPriority(applicableReaders,
-                                                       "No MessageReader is applicable to the message.");
-            final Object content = selectedReader.read(incomingMessage.withContent(inputStream));
-            return (Incoming<T>) incomingMessage.withContent(content);
-        }
-    }
-
-    private <X extends Prioritized> X selectHighestPriority(Stream<X> instances, final String msg) {
-        return instances.min(HIGHEST_PRIORITY_FIRST).orElseThrow(() -> new IllegalStateException(msg));
-    }
-
-    private <T> Stream<SelectableMessageReader<T>> getApplicableReaders(Incoming<byte[]> incoming, final Type typeHint) {
-        Type messageReaderType = getMessageReaderType(typeHint);
-        return beanHelper.<SelectableMessageReader<T>>safeStream(messageReaderType, Any.Literal.INSTANCE)
-                .map(BeanInstance::instance)
-                .filter(reader -> reader.canRead(incoming));
-    }
-
     public <T> Outgoing<byte[]> serialize(Outgoing<T> outgoingMessage) throws IOException {
         final Outgoing.Builder<?> builder = outgoingMessage.builder();
 
-        try (var outputStream = new BoundedByteArrayOutputStream(maxMessageSize);
-             var applicableWriters = getApplicableWriters(outgoingMessage, outgoingMessage.type())) {
-            var selectedWriter = selectHighestPriority(applicableWriters, "No MessageWriter of type " + outgoingMessage.type()
-                                                                          + " is applicable to the message.");
-            selectedWriter.write(outgoingMessage, builder.setType(OutputStream.class).setContent(outputStream));
+        try (var outputStream = new BoundedByteArrayOutputStream(maxMessageSize)) {
+            writeWithSelectedWriter(outgoingMessage, builder.setType(OutputStream.class).setContent(outputStream));
             outputStream.flush();
             return builder.setType(byte[].class).setContent(outputStream.toByteArray()).build();
         }
     }
 
-    private <T> Stream<SelectableMessageWriter<T>> getApplicableWriters(Outgoing<T> outgoingMessage, final Type typeHint) {
-        Type messageWriterType = getMessageWriterType(typeHint);
-        return beanHelper.<SelectableMessageWriter<T>>safeStream(messageWriterType, Any.Literal.INSTANCE)
-                .map(BeanInstance::instance)
-                .filter(writer -> writer.canWrite(outgoingMessage));
+    private <T> void writeWithSelectedWriter(Outgoing<T> outgoingMessage,
+                                             Outgoing.Builder<OutputStream> serializedMessage)
+            throws IOException {
+
+        MessageWriter<T> selectedWriter = getSelectedWriter(outgoingMessage);
+        try {
+            selectedWriter.write(outgoingMessage, serializedMessage);
+        } finally {
+            enhancedInstance.destroy(selectedWriter);
+        }
     }
+
+    private <T> MessageWriter<T> getSelectedWriter(Outgoing<T> outgoingMessage) {
+        var messageWriterType = new ParameterizedTypeImpl(MessageWriter.class, null, outgoingMessage.type());
+        return this.enhancedInstance.<MessageWriter<T>>select(messageWriterType, Selected.Literal.INSTANCE).get();
+    }
+
+    //endregion
 
     private static class BoundedByteArrayOutputStream extends ByteArrayOutputStream {
         final int maxSize;

@@ -17,7 +17,7 @@ import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
@@ -34,6 +34,7 @@ class GzipWriterTest {
     WeldInitiator w = WeldInitiator.from(GzipWriter.class, FooBarWriter.class).build();
 
     @Inject
+    @Selected
     MessageWriter<FooBar> gzipWriter;
 
     private static byte[] createCompressedBytes() {
@@ -140,18 +141,9 @@ class GzipWriterTest {
 
     private static class FooBar {}
 
-    static class FooBarWriter implements SelectableMessageWriter<FooBar> {
+    @Selected
+    static class FooBarWriter implements MessageWriter<FooBar> {
         protected FooBarWriter() {
-        }
-
-        @Override
-        public int getPriority() {
-            return 0;
-        }
-
-        @Override
-        public boolean canWrite(Outgoing<FooBar> message) {
-            return true;
         }
 
         @Override
