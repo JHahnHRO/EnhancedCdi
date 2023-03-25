@@ -17,9 +17,9 @@ class QValuesTest {
     void testParse() {
         final QValues qValues = QValues.parse("a, b;q=0.9, , c;q=0");
 
-        assertThat(qValues.getPreferredValue()).contains("a");
-        assertThat(qValues.getAcceptableValues()).isEqualTo(List.of(new QValue("a", 1.0f), new QValue("b", 0.9f)));
-        assertThat(qValues.getUnacceptableValues()).isEqualTo(Set.of("c"));
+        assertThat(qValues.preferredValue()).contains("a");
+        assertThat(qValues.acceptableValues()).isEqualTo(List.of(new QValue("a", 1.0f), new QValue("b", 0.9f)));
+        assertThat(qValues.unacceptableValues()).isEqualTo(Set.of("c"));
     }
 
     @ParameterizedTest

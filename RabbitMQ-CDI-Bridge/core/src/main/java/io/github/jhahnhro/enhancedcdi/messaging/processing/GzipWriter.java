@@ -97,7 +97,7 @@ class GzipWriter<T> implements MessageWriter<T> {
 
     private Optional<String> selectEncoding(String acceptableEncodings) {
         return QValues.parse(acceptableEncodings)
-                .getAcceptableValues()
+                .acceptableValues()
                 .stream()
                 .map(QValues.QValue::value)
                 .filter(SUPPORTED_ENCODINGS::contains)
