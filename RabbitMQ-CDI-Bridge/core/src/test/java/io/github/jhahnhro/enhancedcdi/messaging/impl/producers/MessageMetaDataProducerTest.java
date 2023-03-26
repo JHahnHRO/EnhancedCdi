@@ -45,7 +45,8 @@ class MessageMetaDataProducerTest {
 
     public static final byte[] CONTENT = new byte[]{0, 1, 2, 3, 4, 5, 6, 7, 8};
     public static final Envelope ENVELOPE = new Envelope(4711L, false, "exchange", "routing.key");
-    private static final AMQP.BasicProperties PROPERTIES = new AMQP.BasicProperties.Builder().replyTo("reply-to-queue")
+    private static final AMQP.BasicProperties PROPERTIES = new AMQP.BasicProperties.Builder().deliveryMode(1)
+            .replyTo("reply-to-queue")
             .correlationId("correlation-id")
             // @formatter:off
             .headers(Map.ofEntries(
@@ -138,7 +139,7 @@ class MessageMetaDataProducerTest {
     }
 
     @Test
-    void givenNonRequestMessage_whenInjectResponseBuilder_thenSucceed() {
+    void givenNonRequestMessage_whenInjectResponseBuilder_thenThrowISE() {
         metaData.setRawMessage(CAST, ACKNOWLEDGMENT);
 
         final Instance<Outgoing.Response.Builder<byte[], String>> builderInstance = instance.select(
@@ -147,7 +148,7 @@ class MessageMetaDataProducerTest {
     }
 
     @Test
-    void givenNoMessage_whenInjectResponseBuilder_thenSucceed() {
+    void givenNoMessage_whenInjectResponseBuilder_thenThrowISE() {
         final Instance<Outgoing.Response.Builder<byte[], String>> builderInstance = instance.select(
                 new TypeLiteral<>() {});
         assertThatIllegalStateException().isThrownBy(builderInstance::get);

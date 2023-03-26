@@ -12,6 +12,7 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -30,8 +31,9 @@ class PlainTextReaderWriterTest {
         @Test
         void readNonUtf8Charset() throws IOException {
             byte[] body = "äöü".getBytes(StandardCharsets.ISO_8859_1);
-            AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().contentType(
-                    "text/plain; charset=" + StandardCharsets.ISO_8859_1.name()).build();
+            AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().deliveryMode(1)
+                    .contentType("text/plain; charset=" + StandardCharsets.ISO_8859_1.name())
+                    .build();
 
             Incoming<byte[]> incoming = new Incoming.Cast<>(new Delivery(defaultEnvelope(), properties, body), "queue",
                                                             body);
@@ -46,7 +48,9 @@ class PlainTextReaderWriterTest {
         @Test
         void readUtf8Charset() throws IOException {
             byte[] body = "äöü".getBytes(StandardCharsets.UTF_8);
-            AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().contentType("text/plain").build();
+            AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().deliveryMode(1)
+                    .contentType("text/plain")
+                    .build();
 
             Incoming<byte[]> incoming = new Incoming.Cast<>(new Delivery(defaultEnvelope(), properties, body), "queue",
                                                             body);
@@ -70,7 +74,8 @@ class PlainTextReaderWriterTest {
             assertThat(readerWriter.canWrite(outgoing)).isTrue();
 
             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final Outgoing.Builder<OutputStream> builder = new Outgoing.Builder<>("exchange", "routing.key").setContent(
+            final Outgoing.Builder<OutputStream> builder = new Outgoing.Builder<>("exchange", "routing.key",
+                                                                                  Message.DeliveryMode.PERSISTENT).setContent(
                     baos);
 
             readerWriter.write(outgoing, builder);

@@ -67,8 +67,10 @@ class RpcResultPublishingInterceptorTest {
 
     private static io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<String> createIncomingRequest() {
         final Envelope envelope = new Envelope(0L, false, "exchange", "routing.key");
-        final AMQP.BasicProperties requestProperties = new AMQP.BasicProperties.Builder().replyTo(
-                "auto-generated-reply-queue").correlationId("myCorrelationID").build();
+        final AMQP.BasicProperties requestProperties = new AMQP.BasicProperties.Builder().deliveryMode(1)
+                .replyTo("auto-generated-reply-queue")
+                .correlationId("myCorrelationID")
+                .build();
         final Delivery delivery = new Delivery(envelope, requestProperties, "ping".getBytes(StandardCharsets.UTF_8));
         return new io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<>(delivery, "queue", "ping");
     }
@@ -97,7 +99,7 @@ class RpcResultPublishingInterceptorTest {
         Outgoing.Response<String, Instant> plusThreeHours(@Observes @Incoming Instant input) {
             final var responseBuilder = new Outgoing.Response.Builder<String, Instant>(INCOMING_REQUEST).setContent(
                     input.plus(3, ChronoUnit.HOURS));
-            responseBuilder.propertiesBuilder().type("special");
+            responseBuilder.propertiesBuilder().deliveryMode(1).type("special");
             return responseBuilder.build();
         }
 

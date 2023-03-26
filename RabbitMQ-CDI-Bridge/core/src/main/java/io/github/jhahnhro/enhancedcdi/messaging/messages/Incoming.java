@@ -20,6 +20,11 @@ public sealed interface Incoming<T> extends Message<T> {
         requireNonNull(delivery, "delivery");
         requireNonNull(delivery.getEnvelope(), "envelope of the delivery");
         requireNonNull(delivery.getProperties(), "properties");
+
+        final int deliveryMode = delivery.getProperties().getDeliveryMode();
+        if (deliveryMode != DeliveryMode.TRANSIENT.nr && deliveryMode != DeliveryMode.PERSISTENT.nr) {
+            throw new IllegalArgumentException("BasicProperties.deliveryMode must be set to either 1 or 2");
+        }
     }
 
     @Override

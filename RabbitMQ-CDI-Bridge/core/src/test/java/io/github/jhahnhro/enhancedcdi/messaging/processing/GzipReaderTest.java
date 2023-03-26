@@ -82,7 +82,7 @@ class GzipReaderTest {
     }
 
     private Incoming.Cast<InputStream> getIncoming(String encoding, byte[] bytes) {
-        final var properties = new AMQP.BasicProperties.Builder().contentEncoding(encoding).build();
+        final var properties = new AMQP.BasicProperties.Builder().deliveryMode(2).contentEncoding(encoding).build();
         final var delivery = new Delivery(createEnvelope(), properties, bytes);
         final InputStream body = new ByteArrayInputStream(bytes);
         return new Incoming.Cast<>(delivery, "queue", body);

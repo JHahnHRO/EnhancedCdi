@@ -60,8 +60,8 @@ class GzipWriterTest {
     @Test
     void givenNonResponseMessage_whenWrite_thenDoNotCompress() throws IOException {
         final Outgoing.Cast<FooBar> outgoingMessage = new Outgoing.Cast<>("exchange", "my.routing.key",
-                                                                          new AMQP.BasicProperties.Builder().build(),
-                                                                          new FooBar());
+                                                                          new AMQP.BasicProperties.Builder().deliveryMode(
+                                                                                  1).build(), new FooBar());
         final Outgoing<byte[]> actual = getActualBytes(outgoingMessage);
         assertThat(actual.content()).isEqualTo(BYTES);
         assertThat(actual.properties().getContentEncoding()).isNull();
@@ -116,16 +116,17 @@ class GzipWriterTest {
 
     private Outgoing.Response<String, FooBar> getFooBarResponse(String acceptedEncoding) {
         final Envelope envelope = new Envelope(0L, false, "exchange", "my.routing.key");
-        final AMQP.BasicProperties requestProperties = new AMQP.BasicProperties.Builder().replyTo(
-                        "auto-generated-reply-queue")
+        final AMQP.BasicProperties requestProperties = new AMQP.BasicProperties.Builder().deliveryMode(1)
+                .replyTo("auto-generated-reply-queue")
                 .correlationId("myCorrelationID")
                 .headers(Map.of("Accept-Encoding", acceptedEncoding))
                 .build();
         final var request = new Incoming.Request<>(
                 new Delivery(envelope, requestProperties, "ping".getBytes(StandardCharsets.UTF_8)), "queue", "ping");
 
-        final AMQP.BasicProperties responseProperties = new AMQP.BasicProperties.Builder().correlationId(
-                "myCorrelationID").build();
+        final AMQP.BasicProperties responseProperties = new AMQP.BasicProperties.Builder().deliveryMode(1)
+                .correlationId("myCorrelationID")
+                .build();
         return new Outgoing.Response<>(responseProperties, new FooBar(), request);
     }
 

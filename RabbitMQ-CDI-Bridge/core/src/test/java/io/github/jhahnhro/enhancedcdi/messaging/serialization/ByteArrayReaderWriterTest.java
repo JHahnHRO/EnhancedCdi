@@ -11,6 +11,7 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +22,8 @@ class ByteArrayReaderWriterTest {
     @Test
     void read() throws IOException {
         byte[] body = new byte[]{0, 1, 2, 3, 4, 5, 6, 7};
-        AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().contentType("application/octet-stream")
+        AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().deliveryMode(2)
+                .contentType("application/octet-stream")
                 .build();
         Envelope envelope = new Envelope(123456L, false, "exchange", "routing.key");
         Incoming<byte[]> incoming = new Incoming.Cast<>(new Delivery(envelope, properties, body), "queue", body);
@@ -41,7 +43,9 @@ class ByteArrayReaderWriterTest {
         assertThat(readerWriter.canWrite(outgoing)).isTrue();
 
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        Outgoing.Builder<OutputStream> builder = new Outgoing.Builder<>("exchange", "routing.key").setContent(baos);
+        Outgoing.Builder<OutputStream> builder = new Outgoing.Builder<>("exchange", "routing.key",
+                                                                        Message.DeliveryMode.PERSISTENT).setContent(
+                baos);
 
         readerWriter.write(outgoing, builder);
 

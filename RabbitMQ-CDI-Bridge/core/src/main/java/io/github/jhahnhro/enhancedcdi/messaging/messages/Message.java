@@ -25,6 +25,14 @@ public sealed interface Message<T> permits Incoming, Outgoing, Outgoing.Builder 
      */
     AMQP.BasicProperties properties();
 
+    default DeliveryMode deliveryMode() {
+        return switch (properties().getDeliveryMode()) {
+            case 1 -> DeliveryMode.TRANSIENT;
+            case 2 -> DeliveryMode.PERSISTENT;
+            default -> throw new IllegalStateException("Invalid delivery mode");
+        };
+    }
+
     /**
      * Convenience method to access a single {@link BasicProperties#getHeaders() header in the message's properties}.
      *
@@ -48,4 +56,14 @@ public sealed interface Message<T> permits Incoming, Outgoing, Outgoing.Builder 
      * @return the content of the message.
      */
     T content();
+
+    enum DeliveryMode {
+        TRANSIENT(1), PERSISTENT(2);
+
+        public final int nr;
+
+        DeliveryMode(int nr) {
+            this.nr = nr;
+        }
+    }
 }

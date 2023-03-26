@@ -1,19 +1,17 @@
 package io.github.jhahnhro.enhancedcdi.messaging.messages;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
-import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
+import io.github.jhahnhro.enhancedcdi.types.Types;
 
 
 /**
@@ -25,27 +23,6 @@ import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
  *            during serialization from Java objects to byte streams, or any Java type before serialization.
  */
 public sealed interface Outgoing<T> extends Message<T> {
-
-    //region private helper methods
-    private static Type validateType(Object content, Type type) {
-        requireNonNull(content, "content");
-        if (type == null) {
-            type = content.getClass();
-        }
-
-        final TypeVariableResolver resolver = TypeVariableResolver.withKnownTypesOf(type);
-        final Class<?> clazz = content.getClass();
-        if (type == content) {
-            return type;
-        }
-        final Set<Type> superTypes = resolver.resolvedTypeClosure(clazz);
-        if (!superTypes.contains(type)) {
-            throw new IllegalArgumentException(
-                    "content class %s is not compatible with given type %s".formatted(clazz, type));
-        }
-
-        return type;
-    }
 
     /**
      * The runtime type of this message's content, i.e. it could be {@code List<Integer>} if
@@ -64,27 +41,25 @@ public sealed interface Outgoing<T> extends Message<T> {
             implements Outgoing<T> {
 
         public Cast {
-            requireNonNull(exchange, "exchange");
-            requireNonNull(routingKey, "routingKey");
-            requireNonNull(properties, "properties");
-            type = validateType(content, type);
+            type = requireNonNullElse(type, content.getClass());
+            validate(exchange, routingKey, properties, content, type);
         }
 
         public Cast(String exchange, String routingKey, AMQP.BasicProperties properties, T content) {
-            this(exchange, routingKey, properties, content, null);
+            this(exchange, routingKey, properties, content, content.getClass());
         }
 
         @Override
         public Builder<T> builder() {
-            final Builder<T> builder = new Builder<>(this.exchange(), this.routingKey());
+            final Builder<T> builder = new Builder<>(this.exchange(), this.routingKey(), DeliveryMode.PERSISTENT);
             builder.setContent(this.content).setType(this.type).setProperties(this.properties);
             return builder;
         }
 
         public static final class Builder<T> extends Outgoing.Builder<T> {
 
-            public Builder(String exchange, String routingKey) {
-                super(exchange, routingKey);
+            public Builder(String exchange, String routingKey, DeliveryMode deliveryMode) {
+                super(exchange, routingKey, deliveryMode);
             }
 
             public Builder<T> setExchange(String exchange) {
@@ -109,10 +84,8 @@ public sealed interface Outgoing<T> extends Message<T> {
             implements Outgoing<T> {
 
         public Request {
-            requireNonNull(exchange, "exchange");
-            requireNonNull(routingKey, "routingKey");
-            requireNonNull(properties, "properties");
-            type = validateType(content, type);
+            type = requireNonNullElse(type, content.getClass());
+            validate(exchange, routingKey, properties, content, type);
 
             if (properties.getReplyTo() == null) {
                 properties = properties.builder().replyTo(Topology.RABBITMQ_REPLY_TO).build();
@@ -123,20 +96,20 @@ public sealed interface Outgoing<T> extends Message<T> {
         }
 
         public Request(String exchange, String routingKey, AMQP.BasicProperties properties, T content) {
-            this(exchange, routingKey, properties, content, null);
+            this(exchange, routingKey, properties, content, content.getClass());
         }
 
         @Override
         public Builder<T> builder() {
-            final Builder<T> builder = new Builder<>(this.exchange(), this.routingKey());
+            final Builder<T> builder = new Builder<>(this.exchange(), this.routingKey(), DeliveryMode.PERSISTENT);
             builder.setContent(this.content).setType(this.type).setProperties(this.properties);
             return builder;
         }
 
         public static final class Builder<T> extends Outgoing.Builder<T> {
 
-            public Builder(String exchange, String routingKey) {
-                super(exchange, routingKey);
+            public Builder(String exchange, String routingKey, DeliveryMode deliveryMode) {
+                super(exchange, routingKey, deliveryMode);
             }
 
             public Builder<T> setExchange(String exchange) {
@@ -157,22 +130,51 @@ public sealed interface Outgoing<T> extends Message<T> {
         }
     }
 
+    //region private helper methods
+    private static <X> void validate(String exchange, String routingKey, AMQP.BasicProperties properties, X content,
+                                     Type type) {
+        requireNonNull(exchange, "exchange");
+        requireNonNull(routingKey, "routingKey");
+        validateProperties(properties);
+        validateType(content, type);
+    }
+
+    private static void validateType(Object content, Type type) {
+        requireNonNull(content, "content");
+        requireNonNull(type, "type");
+
+        if (!Types.erasure(type).isAssignableFrom(content.getClass())) {
+            throw new IllegalArgumentException(
+                    "content class %s is not compatible with given type %s".formatted(content.getClass(), type));
+        }
+    }
+
+    private static void validateProperties(AMQP.BasicProperties properties) {
+        requireNonNull(properties, "properties");
+
+        final int deliveryMode = properties.getDeliveryMode();
+        if (deliveryMode != DeliveryMode.TRANSIENT.nr && deliveryMode != DeliveryMode.PERSISTENT.nr) {
+            throw new IllegalArgumentException("BasicProperties.deliveryMode must be set to either 1 or 2");
+        }
+    }
+
     record Response<REQ, RES>(AMQP.BasicProperties properties, RES content, Type type, Incoming.Request<REQ> request)
             implements Outgoing<RES> {
 
         public Response {
-            requireNonNull(properties, "properties");
-            requireNonNull(request, "request");
-            type = validateType(content, type);
+            type = requireNonNullElse(type, content.getClass());
+            validate("", request.properties().getReplyTo(), properties, content, type);
 
-            if (!request.properties().getCorrelationId().equals(properties.getCorrelationId())) {
+            if (properties.getCorrelationId() == null) {
+                properties = properties.builder().correlationId(request.properties().getCorrelationId()).build();
+            } else if (!request.properties().getCorrelationId().equals(properties.getCorrelationId())) {
                 throw new IllegalArgumentException(
                         "The response does not belong to the request (correlation id differs).");
             }
         }
 
         public Response(AMQP.BasicProperties properties, RES content, Incoming.Request<REQ> request) {
-            this(properties, content, null, request);
+            this(properties, content, content.getClass(), request);
         }
 
         /**
@@ -206,9 +208,15 @@ public sealed interface Outgoing<T> extends Message<T> {
             private final Incoming.Request<REQ> request;
 
             public Builder(Incoming.Request<REQ> request) {
-                super("", request.properties().getReplyTo());
+                super("", request.properties().getReplyTo(), request.deliveryMode());
                 this.request = request;
                 this.propertiesBuilder.correlationId(request.properties().getCorrelationId());
+            }
+
+            @Override
+            public Builder<REQ, RES> setDeliveryMode(DeliveryMode deliveryMode) {
+                super.setDeliveryMode(deliveryMode);
+                return this;
             }
 
             @Override
@@ -249,11 +257,10 @@ public sealed interface Outgoing<T> extends Message<T> {
         protected Object content = null; // mutable for all
         protected Type type = null; // mutable for all
         protected String exchange; // immutable for Response.Builder
-
         protected String routingKey; // immutable for Response.Builder
 
-        public Builder(final String exchange, final String routingKey) {
-            this.propertiesBuilder = new AMQP.BasicProperties.Builder();
+        public Builder(final String exchange, final String routingKey, DeliveryMode deliveryMode) {
+            this.propertiesBuilder = new AMQP.BasicProperties.Builder().deliveryMode(deliveryMode.nr);
             this.exchange = requireNonNull(exchange);
             this.routingKey = requireNonNull(routingKey);
         }
@@ -266,6 +273,11 @@ public sealed interface Outgoing<T> extends Message<T> {
         @Override
         public String routingKey() {
             return routingKey;
+        }
+
+        public Builder<RES> setDeliveryMode(DeliveryMode deliveryMode) {
+            this.propertiesBuilder.deliveryMode(deliveryMode.nr);
+            return this;
         }
 
         public AMQP.BasicProperties.Builder propertiesBuilder() {
