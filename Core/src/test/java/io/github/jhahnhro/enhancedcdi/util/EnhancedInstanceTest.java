@@ -20,6 +20,7 @@ import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.AmbiguousResolutionException;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.Default;
+import javax.enterprise.inject.Instance;
 import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.UnsatisfiedResolutionException;
 import javax.enterprise.util.AnnotationLiteral;
@@ -28,7 +29,6 @@ import javax.inject.Inject;
 import javax.inject.Qualifier;
 
 import org.jboss.weld.environment.se.Weld;
-import org.jboss.weld.inject.WeldInstance;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
@@ -39,7 +39,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class BeanHelperTest {
+class EnhancedInstanceTest {
 
     @Produces
     static List<String> strings = List.of("foo", "bar", "baz");
@@ -57,10 +57,11 @@ class BeanHelperTest {
     @MyQualifier
     static Map<Integer, String> qualifiedMap = Map.of(1, "-1", 2, "-2", 3, "-3");
     Weld w = new Weld().disableDiscovery()
-            .addBeanClasses(BeanHelper.class, BeanHelperTest.class, AppScopedBean.class, DependentBean.class);
+            .addBeanClasses(EnhancedInstance.class, EnhancedInstanceTest.class, AppScopedBean.class,
+                            DependentBean.class);
 
     @Inject
-    BeanHelper beanHelper;
+    EnhancedInstance<Object> enhancedInstance;
 
     static Stream<Arguments> getArguments() {
         final Annotation[] none = new Annotation[0];
@@ -133,11 +134,12 @@ class BeanHelperTest {
         WeldInitiator weld = WeldInitiator.of(w);
 
         @ParameterizedTest
-        @MethodSource("io.github.jhahnhro.enhancedcdi.util.BeanHelperTest#getArguments")
+        @MethodSource("io.github.jhahnhro.enhancedcdi.util.EnhancedInstanceTest#getArguments")
         <T> void givenTypeAndQualifiers_whenSafeStream_thenAllInstancesAreReturned(final Type beanType,
                                                                                    final Annotation[] qualifiers,
                                                                                    final T[] expectedInstances) {
-            final Collection<T> actual = beanHelper.<T>safeStream(beanType, qualifiers)
+            final Collection<T> actual = enhancedInstance.<T>select(beanType, qualifiers)
+                    .safeStream()
                     .map(BeanInstance::instance)
                     .toList();
             assertThat(actual).containsExactlyInAnyOrder(expectedInstances);
@@ -145,7 +147,7 @@ class BeanHelperTest {
 
         @Test
         void givenType_whenSafeStreamIsClosed_thenAllDependentInstancesAreDestroyed() {
-            try (Stream<BeanInstance<MyInterface>> beanInstanceStream = beanHelper.safeStream(MyInterface.class)) {
+            try (var beanInstanceStream = enhancedInstance.select(MyInterface.class).safeStream()) {
                 final List<BeanInstance<MyInterface>> beanInstances = beanInstanceStream.toList();
 
                 // verify that terminal operation toList() does not close the stream
@@ -177,53 +179,51 @@ class BeanHelperTest {
 
         @Test
         void givenUniqueBean_whenSelect_thenSucceed() {
-            final Type type = new TypeLiteral<List<Integer>>() {}.getType();
-            final List<Integer> selectedInstance = beanHelper.select(type);
+            final List<Integer> selectedInstance = enhancedInstance.select(new TypeLiteral<List<Integer>>() {}).get();
 
             assertThat(selectedInstance).isSameAs(integers);
         }
 
         @Test
         void givenMultipleBeans_whenSelect_thenThrowAmbiguousResolutionException() {
-            final Type type = new TypeLiteral<Set<?>>() {}.getType();
-            assertThatThrownBy(() -> beanHelper.select(type)).isInstanceOf(AmbiguousResolutionException.class);
+            final EnhancedInstance<Set<?>> selected = enhancedInstance.select(new TypeLiteral<>() {});
+            assertThatThrownBy(selected::get).isInstanceOf(AmbiguousResolutionException.class);
         }
 
         @Test
         void givenNoBeans_whenSelect_thenThrowUnsatisfiedResolutionException() {
-            assertThatThrownBy(() -> beanHelper.select(Instant.class)).isInstanceOf(
-                    UnsatisfiedResolutionException.class);
+            final EnhancedInstance<Instant> selected = enhancedInstance.select(Instant.class);
+            assertThatThrownBy(selected::get).isInstanceOf(UnsatisfiedResolutionException.class);
         }
 
         @Test
         void givenAppScopedBean_whenSelect_thenAlwaysReturnSameInstance() {
-            final Object instance1 = beanHelper.select(AppScopedBean.class);
-            final Object instance2 = beanHelper.select(AppScopedBean.class);
+            final Object instance1 = enhancedInstance.select(AppScopedBean.class).get();
+            final Object instance2 = enhancedInstance.select(AppScopedBean.class).get();
 
             assertThat(instance1).isSameAs(instance2);
         }
 
         @Test
         void givenDependentBean_whenSelect_thenAlwaysReturnNewInstance() {
-            final Object instance1 = beanHelper.select(DependentBean.class);
-            final Object instance2 = beanHelper.select(DependentBean.class);
+            final Object instance1 = enhancedInstance.select(DependentBean.class).get();
+            final Object instance2 = enhancedInstance.select(DependentBean.class).get();
 
             assertThat(instance1).isNotEqualTo(instance2);
         }
 
         @Test
-        void whenSelect_thenDestroyingBeanHelperDestroysDependentBeans() {
-            final WeldInstance<BeanHelper> instance = weld.select(BeanHelper.class);
+        void whenSelect_thenDestroyingEnhancedInstanceDestroysDependentBeans() {
+            final Instance<EnhancedInstance<Object>> instance = weld.select(new TypeLiteral<>() {});
+            final EnhancedInstance<Object> localEnhancedInstance = instance.get();
 
-            final BeanHelper localBeanHelper = instance.get();
+            localEnhancedInstance.select(AppScopedBean.class).get();
+            localEnhancedInstance.select(AppScopedBean.class).get();
 
-            localBeanHelper.select(AppScopedBean.class);
-            localBeanHelper.select(AppScopedBean.class);
+            localEnhancedInstance.select(DependentBean.class).get();
+            localEnhancedInstance.select(DependentBean.class).get();
 
-            localBeanHelper.select(DependentBean.class);
-            localBeanHelper.select(DependentBean.class);
-
-            instance.destroy(localBeanHelper);
+            instance.destroy(localEnhancedInstance);
 
             assertThat(AppScopedBean.destroyed).isZero();
             assertThat(DependentBean.destroyed).isEqualTo(2);

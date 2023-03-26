@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 import javax.enterprise.context.spi.Contextual;
 import javax.enterprise.context.spi.CreationalContext;
+import javax.enterprise.inject.UnsatisfiedResolutionException;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.inject.spi.InjectionPoint;
@@ -16,10 +17,12 @@ import javax.enterprise.inject.spi.InjectionPoint;
  * <p>
  * According to the CDI Spec a bean has:
  * <ol>
- *     <li><i>contextual instances</i>, i.e. the "real" instance(s) of the bean. There can be one or more,
+ *     <li><i>contextual instances</i>, i.e. the "real" instance(s) of the bean. There can be any number of them
  *     depending on the bean's scope:
  *     <ul>
- *         <li>one for {@code @ApplicationScoped} and {@code @Singleton} beans,</li>
+ *         <li>none if the scope's context is not active (i.e. a
+ *         {@link javax.enterprise.context.ContextNotActiveException} could be thrown)</li>
+ *         <li>exactly one for {@code @ApplicationScoped} and {@code @Singleton} beans,</li>
  *         <li>as many as there are requests for {@code @RequestScoped} beans,</li>
  *         <li>a potentially unlimited amount for {@code @Dependent} scoped beans</li>
  *         <li>...</li>
@@ -63,6 +66,9 @@ public final class BeanInstance<T> {
                                                                 InjectionPoint injectionPoint) {
         final Annotation[] qualifiers = injectionPoint.getQualifiers().toArray(Annotation[]::new);
         final Set<Bean<?>> beans = beanManager.getBeans(injectionPoint.getType(), qualifiers);
+        if (beans.isEmpty()) {
+            throw new UnsatisfiedResolutionException("No bean is eligible for injection into " + injectionPoint);
+        }
         final Bean<T> resolvedBean = (Bean<T>) beanManager.resolve(beans);
         final CreationalContext<T> ctx = beanManager.createCreationalContext(resolvedBean);
         return new BeanInstance<>(() -> (T) beanManager.getInjectableReference(injectionPoint, ctx), resolvedBean, ctx);
@@ -71,16 +77,21 @@ public final class BeanInstance<T> {
     public synchronized void destroy() {
         if (state == State.INITIALIZED) {
             contextual.destroy(instance, context);
+            instance = null;
             state = State.DESTROYED;
         }
     }
 
     public synchronized T instance() {
-        if (state == State.NOT_INITIALIZED) {
-            instance = instanceSupplier.get();
-            state = State.INITIALIZED;
-        }
-        return instance;
+        return switch (state) {
+            case NOT_INITIALIZED -> {
+                state = State.INITIALIZED;
+                instance = instanceSupplier.get();
+                yield instance;
+            }
+            case INITIALIZED -> instance;
+            case DESTROYED -> throw new IllegalStateException("Already destroyed");
+        };
     }
 
     public Contextual<T> contextual() {return contextual;}
