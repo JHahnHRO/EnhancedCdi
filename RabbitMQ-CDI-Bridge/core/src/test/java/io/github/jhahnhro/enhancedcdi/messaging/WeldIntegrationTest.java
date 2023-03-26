@@ -1,22 +1,24 @@
 package io.github.jhahnhro.enhancedcdi.messaging;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import javax.enterprise.context.ContextNotActiveException;
 import javax.enterprise.context.Dependent;
+import javax.enterprise.context.Destroyed;
+import javax.enterprise.context.Initialized;
 import javax.enterprise.context.RequestScoped;
-import javax.enterprise.context.spi.Context;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.Produces;
-import javax.enterprise.inject.spi.BeanManager;
 import javax.enterprise.util.TypeLiteral;
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -30,17 +32,20 @@ import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.RabbitMqExtension;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
-import io.github.jhahnhro.enhancedcdi.util.BeanHelper;
+import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
 import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -52,6 +57,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @SuppressWarnings("CdiManagedBeanInconsistencyInspection")
 @ExtendWith(MockitoExtension.class)
+@Tag("integration-test")
+        //@Disabled
 class WeldIntegrationTest {
 
     static final TypeLiteral<io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming<?>> INCOMING_TYPE =
@@ -60,18 +67,18 @@ class WeldIntegrationTest {
     static final ConnectionFactory CONNECTION_FACTORY = createConnectionFactoryMock();
     @Produces
     @Dependent
-    static final Configuration configuration = new Configuration(CONNECTION_FACTORY, Configuration.Retry.NO_RETRY);
+    static final Configuration configuration = new Configuration(CONNECTION_FACTORY, Retry.NO_RETRY);
 
     @Produces
-    static final AMQP.Exchange.Declare exchange = new AMQP.Exchange.Declare.Builder().exchange("exchange")
+    static final AMQP.Exchange.Declare EXCHANGE = new AMQP.Exchange.Declare.Builder().exchange("exchange")
             .type(BuiltinExchangeType.TOPIC.getType())
             .durable(true)
             .build();
     @Produces
-    static final AMQP.Queue.Declare queue = new AMQP.Queue.Declare.Builder().queue("queue").durable(false).build();
+    static final AMQP.Queue.Declare QUEUE = new AMQP.Queue.Declare.Builder().queue("queue").durable(false).build();
     public static final String ROUTING_KEY = "routing.key";
     @Produces
-    static final AMQP.Queue.Bind queueBinding = new AMQP.Queue.Bind.Builder().exchange("exchange")
+    static final AMQP.Queue.Bind QUEUE_BINDING = new AMQP.Queue.Bind.Builder().exchange("exchange")
             .queue("queue")
             .routingKey(ROUTING_KEY)
             .build();
@@ -79,7 +86,7 @@ class WeldIntegrationTest {
     Weld weld = new Weld().disableDiscovery()
             .addPackage(true, Incoming.class)
             .addExtension(new RabbitMqExtension())
-            .addBeanClass(BeanHelper.class)
+            .addBeanClass(EnhancedInstance.class)
             .addBeanClasses(WeldIntegrationTest.class, Observer.class);
 
 
@@ -101,9 +108,19 @@ class WeldIntegrationTest {
     @Singleton
     private static class Observer {
         private final BlockingQueue<Object> incomingMessagePayload = new LinkedBlockingQueue<>();
+        private final AtomicInteger requestContextCreated = new AtomicInteger();
+        private final AtomicInteger requestContextDestroyed = new AtomicInteger();
 
-        void observe(@Observes @Incoming Object payload) {
+        void observeMessage(@Observes @Incoming Object payload) {
             incomingMessagePayload.add(payload);
+        }
+
+        void observeRequestContextCreated(@Observes @Initialized(RequestScoped.class) Object ignored) {
+            requestContextCreated.incrementAndGet();
+        }
+
+        void observeRequestContextDestroyed(@Observes @Destroyed(RequestScoped.class) Object ignored) {
+            requestContextDestroyed.incrementAndGet();
         }
 
         public BlockingQueue<Object> getIncomingMessagePayload() {
@@ -150,21 +167,21 @@ class WeldIntegrationTest {
         }
 
         @Test
-        void givenRequestContextNotActive_whenSelectIncomingMessage_thenThrowISE() {
+        void givenRequestContextNotActive_whenSelectIncomingMessage_thenThrow() {
             final var instance = w.select(INCOMING_TYPE);
-            assertThatIllegalStateException().isThrownBy(instance::get);
+            assertThatExceptionOfType(ContextNotActiveException.class).isThrownBy(instance::get);
         }
 
         @Test
-        void givenRequestContextNotActive_whenSelectResponseBuilder_thenThrowISE() {
+        void givenRequestContextNotActive_whenSelectResponseBuilder_thenThrow() {
             final var instance = w.select(RESPONSE_BUILDER_TYPE);
-            assertThatIllegalStateException().isThrownBy(instance::get);
+            assertThatExceptionOfType(ContextNotActiveException.class).isThrownBy(instance::get);
         }
 
         @Test
-        void givenRequestContextNotActive_whenSelectAcknowledgement_thenThrowISE() {
+        void givenRequestContextNotActive_whenSelectAcknowledgement_thenThrow() {
             final var instance = w.select(Acknowledgment.class);
-            assertThatIllegalStateException().isThrownBy(instance::get);
+            assertThatExceptionOfType(ContextNotActiveException.class).isThrownBy(instance::get);
         }
     }
 
@@ -217,11 +234,12 @@ class WeldIntegrationTest {
         @BeforeEach
         void setUp() throws IOException, TimeoutException {
             when(CONNECTION_FACTORY.newConnection()).thenReturn(connection);
-            when(connection.createChannel()).thenReturn(channel);
+            when(connection.openChannel()).thenReturn(Optional.ofNullable(channel));
             when(connection.getChannelMax()).thenReturn(100);
         }
 
         @Test
+        @Timeout(value = 1, unit = TimeUnit.SECONDS)
         void testChannelPool() throws IOException, InterruptedException {
             final BlockingPool<Channel> channelPool = w.select(new TypeLiteral<BlockingPool<Channel>>() {}).get();
 
@@ -229,34 +247,15 @@ class WeldIntegrationTest {
             assertThat(channelPool.size()).isZero();
             assertThat(channelPool.capacity()).isEqualTo(100 - topologyBean.queueDeclarations().size());
 
-            CountDownLatch afterStart = new CountDownLatch(2);
-            CountDownLatch beforeEnd = new CountDownLatch(1);
-            final Runnable runnable = () -> {
-                try {
-                    channelPool.run(channel -> {
-                        afterStart.countDown();
+            // no channels created yet
+            verify(connection, never()).openChannel();
 
-                        beforeEnd.await();
-                    });
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-            };
+            // Declare a non-durable, auto-delete, auto-named, exclusive queue
+            channelPool.run(Channel::queueDeclare);
 
-            // start two thread that both occupy one channel.
-            final Thread t1 = new Thread(runnable);
-            t1.start();
-            final Thread t2 = new Thread(runnable);
-            t2.start();
-
-            // make sure both threads have started and acquired a channel
-            afterStart.await();
-            // make sure threads become unblocked and wait for them to shut down
-            beforeEnd.countDown();
-            t1.join();
-            t2.join();
-
-            verify(connection, times(2)).createChannel();
+            // now there's a channel
+            verify(connection).openChannel();
+            verify(channel).queueDeclare();
         }
     }
 
@@ -279,15 +278,16 @@ class WeldIntegrationTest {
         @BeforeEach
         void setUp() throws IOException, TimeoutException {
             when(CONNECTION_FACTORY.newConnection()).thenReturn(connection);
-            when(connection.createChannel()).thenReturn(channel);
+            when(connection.openChannel()).thenReturn(Optional.ofNullable(channel));
             mockBasicConsume();
 
             observer.getIncomingMessagePayload().clear();
         }
 
         private void mockBasicConsume() throws IOException {
-            when(channel.basicConsume(anyString(), anyBoolean(), any(Consumer.class))).thenAnswer(invocationOnMock -> {
-                Consumer consumer = invocationOnMock.getArgument(2);
+            when(channel.basicConsume(anyString(), anyBoolean(), anyString(), anyBoolean(), anyBoolean(), any(),
+                                      any(Consumer.class))).thenAnswer(invocationOnMock -> {
+                Consumer consumer = invocationOnMock.getArgument(6);
                 consumer.handleConsumeOk(consumerTag);
                 return consumerTag;
             });
@@ -295,102 +295,102 @@ class WeldIntegrationTest {
 
         @Test
         void testStartAndStop() throws IOException {
+            consumers.startReceiving(QUEUE.getQueue());
 
-            consumers.startReceiving(queue.getQueue());
+            verify(channel).exchangeDeclare(EXCHANGE.getExchange(), EXCHANGE.getType(), EXCHANGE.getDurable(),
+                                            EXCHANGE.getAutoDelete(), EXCHANGE.getArguments());
+            verify(channel).queueDeclare(QUEUE.getQueue(), QUEUE.getDurable(), QUEUE.getExclusive(),
+                                         QUEUE.getAutoDelete(), QUEUE.getArguments());
+            verify(channel).queueBind(QUEUE_BINDING.getQueue(), QUEUE_BINDING.getExchange(),
+                                      QUEUE_BINDING.getRoutingKey(), QUEUE_BINDING.getArguments());
+            verify(channel).basicConsume(eq(QUEUE.getQueue()), anyBoolean(), anyString(), anyBoolean(), anyBoolean(),
+                                         any(), any(Consumer.class));
 
-            verify(channel).queueDeclare(queue.getQueue(), queue.getDurable(), queue.getExclusive(),
-                                         queue.getAutoDelete(), queue.getArguments());
-            verify(channel).basicConsume(eq(queue.getQueue()), anyBoolean(), any(Consumer.class));
-
-            consumers.stopReceiving(queue.getQueue());
+            consumers.stopReceiving(QUEUE.getQueue());
 
             verify(channel).basicCancel(consumerTag);
         }
 
+        @Nested
+        class TestReceiving {
+            @WeldSetup
+            WeldInitiator w = WeldInitiator.of(weld);
 
-        @Test
-        void testReceivingByteArrayMessage() throws IOException, InterruptedException {
-            consumers.startReceiving(queue.getQueue());
+            @BeforeEach
+            void startReceiving() throws IOException {
+                consumers.startReceiving(QUEUE.getQueue());
+            }
 
-            byte[] payload = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
-            deliverMessage(payload, new AMQP.BasicProperties.Builder().contentType("application/octet-stream").build());
+            @AfterEach
+            void stopReceiving() throws IOException {
+                consumers.stopReceiving(QUEUE.getQueue());
 
-            final BlockingQueue<Object> receivedObjects = observer.getIncomingMessagePayload();
-            final Object receivedObject = receivedObjects.poll(5, TimeUnit.SECONDS);
+                assertThat(observer.getIncomingMessagePayload()).as("More incoming messages than expected").isEmpty();
+            }
 
-            assertThat(receivedObject).as("No de-serialized object received after 5s")
-                    .isNotNull()
-                    .as("Wrong object received")
-                    .isEqualTo(payload);
-            assertThat(receivedObjects).isEmpty();
+            @Test
+            void testReceivingByteArrayMessage() throws IOException, InterruptedException {
+                byte[] payload = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
+                deliverMessage(payload, new AMQP.BasicProperties.Builder().deliveryMode(1)
+                        .contentType("application/octet-stream")
+                        .build());
 
-            consumers.stopReceiving(queue.getQueue());
-        }
+                verifyThatMessageWasReceived(payload);
+            }
 
-        @Test
-        void testReceivingStringMessage() throws IOException, InterruptedException {
-            consumers.startReceiving(queue.getQueue());
+            @Test
+            void testReceivingStringMessage() throws IOException, InterruptedException {
+                String payload = "Hello world! äöüß";
+                deliverMessage(payload.getBytes(StandardCharsets.UTF_8),
+                               new AMQP.BasicProperties.Builder().deliveryMode(1).contentType("text/plain").build());
 
-            String payload = "Hello world! äöüß";
-            deliverMessage(payload.getBytes(StandardCharsets.UTF_8),
-                           new AMQP.BasicProperties.Builder().contentType("text/plain").build());
+                verifyThatMessageWasReceived(payload);
+            }
 
-            final BlockingQueue<Object> receivedObjects = observer.getIncomingMessagePayload();
-            final Object receivedObject = receivedObjects.poll(5, TimeUnit.SECONDS);
+            @Test
+            void testReceivingActivatesRequestScope() throws IOException, InterruptedException {
+                byte[] payload = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
+                deliverMessage(payload, new AMQP.BasicProperties.Builder().deliveryMode(1)
+                        .contentType("application/octet-stream")
+                        .build());
 
-            assertThat(receivedObject).as("No de-serialized object received after 5s")
-                    .isNotNull()
-                    .as("Wrong object received")
-                    .isEqualTo(payload);
-            assertThat(receivedObjects).isEmpty();
+                waitForIncomingMessage();
 
-            consumers.stopReceiving(queue.getQueue());
-        }
+                assertThat(observer.requestContextCreated.get()).isEqualTo(1);
+                assertThat(observer.requestContextDestroyed.get()).isEqualTo(1);
+            }
 
-        private void deliverMessage(final byte[] payload, final AMQP.BasicProperties properties) throws IOException {
-            Consumer consumer = captureConsumer();
-            deliverMessage(consumer, properties, payload);
-        }
+            private void verifyThatMessageWasReceived(Object payload) throws InterruptedException {
+                final Object receivedObject = waitForIncomingMessage();
+                assertThat(receivedObject).as("Wrong object received").isEqualTo(payload);
+            }
 
-        private Consumer captureConsumer() throws IOException {
-            ArgumentCaptor<Consumer> consumerCaptor = ArgumentCaptor.forClass(Consumer.class);
-            verify(channel).basicConsume(eq(queue.getQueue()), anyBoolean(), consumerCaptor.capture());
-            return consumerCaptor.getValue();
-        }
+            private Object waitForIncomingMessage() throws InterruptedException {
+                final BlockingQueue<Object> receivedObjects = observer.getIncomingMessagePayload();
+                final Object receivedObject = receivedObjects.poll(5, TimeUnit.SECONDS);
+                assertThat(receivedObject).as("No de-serialized object received after 5s").isNotNull();
 
-        private void deliverMessage(Consumer consumer, final AMQP.BasicProperties properties, final byte[] body)
-                throws IOException {
-            final Envelope envelope = new Envelope(0L, false, "exchange", ROUTING_KEY);
-            consumer.handleDelivery(consumerTag, envelope, properties, body);
-        }
+                return receivedObject;
+            }
 
-        @Disabled("The request scope is active on a different thread!")
-        @Test
-        void testReceivingActivatesRequestScope(BeanManager beanManager) throws IOException {
-            consumers.startReceiving(queue.getQueue());
+            private void deliverMessage(final byte[] payload, final AMQP.BasicProperties properties)
+                    throws IOException {
+                Consumer consumer = captureConsumer();
+                deliverMessage(consumer, properties, payload);
+            }
 
-            byte[] payload = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
-            deliverMessage(payload, new AMQP.BasicProperties.Builder().contentType("application/octet-stream").build());
+            private Consumer captureConsumer() throws IOException {
+                ArgumentCaptor<Consumer> consumerCaptor = ArgumentCaptor.forClass(Consumer.class);
+                verify(channel).basicConsume(eq(QUEUE.getQueue()), anyBoolean(), anyString(), anyBoolean(),
+                                             anyBoolean(), any(), consumerCaptor.capture());
+                return consumerCaptor.getValue();
+            }
 
-            final Context context = beanManager.getContext(RequestScoped.class);
-            assertThat(context).isNotNull();
-
-            consumers.stopReceiving(queue.getQueue());
-        }
-
-
-        @Disabled("The request scope is active on a different thread!")
-        @Test
-        void testReceivingCreatesBeans() throws IOException {
-            consumers.startReceiving(queue.getQueue());
-
-            byte[] payload = new byte[]{1, 2, 3, 4, 5, 6, 7, 8, 9};
-            deliverMessage(payload, new AMQP.BasicProperties.Builder().contentType("application/octet-stream").build());
-
-            final var incoming = w.select(INCOMING_TYPE).get();
-            assertThat(incoming).isNotNull();
-
-            consumers.stopReceiving(queue.getQueue());
+            private void deliverMessage(Consumer consumer, final AMQP.BasicProperties properties, final byte[] body)
+                    throws IOException {
+                final Envelope envelope = new Envelope(0L, false, "exchange", ROUTING_KEY);
+                consumer.handleDelivery(consumerTag, envelope, properties, body);
+            }
         }
     }
 
@@ -409,7 +409,7 @@ class WeldIntegrationTest {
         @BeforeEach
         void setUp() throws IOException, TimeoutException {
             when(CONNECTION_FACTORY.newConnection()).thenReturn(connection);
-            when(connection.createChannel()).thenReturn(channel);
+            when(connection.openChannel()).thenReturn(Optional.ofNullable(channel));
             when(connection.getChannelMax()).thenReturn(100);
         }
 
@@ -419,12 +419,13 @@ class WeldIntegrationTest {
 
             publisher.send(cast);
 
-            verify(channel).exchangeDeclare(exchange.getExchange(), exchange.getType(), exchange.getDurable(),
-                                            exchange.getAutoDelete(), exchange.getArguments());
+            verify(channel).exchangeDeclare(EXCHANGE.getExchange(), EXCHANGE.getType(), EXCHANGE.getDurable(),
+                                            EXCHANGE.getAutoDelete(), EXCHANGE.getArguments());
         }
 
         private <T> Outgoing<T> createSimpleCast(T content) {
-            return new Outgoing.Cast.Builder<>(exchange.getExchange(), ROUTING_KEY).setContent(content).build();
+            return new Outgoing.Cast.Builder<>(EXCHANGE.getExchange(), ROUTING_KEY,
+                                               Message.DeliveryMode.PERSISTENT).setContent(content).build();
         }
 
         @Test
