@@ -3,6 +3,10 @@ package io.github.jhahnhro.enhancedcdi.messaging.messages;
 import static java.util.Objects.requireNonNull;
 
 import java.lang.reflect.Type;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -292,6 +296,23 @@ public sealed interface Outgoing<T> extends Message<T> {
                     .appId(properties.getAppId());
 
             return this;
+        }
+
+        /**
+         * Returns a <b>mutable</b> map containing all {@link BasicProperties#getHeaders() headers} currently contained
+         * in the {@link #propertiesBuilder()}. The returned map is also written to the builder so any changes to it
+         * will be reflected in the final message (except if
+         * {@link com.rabbitmq.client.AMQP.BasicProperties.Builder#headers(Map)} is not called)
+         *
+         * @return the (mutable) map of headers currently in the {@link #propertiesBuilder()}. Never null, but may be
+         * empty.
+         */
+        @Override
+        public Map<String, Object> getHeaders() {
+            final Map<String, Object> prevHeaders = properties().getHeaders();
+            Map<String, Object> mutableHeaders = prevHeaders == null ? new HashMap<>() : new HashMap<>(prevHeaders);
+            propertiesBuilder.headers(mutableHeaders);
+            return mutableHeaders;
         }
 
         @Override

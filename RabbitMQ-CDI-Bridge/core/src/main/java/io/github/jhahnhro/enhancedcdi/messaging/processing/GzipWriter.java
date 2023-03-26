@@ -80,8 +80,7 @@ class GzipWriter<T> implements MessageWriter<T> {
      * encodings is acceptable.
      */
     private String getAcceptableContentEncoding(Incoming.Request<?> request) {
-        final String acceptEncodingHeader = Optional.ofNullable(request.properties().getHeaders())
-                .map(headers -> headers.get("Accept-Encoding"))
+        final String acceptEncodingHeader = request.getHeader("Accept-Encoding")
                 .map(String.class::cast)
                 .map(s -> s.toLowerCase(Locale.ROOT))
                 // From RFC 2616 section 14.3:
