@@ -1,14 +1,18 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
-import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
-import io.github.jhahnhro.enhancedcdi.types.Visit;
-import io.github.jhahnhro.enhancedcdi.types.Visit.ClassHierarchy.RecursiveVisitor;
-
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
+import io.github.jhahnhro.enhancedcdi.types.Types;
 
 public class AnnotatedType<T> extends AnnotatedElement<Class<T>>
         implements javax.enterprise.inject.spi.AnnotatedType<T> {
@@ -25,30 +29,24 @@ public class AnnotatedType<T> extends AnnotatedElement<Class<T>>
                 .map(ctor -> new AnnotatedConstructor<>((Constructor<T>) ctor, allAnnotations, this))
                 .collect(Collectors.toUnmodifiableSet());
 
-        Set<AnnotatedMethod<T>> methods = new HashSet<>();
-        Set<AnnotatedField<T>> fields = new HashSet<>();
+        Set<AnnotatedMethod<T>> _methods = new HashSet<>();
+        Set<AnnotatedField<T>> _fields = new HashSet<>();
 
-        Visit.ClassHierarchy.of(clazz, new RecursiveVisitor() {
-            @Override
-            public <T> void visit(Class<T> clazz) {
-                if (clazz == null || clazz==Object.class) {
-                    return;
-                }
-                Arrays.stream(clazz.getDeclaredMethods())
-                        .filter(m -> !m.isSynthetic())
-                        .map(m -> new AnnotatedMethod<>(m, allAnnotations, AnnotatedType.this))
-                        .forEach(methods::add);
+        Stream.concat(Types.superClasses(clazz).stream(), Types.superInterfaces(clazz).stream())
+                .filter(type -> !Object.class.equals(type))
+                .forEach(superType -> {
+                    Arrays.stream(superType.getDeclaredMethods())
+                            .filter(m -> !m.isSynthetic())
+                            .map(m -> new AnnotatedMethod<>(m, allAnnotations, AnnotatedType.this))
+                            .forEach(_methods::add);
 
-                Arrays.stream(clazz.getDeclaredFields())
-                        .filter(f -> !f.isSynthetic())
-                        .map(f -> new AnnotatedField<>(f, allAnnotations.get(f), AnnotatedType.this))
-                        .forEach(fields::add);
-
-                super.visit(clazz);
-            }
-        });
-        this.methods = Collections.unmodifiableSet(methods);
-        this.fields = Collections.unmodifiableSet(fields);
+                    Arrays.stream(superType.getDeclaredFields())
+                            .filter(f -> !f.isSynthetic())
+                            .map(f -> new AnnotatedField<>(f, allAnnotations.get(f), AnnotatedType.this))
+                            .forEach(_fields::add);
+                });
+        this.methods = Collections.unmodifiableSet(_methods);
+        this.fields = Collections.unmodifiableSet(_fields);
     }
 
     public static <T> AnnotatedType<T> of(Class<T> clazz) {

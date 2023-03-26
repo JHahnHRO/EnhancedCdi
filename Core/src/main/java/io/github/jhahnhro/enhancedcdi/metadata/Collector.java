@@ -1,17 +1,25 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
-import io.github.jhahnhro.enhancedcdi.types.Visit;
-import io.github.jhahnhro.enhancedcdi.types.Visit.ClassHierarchy.RecursiveVisitor;
-
-import javax.enterprise.inject.spi.AnnotatedCallable;
-import javax.enterprise.inject.spi.AnnotatedMember;
-import javax.enterprise.inject.spi.AnnotatedType;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Executable;
-import java.util.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import javax.enterprise.inject.spi.AnnotatedCallable;
+import javax.enterprise.inject.spi.AnnotatedMember;
+import javax.enterprise.inject.spi.AnnotatedType;
+
+import io.github.jhahnhro.enhancedcdi.types.Types;
 
 public class Collector {
     /**
@@ -27,29 +35,26 @@ public class Collector {
      * @return
      */
     public static Map<AnnotatedElement, Set<Annotation>> collectAllAnnotations(Class<?> clazz) {
-        final Set<AnnotatedElement> elements = new HashSet<>();
+        final Stream<Class<?>> allSuperTypes = Stream.concat(Types.superClasses(clazz).stream(),
+                                                             Types.superInterfaces(clazz).stream());
+        return allSuperTypes.filter(superType -> !Object.class.equals(superType))
+                .<AnnotatedElement>mapMulti((superType, downStream) -> {
+                    downStream.accept(superType);
 
-        Visit.ClassHierarchy.of(clazz, new RecursiveVisitor() {
-            @Override
-            public <T> void visit(Class<T> clazz) {
-                if (clazz == null) {
-                    return;
-                }
-                elements.add(clazz);
-
-                List<Executable> executables = new ArrayList<>();
-                executables.addAll(List.of(clazz.getDeclaredConstructors()));
-                executables.addAll(List.of(clazz.getDeclaredMethods()));
-                for (Executable executable : executables) {
-                    elements.add(executable);
-                    elements.addAll(List.of(executable.getParameters()));
-                }
-                elements.addAll(List.of(clazz.getDeclaredFields()));
-                super.visit(clazz);
-            }
-        });
-
-        return elements.stream().collect(Collectors.toMap(Function.identity(), el -> Set.of(el.getAnnotations())));
+                    List<Executable> executables = new ArrayList<>();
+                    Collections.addAll(executables, superType.getDeclaredConstructors());
+                    Collections.addAll(executables, superType.getDeclaredMethods());
+                    for (Executable executable : executables) {
+                        downStream.accept(executable);
+                        for (Parameter parameter : executable.getParameters()) {
+                            downStream.accept(parameter);
+                        }
+                    }
+                    for (Field field : superType.getDeclaredFields()) {
+                        downStream.accept(field);
+                    }
+                })
+                .collect(Collectors.toMap(Function.identity(), el -> Set.of(el.getAnnotations())));
     }
 
     public static <T> Map<AnnotatedElement, Set<Annotation>> collectAllAnnotations(AnnotatedType<T> annotatedType) {
