@@ -54,6 +54,8 @@ class IncomingMessageHandler {
             fireEvent(message);
 
             acknowledgeIfNecessary(acknowledgment);
+        } catch (RpcException e) {
+            throw e;
         } catch (Exception e) {
             rejectIfNecessary(acknowledgment, e);
         }

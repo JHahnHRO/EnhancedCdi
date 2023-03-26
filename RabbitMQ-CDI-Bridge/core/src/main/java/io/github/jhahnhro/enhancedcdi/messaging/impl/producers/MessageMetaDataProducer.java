@@ -19,6 +19,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.Serialized;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
 
 @RequestScoped
 public class MessageMetaDataProducer {
@@ -58,7 +59,7 @@ public class MessageMetaDataProducer {
     private void checkRequest() {
         checkDelivery();
         if (responseBuilder == null) {
-            throw new IllegalStateException("No RabbitMQ request has been received in the current RequestScope");
+            throw new RpcNotActiveException();
         }
     }
 

@@ -1,6 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -8,6 +9,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import javax.enterprise.context.Dependent;
@@ -24,6 +26,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.Publisher;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcEndpoint;
+import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
 import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.junit.MockBean;
@@ -80,19 +83,9 @@ class RpcResultPublishingInterceptorTest {
 
         protected RpcEventObserver() {}
 
-        @RpcEndpoint(nonRpcInvocations = RpcEndpoint.NonRpcInvocation.PROCEED)
+        @RpcEndpoint
         String pingpong(@Observes @Incoming String input) {
             return "pong";
-        }
-
-        @RpcEndpoint(nonRpcInvocations = RpcEndpoint.NonRpcInvocation.THROW)
-        Integer timesTwo(@Observes @Incoming Integer input) {
-            return 2 * input;
-        }
-
-        @RpcEndpoint(nonRpcInvocations = RpcEndpoint.NonRpcInvocation.DO_NOT_PROCEED)
-        Boolean negate(@Observes @Incoming Boolean input) {
-            return !input;
         }
 
         @RpcEndpoint
@@ -108,6 +101,11 @@ class RpcResultPublishingInterceptorTest {
             return new Outgoing.Response.Builder<>(INCOMING_REQUEST.withContent(input)).setContent(
                     input.plus(3, ChronoUnit.HOURS)).build();
         }
+
+        @RpcEndpoint
+        Outgoing.Response<LocalDate, Object> responseNull(@Observes @Incoming LocalDate input) {
+            return null;
+        }
     }
 
     @Nested
@@ -116,13 +114,13 @@ class RpcResultPublishingInterceptorTest {
 
         @WeldSetup
         WeldInitiator w = WeldInitiator.from(weld)
-                .addBeans(MockBean.of(null, INCOMING_REQUEST_TYPE, INCOMING_TYPE),
-                          MockBean.of(null, RESPONSE_BUILDER_TYPE),
-                          MockBean.of(Mockito.mock(Publisher.class), Publisher.class))
+                .addBeans(MockBean.builder().addType(RESPONSE_BUILDER_TYPE).create(creationalContext -> {
+                    throw new RpcNotActiveException();
+                }).build(), MockBean.of(Mockito.mock(Publisher.class), Publisher.class))
                 .build();
 
         @Test
-        void givenNoRequestAndModeEqualsProceed_whenRpcEvent_thenCallTheMethod() {
+        void givenNoRequest_whenRpcEvent_thenCallTheMethod() {
             incomingEvent.select(String.class).fire("ping");
             final String result = rpcEventObserver.pingpong("ping");
 
@@ -130,31 +128,13 @@ class RpcResultPublishingInterceptorTest {
             assertThat(result).isEqualTo("pong");
         }
 
-        @Test
-        void givenNoRequestAndModeEqualsThrow_whenRpcEvent_thenThrowException() {
-            final Event<Integer> incomingInteger = incomingEvent.select(Integer.class);
-            assertThatThrownBy(() -> incomingInteger.fire(42)).isInstanceOf(RpcNotActiveException.class);
-            assertThatThrownBy(() -> rpcEventObserver.timesTwo(42)).isInstanceOf(RpcNotActiveException.class);
-
-            verifyNoInteractions(publisherMock);
-        }
-
-
-        @Test
-        void givenNoRequestAndModeEqualsDoNotProceed_whenRpcEvent_thenDoNotProceed() {
-            incomingEvent.select(Boolean.class).fire(false);
-            final Boolean result = rpcEventObserver.negate(false);
-
-            verifyNoInteractions(publisherMock);
-
-            assertThat(result).isNull();
-        }
     }
 
     @Nested
     @EnableWeld
     @ExtendWith(MockitoExtension.class)
     class TestRpcHandling {
+
         @WeldSetup
         WeldInitiator w = WeldInitiator.from(weld)
                 .activate(RequestScoped.class)
@@ -183,10 +163,21 @@ class RpcResultPublishingInterceptorTest {
         }
 
         @Test
-        void givenRpcMethodThatReturnsOutgoingResponseToWrongRequest_whenRpcEvent_thenThrowIllegalStateException() {
+        void givenRpcMethodThatReturnsOutgoingResponseToWrongRequest_whenRpcEvent_thenThrowRpcException() {
             final Event<LocalTime> localTimeEvent = incomingEvent.select(LocalTime.class);
+            final LocalTime localTime = LocalTime.now();
 
-            assertThatIllegalStateException().isThrownBy(() -> localTimeEvent.fire(LocalTime.now()));
+            assertThatExceptionOfType(RpcException.class).isThrownBy(() -> localTimeEvent.fire(localTime));
+
+            verifyNoInteractions(publisherMock);
+        }
+
+        @Test
+        void givenRpcMethodThatReturnsNull_whenRpcEvent_thenThrowRpcException() {
+            final Event<LocalDate> localDateEvent = incomingEvent.select(LocalDate.class);
+            final LocalDate localDate = LocalDate.now();
+
+            assertThatExceptionOfType(RpcException.class).isThrownBy(() -> localDateEvent.fire(localDate));
 
             verifyNoInteractions(publisherMock);
         }
