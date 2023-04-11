@@ -114,6 +114,20 @@ class GzipWriterTest {
         assertThat(actual.properties().getContentEncoding()).isEqualTo("deflate");
     }
 
+    @Test
+    void givenOutgoingRequest_whenWrite_thenAcceptEncodingHeaderSet() throws IOException {
+
+        final AMQP.BasicProperties requestProperties = new AMQP.BasicProperties.Builder().deliveryMode(1)
+                .replyTo("auto-generated-reply-queue")
+                .correlationId("myCorrelationID")
+                .build();
+        final Outgoing.Request<FooBar> pingRequest = new Outgoing.Request<>("exchange", "my.routing.key",
+                                                                            requestProperties, new FooBar());
+
+        final Outgoing<byte[]> actual = getActualBytes(pingRequest);
+        assertThat(actual.getHeader("Accept-Encoding")).contains("gzip;q=1.0, deflate;q=0.9, *;q=0.5");
+    }
+
     private Outgoing.Response<String, FooBar> getFooBarResponse(String acceptedEncoding) {
         final Envelope envelope = new Envelope(0L, false, "exchange", "my.routing.key");
         final AMQP.BasicProperties requestProperties = new AMQP.BasicProperties.Builder().deliveryMode(1)

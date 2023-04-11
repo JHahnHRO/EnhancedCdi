@@ -44,6 +44,8 @@ class GzipWriter<T> implements MessageWriter<T> {
 
     @Override
     public void write(Outgoing<T> originalMessage, Outgoing.Builder<OutputStream> messageBuilder) throws IOException {
+        requestCompressedResponses(originalMessage, messageBuilder);
+
         try (var decoratedStream = decorateOutputStream(originalMessage, messageBuilder)) {
             messageBuilder.setContent(decoratedStream);
             messageWriter.write(originalMessage, messageBuilder);
@@ -68,6 +70,13 @@ class GzipWriter<T> implements MessageWriter<T> {
             }
         }
         return outputStream;
+    }
+
+    private void requestCompressedResponses(Outgoing<T> originalMessage,
+                                            Outgoing.Builder<OutputStream> messageBuilder) {
+        if (originalMessage instanceof Outgoing.Request<T>) {
+            messageBuilder.getHeaders().putIfAbsent("Accept-Encoding", "gzip;q=1.0, deflate;q=0.9, *;q=0.5");
+        }
     }
 
     /**
