@@ -6,6 +6,9 @@ import java.io.OutputStream;
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
+/**
+ * Serializes Java objects into an {@link OutputStream}.
+ */
 public interface MessageWriter<T> {
     /**
      * Serializes the given message by writing into the given {@link Outgoing.Builder}, in particular by writing to its
