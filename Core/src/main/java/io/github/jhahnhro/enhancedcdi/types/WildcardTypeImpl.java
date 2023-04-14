@@ -32,15 +32,12 @@ public class WildcardTypeImpl implements WildcardType {
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof WildcardType that && Arrays.equals(this.getLowerBounds(), that.getLowerBounds())
-               && Arrays.equals(this.getUpperBounds(), that.getUpperBounds());
+        return o instanceof WildcardType that && Arrays.equals(this.lowerBounds, that.getLowerBounds())
+               && Arrays.equals(this.upperBounds, that.getUpperBounds());
     }
 
     @Override
     public int hashCode() {
-        Type[] lowerBounds = getLowerBounds();
-        Type[] upperBounds = getUpperBounds();
-
         return Arrays.hashCode(lowerBounds) ^ Arrays.hashCode(upperBounds);
     }
 }
