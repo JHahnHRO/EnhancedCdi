@@ -5,7 +5,6 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -47,9 +46,13 @@ public class TypeVariableResolver {
         Function<Type, Stream<Type>> getRelatedTypes = t -> {
             Set<Type> related = new HashSet<>();
             if (t instanceof Class<?> clazz) {
-                related.add(clazz.getEnclosingClass());
-                related.add(clazz.getGenericSuperclass());
-                Collections.addAll(related, clazz.getGenericInterfaces());
+                if (clazz.isArray()) {
+                    related.add(clazz.getComponentType());
+                } else {
+                    related.add(clazz.getEnclosingClass());
+                    related.add(clazz.getGenericSuperclass());
+                    Collections.addAll(related, clazz.getGenericInterfaces());
+                }
             } else if (t instanceof ParameterizedType parameterizedType) {
                 related.add(parameterizedType.getOwnerType());
                 final Class<?> rawType = (Class<?>) parameterizedType.getRawType();
@@ -165,6 +168,6 @@ public class TypeVariableResolver {
         final Set<Class<?>> superInterfaces = Types.superInterfaces(erasedType);
         return Stream.concat(superClasses.stream(), superInterfaces.stream())
                 .map(this::resolve)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toUnmodifiableSet());
     }
 }
