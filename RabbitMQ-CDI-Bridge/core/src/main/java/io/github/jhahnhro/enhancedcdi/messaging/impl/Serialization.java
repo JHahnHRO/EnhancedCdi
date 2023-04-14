@@ -12,7 +12,6 @@ import javax.inject.Inject;
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
-import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
@@ -28,9 +27,11 @@ class Serialization {
     //region Deserialization
     @Inject
     @Selected
-    MessageReader<Object> selectedMessageReader;
+    SelectedMessageReader selectedMessageReader;
 
     public Incoming<Object> deserialize(Incoming<byte[]> incomingMessage) throws IOException {
+        selectedMessageReader.selectReader(incomingMessage);
+
         try (var inputStream = new ByteArrayInputStream(incomingMessage.content())) {
             final Object content = selectedMessageReader.read(incomingMessage.withContent(inputStream));
             return incomingMessage.withContent(content);

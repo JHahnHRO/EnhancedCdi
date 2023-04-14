@@ -7,8 +7,6 @@ import java.io.OutputStream;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
-import java.util.stream.Stream;
-import javax.annotation.PreDestroy;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.InjectionPoint;
@@ -39,29 +37,22 @@ import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
 class SelectedMessageWriter<T> implements MessageWriter<T> {
 
     private Type typeT;
-    private Stream<SelectableMessageWriter<T>> writerStream;
     private List<SelectableMessageWriter<T>> writers;
 
     @Inject
-    void setWriters(InjectionPoint injectionPoint, EnhancedInstance<Object> enhancedInstance) {
+    void setWriters(InjectionPoint injectionPoint, EnhancedInstance<SelectableMessageWriter<?>> enhancedInstance) {
         typeT = ((ParameterizedType) injectionPoint.getType()).getActualTypeArguments()[0];
         Type messageWriterType = new ParameterizedTypeImpl(SelectableMessageWriter.class, null, typeT);
 
-        this.writerStream = enhancedInstance.<SelectableMessageWriter<T>>select(messageWriterType, Any.Literal.INSTANCE)
-                .stream();
-        this.writers = writerStream.sorted(HIGHEST_PRIORITY_FIRST).toList();
+        this.writers = enhancedInstance.<SelectableMessageWriter<T>>select(messageWriterType, Any.Literal.INSTANCE)
+                .stream()
+                .sorted(HIGHEST_PRIORITY_FIRST)
+                .toList();
 
         if (this.writers.isEmpty()) {
             // fail-fast
-            throw noMessageWriterApplicable();
+            throw new IllegalStateException("No MessageWriter for type " + typeT + " exists");
         }
-    }
-
-    @PreDestroy
-    void destroyDependents() {
-        this.writerStream.close();
-        this.writerStream = null;
-        this.writers = null;
     }
 
     @Override
@@ -70,12 +61,10 @@ class SelectedMessageWriter<T> implements MessageWriter<T> {
         final MessageWriter<T> applicableWriter = writers.stream()
                 .filter(writer -> writer.canWrite(originalMessage))
                 .findFirst()
-                .orElseThrow(this::noMessageWriterApplicable);
+                .orElseThrow(() -> new IllegalStateException(
+                        "No MessageWriter for type " + typeT + " is applicable to the message"));
 
         applicableWriter.write(originalMessage, serializedMessage);
     }
 
-    private IllegalStateException noMessageWriterApplicable() {
-        return new IllegalStateException("No MessageWriter for type " + typeT + " is applicable to the message");
-    }
 }

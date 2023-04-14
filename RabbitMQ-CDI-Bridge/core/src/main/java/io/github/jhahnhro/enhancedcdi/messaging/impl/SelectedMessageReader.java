@@ -9,7 +9,6 @@ import javax.enterprise.inject.Any;
 import javax.enterprise.inject.Instance;
 import javax.inject.Inject;
 
-import io.github.jhahnhro.enhancedcdi.messaging.Serialized;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
@@ -36,8 +35,7 @@ class SelectedMessageReader implements MessageReader<Object> {
 
     private MessageReader<?> reader;
 
-    @Inject
-    void selectReader(@Serialized Incoming<byte[]> rawMessage) {
+    public void selectReader(Incoming<byte[]> rawMessage) {
         this.reader = allReaders.stream()
                 .filter(messageReader -> messageReader.canRead(rawMessage))
                 .min(HIGHEST_PRIORITY_FIRST)

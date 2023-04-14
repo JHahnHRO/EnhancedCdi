@@ -1,8 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 
 import static java.util.Map.entry;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 import static org.mockito.Mockito.mock;
 
@@ -28,10 +27,10 @@ import io.github.jhahnhro.enhancedcdi.messaging.Exchange;
 import io.github.jhahnhro.enhancedcdi.messaging.Header;
 import io.github.jhahnhro.enhancedcdi.messaging.Queue;
 import io.github.jhahnhro.enhancedcdi.messaging.RoutingKey;
-import io.github.jhahnhro.enhancedcdi.messaging.Serialized;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
@@ -64,8 +63,9 @@ class MessageMetaDataProducerTest {
             // @formatter:on
             .build();
     private static final Delivery DELIVERY = new Delivery(ENVELOPE, PROPERTIES, CONTENT);
-    private static final Incoming.Request<byte[]> REQUEST = new Incoming.Request<>(DELIVERY, "queue", CONTENT);
-    public static final Incoming.Cast<byte[]> CAST = new Incoming.Cast<>(DELIVERY, "queue", CONTENT);
+    public static final String QUEUE = "queue";
+    public static final Incoming.Cast<byte[]> CAST = new Incoming.Cast<>(DELIVERY, QUEUE, CONTENT);
+    private static final Incoming.Request<byte[]> REQUEST = new Incoming.Request<>(DELIVERY, QUEUE, CONTENT);
     private static final Acknowledgment ACKNOWLEDGMENT = mock(Acknowledgment.class);
     @WeldSetup
     WeldInitiator w = WeldInitiator.from(MessageMetaDataProducer.class).activate(RequestScoped.class).build();
@@ -100,7 +100,7 @@ class MessageMetaDataProducerTest {
                 arguments("Unknown Instant header",    null,     Instant.class, new Header.Literal("unknown")),
                 arguments("Unknown BigDecimal header", null,  BigDecimal.class, new Header.Literal("unknown")),
                 arguments("Exchange Name",   "exchange",             String.class, new AnnotationLiteral<Exchange>() {}),
-                arguments("Queue Name",      "queue",                String.class, new AnnotationLiteral<Queue>() {}),
+                arguments("Queue Name",      QUEUE,                  String.class, new AnnotationLiteral<Queue>() {}),
                 arguments("routing key",     "routing.key",          String.class, new AnnotationLiteral<RoutingKey>() {}),
                 arguments("BasicProperties", PROPERTIES,    BasicProperties.class, Default.Literal.INSTANCE),
                 arguments("Acknowledgement", ACKNOWLEDGMENT, Acknowledgment.class, Default.Literal.INSTANCE)
@@ -112,7 +112,7 @@ class MessageMetaDataProducerTest {
     @MethodSource("beans")
     <T> void givenMessage_whenInjectMetaData_thenInjectValue(String beanName, T expectedResult, Class<T> type,
                                                              Annotation qualifier) {
-        metaData.setRawMessage(REQUEST, ACKNOWLEDGMENT);
+        metaData.setDelivery(REQUEST.delivery(), REQUEST.queue(), ACKNOWLEDGMENT);
 
         final T actualResult = instance.select(type, qualifier).get();
         assertThat(actualResult).isEqualTo(expectedResult);
@@ -130,7 +130,8 @@ class MessageMetaDataProducerTest {
 
     @Test
     void givenMessage_whenInjectResponseBuilder_thenSucceed() {
-        metaData.setRawMessage(REQUEST, ACKNOWLEDGMENT);
+        metaData.setDelivery(DELIVERY, QUEUE, ACKNOWLEDGMENT);
+        metaData.setMessage(REQUEST);
 
         final Outgoing.Response.Builder<byte[], String> builder = instance.select(
                 new TypeLiteral<Outgoing.Response.Builder<byte[], String>>() {}).get();
@@ -139,12 +140,13 @@ class MessageMetaDataProducerTest {
     }
 
     @Test
-    void givenNonRequestMessage_whenInjectResponseBuilder_thenThrowISE() {
-        metaData.setRawMessage(CAST, ACKNOWLEDGMENT);
+    void givenNonRequestMessage_whenInjectResponseBuilder_thenThrowRpcNotActiveException() {
+        metaData.setDelivery(DELIVERY, QUEUE, ACKNOWLEDGMENT);
+        metaData.setMessage(CAST);
 
         final Instance<Outgoing.Response.Builder<byte[], String>> builderInstance = instance.select(
                 new TypeLiteral<>() {});
-        assertThatIllegalStateException().isThrownBy(builderInstance::get);
+        assertThatExceptionOfType(RpcNotActiveException.class).isThrownBy(builderInstance::get);
     }
 
     @Test
@@ -154,36 +156,4 @@ class MessageMetaDataProducerTest {
         assertThatIllegalStateException().isThrownBy(builderInstance::get);
     }
 
-    @Test
-    void givenMessage_whenInjectRawMessage_thenInjectCorrectMessage() {
-        metaData.setRawMessage(REQUEST, ACKNOWLEDGMENT);
-        final Incoming<byte[]> actualValue = instance.select(new TypeLiteral<Incoming<byte[]>>() {},
-                                                             Serialized.Literal.INSTANCE).get();
-
-        assertThat(actualValue).isEqualTo(REQUEST);
-    }
-
-    @Test
-    void givenNoMessage_whenInjectRawMessage_thenThrowISE() {
-        final Instance<Incoming<byte[]>> incomingInstance = instance.select(new TypeLiteral<>() {},
-                                                                            Serialized.Literal.INSTANCE);
-        assertThatIllegalStateException().isThrownBy(incomingInstance::get);
-    }
-
-    @Test
-    void givenRawMessage_whenInjectTypedMessage_thenThrowISE() {
-        metaData.setRawMessage(REQUEST, ACKNOWLEDGMENT);
-        final Instance<Incoming<String>> incomingInstance = instance.select(new TypeLiteral<>() {});
-        assertThatIllegalStateException().isThrownBy(incomingInstance::get);
-    }
-
-    @Test
-    void givenTypedMessage_whenInjectTypedMessage_thenInjectCorrect() {
-        metaData.setRawMessage(REQUEST, ACKNOWLEDGMENT);
-        final Incoming<String> deserialized = REQUEST.withContent("Hello World");
-        metaData.setDeserializedMessage(deserialized);
-
-        final Incoming<String> actual = instance.select(new TypeLiteral<Incoming<String>>() {}).get();
-        assertThat(actual).isEqualTo(deserialized);
-    }
 }

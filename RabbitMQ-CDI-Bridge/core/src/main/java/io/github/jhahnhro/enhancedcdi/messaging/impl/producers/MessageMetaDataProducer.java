@@ -11,11 +11,11 @@ import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.spi.InjectionPoint;
 
 import com.rabbitmq.client.BasicProperties;
+import com.rabbitmq.client.Delivery;
 import io.github.jhahnhro.enhancedcdi.messaging.Exchange;
 import io.github.jhahnhro.enhancedcdi.messaging.Header;
 import io.github.jhahnhro.enhancedcdi.messaging.Queue;
 import io.github.jhahnhro.enhancedcdi.messaging.RoutingKey;
-import io.github.jhahnhro.enhancedcdi.messaging.Serialized;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
@@ -23,36 +23,30 @@ import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
 
 @RequestScoped
 public class MessageMetaDataProducer {
-
-    private Incoming<byte[]> incomingMessage = null;
-    private Incoming<?> deserializedMessage = null;
+    private Delivery delivery = null;
+    private String queue = null;
+    private Incoming<?> incomingMessage = null;
     private Acknowledgment acknowledgment = null;
-
     private Outgoing.Response.Builder<?, ?> responseBuilder = null;
 
-    public void setRawMessage(final Incoming<byte[]> rawMessage, final Acknowledgment acknowledgment) {
-        this.incomingMessage = rawMessage;
+    public void setDelivery(Delivery delivery, String queue, Acknowledgment acknowledgment) {
+        this.delivery = delivery;
+        this.queue = queue;
         this.acknowledgment = acknowledgment;
+    }
 
-        if (rawMessage instanceof Incoming.Request<byte[]> request) {
+    public void setMessage(final Incoming<?> incomingMessage) {
+        checkDelivery(); // setDelivery must  be called first
+        this.incomingMessage = incomingMessage;
+
+        if (this.incomingMessage instanceof Incoming.Request<?> request) {
             this.responseBuilder = new Outgoing.Response.Builder<>(request);
         }
     }
 
-    public void setDeserializedMessage(final Incoming<?> incomingMessage) {
-        this.deserializedMessage = incomingMessage;
-    }
-
     private void checkDelivery() {
-        if (this.incomingMessage == null) {
+        if (this.delivery == null) {
             throw new IllegalStateException("No RabbitMQ message has been received in the current RequestScope");
-        }
-    }
-
-    private void checkDeserializedMessage() {
-        checkDelivery();
-        if (this.deserializedMessage == null) {
-            throw new IllegalStateException("RabbitMQ message has been not been serialized yet");
         }
     }
 
@@ -65,17 +59,9 @@ public class MessageMetaDataProducer {
 
     @Produces
     @Dependent
-    @Serialized
-    Incoming<byte[]> serializedMessage() {
-        checkDelivery();
-        return this.incomingMessage;
-    }
-
-    @Produces
-    @Dependent
     <T> Incoming<T> deserializedMessage() {
-        checkDeserializedMessage();
-        return (Incoming<T>) deserializedMessage;
+        checkDelivery();
+        return (Incoming<T>) this.incomingMessage;
     }
 
     @Produces
@@ -97,7 +83,7 @@ public class MessageMetaDataProducer {
     @Dependent
     String routingKey() {
         checkDelivery();
-        return this.incomingMessage.delivery().getEnvelope().getRoutingKey();
+        return delivery.getEnvelope().getRoutingKey();
     }
 
     @Produces
@@ -105,7 +91,7 @@ public class MessageMetaDataProducer {
     @Dependent
     String exchange() {
         checkDelivery();
-        return this.incomingMessage.delivery().getEnvelope().getExchange();
+        return delivery.getEnvelope().getExchange();
     }
 
     @Produces
@@ -113,14 +99,14 @@ public class MessageMetaDataProducer {
     @Dependent
     String queue() {
         checkDelivery();
-        return this.incomingMessage.queue();
+        return this.queue;
     }
 
     @Produces
     @Dependent
     BasicProperties basicProperties() {
         checkDelivery();
-        return this.incomingMessage.delivery().getProperties();
+        return delivery.getProperties();
     }
 
     //region header objects

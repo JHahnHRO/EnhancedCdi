@@ -45,11 +45,10 @@ class IncomingMessageHandler {
 
         try {
             // make sure request metadata is available in the current request scope for injection into event observers
-            metaData.setRawMessage(rawMessage, acknowledgment);
+            metaData.setDelivery(rawMessage.delivery(), rawMessage.queue(), acknowledgment);
 
             Incoming<?> message = serialization.deserialize(rawMessage);
-
-            metaData.setDeserializedMessage(message);
+            metaData.setMessage(message);
 
             fireEvent(message);
 
