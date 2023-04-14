@@ -5,8 +5,10 @@ import static java.lang.System.Logger.Level.WARNING;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
+import java.util.Optional;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
+import javax.enterprise.event.ObserverException;
 import javax.enterprise.event.ObservesAsync;
 import javax.inject.Inject;
 
@@ -18,6 +20,9 @@ import io.github.jhahnhro.enhancedcdi.messaging.WithRoutingKey;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.MessageMetaDataProducer;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.RabbitMqApplicationException;
 
 /**
  *
@@ -39,7 +44,13 @@ class IncomingMessageHandler {
     @Inject
     Serialization serialization;
 
-    void handleDelivery(@ObservesAsync InternalDelivery incomingDelivery) {
+    @Inject
+    Event<Outgoing<Object>> responseEvent;
+
+    @Inject
+    ExceptionMapping exceptionMapping;
+
+    public void handleDelivery(@ObservesAsync InternalDelivery incomingDelivery) {
         final Incoming<byte[]> rawMessage = incomingDelivery.rawMessage();
         final Acknowledgment acknowledgment = incomingDelivery.ack();
 
@@ -56,19 +67,50 @@ class IncomingMessageHandler {
         } catch (RpcException e) {
             throw e;
         } catch (Exception e) {
-            rejectIfNecessary(acknowledgment, e);
+            handleException(incomingDelivery, e);
         }
     }
 
-    private void acknowledgeIfNecessary(Acknowledgment acknowledgment) throws IOException {
+    private void acknowledgeIfNecessary(Acknowledgment acknowledgment) {
         if (acknowledgment.getState() == Acknowledgment.State.UNACKNOWLEDGED) {
             LOG.log(WARNING, "Incoming delivery in manual acknowledge mode was not explicitly acknowledged. "
                              + "That is probably an error. It will be acknowledged now.");
-            acknowledgment.ack();
+            try {
+                acknowledgment.ack();
+            } catch (IOException ex) {
+                LOG.log(ERROR, "Incoming delivery could not be acknowledged.", ex);
+            }
         }
     }
 
-    private void rejectIfNecessary(Acknowledgment acknowledgment, Exception e) {
+    private void handleException(final InternalDelivery incomingDelivery, Throwable e) {
+        if (e instanceof ObserverException) {
+            e = e.getCause();
+        }
+
+        if (incomingDelivery.rawMessage() instanceof Incoming.Request<byte[]>) {
+            if (e instanceof RabbitMqApplicationException applicationException) {
+                acknowledgeAndRespond(incomingDelivery, applicationException.getResponse());
+                return;
+            }
+
+            final Optional<Outgoing.Response<byte[], Object>> response = exceptionMapping.applyExceptionMapper(e);
+            if (response.isPresent()) {
+                acknowledgeAndRespond(incomingDelivery, response.get());
+                return;
+            }
+        }
+
+        rejectIfNecessary(incomingDelivery.ack(), e);
+    }
+
+    private void acknowledgeAndRespond(InternalDelivery incomingDelivery,
+                                       final Outgoing.Response<byte[], Object> response) {
+        acknowledgeIfNecessary(incomingDelivery.ack());
+        responseEvent.fireAsync(response);
+    }
+
+    private void rejectIfNecessary(Acknowledgment acknowledgment, Throwable e) {
         if (acknowledgment.getState() == Acknowledgment.State.UNACKNOWLEDGED) {
             LOG.log(ERROR, "Could not handle incoming delivery. It will be rejected now without re-queueing it.", e);
             try {
