@@ -106,10 +106,18 @@ class OutgoingMessageHandler implements Publisher {
 
     <T> void observeOutgoing(@ObservesAsync Outgoing<T> message, EventMetadata eventMetadata)
             throws IOException, InterruptedException {
-        final Type runtimeType = ((ParameterizedType) eventMetadata.getType()).getActualTypeArguments()[0];
+        final Type runtimeType = getRuntimeType(message, (ParameterizedType) eventMetadata.getType());
         final Outgoing<T> messageWithAdjustedType = message.builder().setType(runtimeType).build();
         serializeAndSend(messageWithAdjustedType).ifPresent(
                 response -> responseEvent.fireAsync(new InternalDelivery(response, AutoAck.INSTANCE)));
+    }
+
+    private <T> Type getRuntimeType(Outgoing<T> event, final ParameterizedType eventType) {
+        if (event instanceof Outgoing.Response<?, ?>) {
+            return eventType.getActualTypeArguments()[1];
+        } else {
+            return eventType.getActualTypeArguments()[0];
+        }
     }
 
     @Override
