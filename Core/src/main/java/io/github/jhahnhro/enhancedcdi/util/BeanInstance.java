@@ -94,6 +94,10 @@ public final class BeanInstance<T> {
         };
     }
 
+    synchronized boolean contains(T t) {
+        return state == State.INITIALIZED && this.instance == t;
+    }
+
     public Contextual<T> contextual() {return contextual;}
 
     public CreationalContext<T> context() {return context;}

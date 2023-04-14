@@ -95,7 +95,6 @@ public final class EnhancedInstance<T> implements Instance<T> {
     public <U extends T> EnhancedInstance<U> select(TypeLiteral<U> subtype, Annotation... qualifiers) {
         return select(subtype.getType(), qualifiers);
     }
-    //endregion
 
     /**
      * Explicitly unchecked version of the other select methods.
@@ -108,15 +107,15 @@ public final class EnhancedInstance<T> implements Instance<T> {
     @SuppressWarnings("unchecked")
     public <U extends T> EnhancedInstance<U> select(Type subtype, Annotation... qualifiers) {
         final EnhancedInstance<T> result;
-        if (subtype == currentInjectionPoint.getType() && qualifiers.length == 0) {
+        if (subtype.equals(currentInjectionPoint.getType()) && qualifiers.length == 0) {
             result = this;
         } else {
             result = new EnhancedInstance<>(beanManager, originalInjectionPoint,
                                             mutate(currentInjectionPoint, subtype, qualifiers), dependents);
         }
         return (EnhancedInstance<U>) result;
-
     }
+    //endregion
 
     //region resolution
     @Override
@@ -151,14 +150,16 @@ public final class EnhancedInstance<T> implements Instance<T> {
                 beanInstance -> destroyIfSameInstance(beanInstance, instance));
 
         if (!wasDependentInstance) {
-            // if it is a not a @Dependent instance that was created here, then it is probably a client proxy and
+            // if it is a not a @Dependent instance that was created here, then it is probably a client proxy, and
             // we can use the default Instance to destroy it.
             beanManager.createInstance().destroy(instance);
         }
     }
 
     private boolean destroyIfSameInstance(BeanInstance<T> beanInstance, T instance) {
-        if (beanInstance.state() == BeanInstance.State.INITIALIZED && beanInstance.instance() == instance) {
+        if (beanInstance.contains(instance)) {
+            // There is a benign race condition here if some other thread destroys the instance after we checked, but
+            // before we call destroy() ourselves. Since destroy is idempotent, this is not a problem.
             beanInstance.destroy();
             return true;
         } else {
@@ -176,6 +177,11 @@ public final class EnhancedInstance<T> implements Instance<T> {
     @Override
     public Iterator<T> iterator() {
         return safeStream().map(BeanInstance::instance).iterator();
+    }
+
+    @Override
+    public Stream<T> stream() {
+        return safeStream().map(BeanInstance::instance);
     }
 
     /**
