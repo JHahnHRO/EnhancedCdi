@@ -1,11 +1,12 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 
-import java.util.Objects;
+import java.util.List;
 import javax.annotation.PostConstruct;
-import javax.enterprise.context.Dependent;
+import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.Instance;
 import javax.enterprise.inject.Produces;
+import javax.enterprise.inject.spi.BeanManager;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 
@@ -25,11 +26,25 @@ class TopologyProducer {
     @Inject
     @Any
     Instance<AMQP.Queue.Bind> bindings;
-    @Inject
-    @Any
-    Instance<Topology> topologies;
+    List<Topology> otherTopologies;
+    @Produces
+    @Singleton
+    @Consolidated
+    private Topology topology;
 
-    private Topology topology = null; // null is a temporary value
+    @Inject
+    void setOtherTopologies(BeanManager bm) {
+        // we need to filter beans here, because one of the beans of type Topology is the one with qualifier
+        // @Consolidated that is the union of all others.
+        this.otherTopologies = bm.getBeans(Topology.class)
+                .stream()
+                .filter(bean -> !bean.getQualifiers().contains(Consolidated.Literal.INSTANCE))
+                .map(bean -> {
+                    final CreationalContext<?> creationalContext = bm.createCreationalContext(bean);
+                    return (Topology) bm.getReference(bean, Topology.class, creationalContext);
+                })
+                .toList();
+    }
 
     @PostConstruct
     private void createTopology() {
@@ -38,17 +53,8 @@ class TopologyProducer {
         exchanges.forEach(builder::addExchangeDeclaration);
         queues.forEach(builder::addQueueDeclaration);
         bindings.forEach(builder::addQueueBinding);
-        // we need to filter out null, because one of the beans of type Topology is the one with qualifier
-        // @Consolidated that we're constructing right now. At the moment, that bean is null.
-        topologies.stream().filter(Objects::nonNull).forEach(builder::merge);
+        otherTopologies.forEach(builder::merge);
 
         this.topology = builder.build();
-    }
-
-    @Produces
-    @Dependent // needs to be @Dependent, because we need to have null as a temporary value
-    @Consolidated
-    public Topology getTopology() {
-        return topology;
     }
 }
