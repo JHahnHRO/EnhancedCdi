@@ -90,6 +90,13 @@ public sealed interface Incoming<T> extends Message<T> {
         public <U> Incoming.Request<U> withContent(U newContent) {
             return new Request<>(delivery, queue, newContent);
         }
+
+        /**
+         * @return a new {@link Outgoing.Response.Builder} that can be used to build a response for this request.
+         */
+        public Outgoing.Response.Builder<T, Object> newResponseBuilder() {
+            return new Outgoing.Response.Builder<>(this);
+        }
     }
 
     record Response<REQ, RES>(Delivery delivery, RES content, Outgoing.Request<REQ> request) implements Incoming<RES> {

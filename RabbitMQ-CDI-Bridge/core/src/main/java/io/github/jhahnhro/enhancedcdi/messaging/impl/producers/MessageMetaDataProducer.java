@@ -40,7 +40,7 @@ public class MessageMetaDataProducer {
         this.incomingMessage = incomingMessage;
 
         if (this.incomingMessage instanceof Incoming.Request<?> request) {
-            this.responseBuilder = new Outgoing.Response.Builder<>(request);
+            this.responseBuilder = request.newResponseBuilder();
         }
     }
 
