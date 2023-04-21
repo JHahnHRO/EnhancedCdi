@@ -1,7 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.serialization.json;
 
 import java.io.InputStream;
-import javax.annotation.PreDestroy;
 import javax.json.bind.Jsonb;
 import javax.json.bind.JsonbException;
 
@@ -44,10 +43,5 @@ public abstract class JsonMessageReader<T> implements SelectableMessageReader<T>
         } catch (JsonbException e) {
             throw new InvalidMessageException(e);
         }
-    }
-
-    @PreDestroy
-    private void close() throws Exception {
-        jsonb.close();
     }
 }
