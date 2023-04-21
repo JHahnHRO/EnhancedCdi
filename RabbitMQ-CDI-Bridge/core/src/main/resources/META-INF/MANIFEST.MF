@@ -1,1 +1,1 @@
-Automatic-Module-Name: enhancedcdi.rabbitmqcdibridge
+Automatic-Module-Name: enhancedcdi.rabbitmqcdibridge.core
