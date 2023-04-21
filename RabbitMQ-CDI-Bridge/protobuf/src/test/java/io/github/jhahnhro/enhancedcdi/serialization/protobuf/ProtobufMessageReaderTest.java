@@ -20,7 +20,9 @@ class ProtobufMessageReaderTest {
 
     private static Incoming<byte[]> getMessage(final String contentType, final String fullProtobufTypeName) {
         final byte[] bytes = DURATION.toByteArray();
-        final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().contentType(contentType)
+        final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder()
+                .deliveryMode(1)
+                .contentType(contentType)
                 .type(fullProtobufTypeName)
                 .build();
         final Envelope envelope = new Envelope(0L, false, "exchange", "routing.key");

@@ -18,7 +18,7 @@ class ProtobufMessageWriterTest {
     private final ProtobufMessageWriter<Duration> writer = new ProtobufMessageWriter<>();
 
     private static Outgoing<Duration> getMessage() {
-        final AMQP.BasicProperties properties = new AMQP.BasicProperties();
+        final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().deliveryMode(1).build();
         return new Outgoing.Cast<>("exchange", "routing.key", properties, DURATION, Message.class);
     }
 
