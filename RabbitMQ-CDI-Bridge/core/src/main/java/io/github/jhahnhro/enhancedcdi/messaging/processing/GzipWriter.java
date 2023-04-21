@@ -15,6 +15,7 @@ import javax.interceptor.Interceptor;
 
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
@@ -43,7 +44,7 @@ class GzipWriter<T> implements MessageWriter<T> {
 
 
     @Override
-    public void write(Outgoing<T> originalMessage, Outgoing.Builder<OutputStream> messageBuilder) throws IOException {
+    public void write(Outgoing<T> originalMessage, MessageBuilder<OutputStream, ?> messageBuilder) throws IOException {
         requestCompressedResponses(originalMessage, messageBuilder);
 
         try (var decoratedStream = decorateOutputStream(originalMessage, messageBuilder)) {
@@ -53,7 +54,7 @@ class GzipWriter<T> implements MessageWriter<T> {
     }
 
     protected OutputStream decorateOutputStream(Outgoing<T> originalMessage,
-                                                Outgoing.Builder<OutputStream> messageBuilder)
+                                                MessageBuilder<OutputStream, ?> messageBuilder)
             throws IOException {
         OutputStream outputStream = messageBuilder.content();
 
@@ -73,7 +74,7 @@ class GzipWriter<T> implements MessageWriter<T> {
     }
 
     private void requestCompressedResponses(Outgoing<T> originalMessage,
-                                            Outgoing.Builder<OutputStream> messageBuilder) {
+                                            MessageBuilder<OutputStream, ?> messageBuilder) {
         if (originalMessage instanceof Outgoing.Request<T>) {
             messageBuilder.getHeaders().putIfAbsent("Accept-Encoding", "gzip;q=1.0, deflate;q=0.9, *;q=0.5");
         }

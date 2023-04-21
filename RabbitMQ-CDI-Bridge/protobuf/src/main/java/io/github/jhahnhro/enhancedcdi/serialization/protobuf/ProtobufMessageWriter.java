@@ -5,6 +5,7 @@ import java.io.OutputStream;
 import javax.enterprise.context.Dependent;
 
 import com.google.protobuf.Message;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
 
@@ -22,7 +23,7 @@ public class ProtobufMessageWriter<M extends Message> implements SelectableMessa
     }
 
     @Override
-    public void write(Outgoing<M> originalMessage, Outgoing.Builder<OutputStream> outgoingMessageBuilder)
+    public void write(Outgoing<M> originalMessage, MessageBuilder<OutputStream,?> outgoingMessageBuilder)
             throws IOException {
         outgoingMessageBuilder.propertiesBuilder()
                 .contentType("application/x-protobuf")

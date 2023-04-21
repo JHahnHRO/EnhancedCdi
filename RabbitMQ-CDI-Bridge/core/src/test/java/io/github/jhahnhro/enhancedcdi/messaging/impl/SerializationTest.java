@@ -17,6 +17,7 @@ import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.Retry;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
@@ -57,7 +58,7 @@ class SerializationTest {
         @Mock
         private MessageWriter<String> messageWriter;
         @Captor
-        private ArgumentCaptor<Outgoing.Builder<OutputStream>> streamCaptor;
+        private ArgumentCaptor<MessageBuilder<OutputStream, ?>> streamCaptor;
 
         @BeforeEach
         void mockEnhancedInstance() {
@@ -77,7 +78,7 @@ class SerializationTest {
             serialization.serialize(outgoingMessage);
 
             verify(messageWriter).write(eq(outgoingMessage), streamCaptor.capture());
-            final Outgoing.Builder<OutputStream> builder = streamCaptor.getValue();
+            final MessageBuilder<OutputStream, ?> builder = streamCaptor.getValue();
 
             assertThat(builder.exchange()).isEqualTo(outgoingMessage.exchange());
             assertThat(builder.routingKey()).isEqualTo(outgoingMessage.routingKey());
@@ -148,7 +149,7 @@ class SerializationTest {
 
             private Answer<Void> writeBytes(final byte[] bytes) {
                 return invocation -> {
-                    final Outgoing.Builder<OutputStream> builder = invocation.getArgument(1);
+                    final MessageBuilder<OutputStream, ?> builder = invocation.getArgument(1);
                     builder.content().write(bytes);
                     return null; // void method
                 };

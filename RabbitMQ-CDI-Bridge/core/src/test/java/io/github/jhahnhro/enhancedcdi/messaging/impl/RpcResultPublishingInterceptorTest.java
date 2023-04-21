@@ -90,7 +90,7 @@ class RpcResultPublishingInterceptorTest {
 
         @RpcEndpoint
         Outgoing.Response<String, Instant> plusThreeHours(@Observes @Incoming Instant input) {
-            final var responseBuilder = new Outgoing.Response.Builder<String, Instant>(INCOMING_REQUEST).setContent(
+            final var responseBuilder = INCOMING_REQUEST.newResponseBuilder().setContent(
                     input.plus(3, ChronoUnit.HOURS));
             responseBuilder.propertiesBuilder().deliveryMode(1).type("special");
             return responseBuilder.build();

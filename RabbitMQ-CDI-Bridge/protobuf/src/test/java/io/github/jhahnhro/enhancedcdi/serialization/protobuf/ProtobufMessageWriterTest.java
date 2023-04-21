@@ -9,6 +9,7 @@ import java.io.OutputStream;
 import com.google.protobuf.Duration;
 import com.google.protobuf.Message;
 import com.rabbitmq.client.AMQP;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ class ProtobufMessageWriterTest {
         final Outgoing<Duration> message = getMessage();
 
         final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        final Outgoing.Builder<OutputStream> output = message.builder().setType(OutputStream.class).setContent(baos);
+        final MessageBuilder<OutputStream,?> output = message.builder().setType(OutputStream.class).setContent(baos);
 
         writer.write(message, output);
 

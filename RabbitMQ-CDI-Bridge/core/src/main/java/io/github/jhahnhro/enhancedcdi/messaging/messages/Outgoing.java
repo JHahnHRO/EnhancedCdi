@@ -4,8 +4,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Objects.requireNonNullElse;
 
 import java.lang.reflect.Type;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 import com.rabbitmq.client.AMQP;
@@ -32,10 +30,39 @@ public sealed interface Outgoing<T> extends Message<T> {
      */
     Type type();
 
+    //region private helper methods
+    private static <X> void validate(String exchange, String routingKey, AMQP.BasicProperties properties, X content,
+                                     Type type) {
+        requireNonNull(exchange, "exchange");
+        requireNonNull(routingKey, "routingKey");
+        validateProperties(properties);
+        validateType(content, type);
+    }
+
+    private static void validateType(Object content, Type type) {
+        requireNonNull(content, "content");
+        requireNonNull(type, "type");
+
+        if (!Types.erasure(type).isAssignableFrom(content.getClass())) {
+            throw new IllegalArgumentException(
+                    "content class %s is not compatible with given type %s".formatted(content.getClass(), type));
+        }
+    }
+
+    private static void validateProperties(AMQP.BasicProperties properties) {
+        requireNonNull(properties, "properties");
+
+        final int deliveryMode = properties.getDeliveryMode();
+        if (deliveryMode != DeliveryMode.TRANSIENT.nr && deliveryMode != DeliveryMode.PERSISTENT.nr) {
+            throw new IllegalArgumentException("BasicProperties.deliveryMode must be set to either 1 or 2");
+        }
+    }
+
     /**
-     * @return An {@link Builder} initialized with the metadata and content of this message.
+     * @return A {@link MessageBuilder} initialized with the metadata and content of this message.
      */
-    Builder<T> builder();
+    @SuppressWarnings("java:S1452") // Sonar does not like returning wildcards, but here it is necessary
+    MessageBuilder<T, ?> builder();
 
     record Cast<T>(String exchange, String routingKey, AMQP.BasicProperties properties, T content, Type type)
             implements Outgoing<T> {
@@ -51,12 +78,12 @@ public sealed interface Outgoing<T> extends Message<T> {
 
         @Override
         public Builder<T> builder() {
-            final Builder<T> builder = new Builder<>(this.exchange(), this.routingKey(), DeliveryMode.PERSISTENT);
-            builder.setContent(this.content).setType(this.type).setProperties(this.properties);
-            return builder;
+            return new Builder<>(this.exchange(), this.routingKey(), DeliveryMode.PERSISTENT).setContent(this.content)
+                    .setType(this.type)
+                    .setProperties(this.properties);
         }
 
-        public static final class Builder<T> extends Outgoing.Builder<T> {
+        public static final class Builder<T> extends MessageBuilder<T, Builder<T>> {
 
             public Builder(String exchange, String routingKey, DeliveryMode deliveryMode) {
                 super(exchange, routingKey, deliveryMode);
@@ -70,6 +97,13 @@ public sealed interface Outgoing<T> extends Message<T> {
             public Builder<T> setRoutingKey(String routingKey) {
                 this.routingKey = requireNonNull(routingKey);
                 return this;
+            }
+
+            @SuppressWarnings("unchecked")
+            @Override
+            public <U> Builder<U> setContent(U content) {
+                super.content = content;
+                return (Builder<U>) this;
             }
 
             @Override
@@ -101,12 +135,12 @@ public sealed interface Outgoing<T> extends Message<T> {
 
         @Override
         public Builder<T> builder() {
-            final Builder<T> builder = new Builder<>(this.exchange(), this.routingKey(), DeliveryMode.PERSISTENT);
-            builder.setContent(this.content).setType(this.type).setProperties(this.properties);
-            return builder;
+            return new Builder<>(this.exchange(), this.routingKey(), DeliveryMode.PERSISTENT).setContent(this.content)
+                    .setType(this.type)
+                    .setProperties(this.properties);
         }
 
-        public static final class Builder<T> extends Outgoing.Builder<T> {
+        public static final class Builder<T> extends MessageBuilder<T, Builder<T>> {
 
             public Builder(String exchange, String routingKey, DeliveryMode deliveryMode) {
                 super(exchange, routingKey, deliveryMode);
@@ -122,39 +156,18 @@ public sealed interface Outgoing<T> extends Message<T> {
                 return this;
             }
 
+            @SuppressWarnings("unchecked")
+            @Override
+            public <U> Builder<U> setContent(U content) {
+                super.content = content;
+                return (Builder<U>) self();
+            }
+
             @Override
             public Request<T> build() {
                 return new Request<>(exchange, routingKey, this.properties(), this.content(), this.type());
             }
 
-        }
-    }
-
-    //region private helper methods
-    private static <X> void validate(String exchange, String routingKey, AMQP.BasicProperties properties, X content,
-                                     Type type) {
-        requireNonNull(exchange, "exchange");
-        requireNonNull(routingKey, "routingKey");
-        validateProperties(properties);
-        validateType(content, type);
-    }
-
-    private static void validateType(Object content, Type type) {
-        requireNonNull(content, "content");
-        requireNonNull(type, "type");
-
-        if (!Types.erasure(type).isAssignableFrom(content.getClass())) {
-            throw new IllegalArgumentException(
-                    "content class %s is not compatible with given type %s".formatted(content.getClass(), type));
-        }
-    }
-
-    private static void validateProperties(AMQP.BasicProperties properties) {
-        requireNonNull(properties, "properties");
-
-        final int deliveryMode = properties.getDeliveryMode();
-        if (deliveryMode != DeliveryMode.TRANSIENT.nr && deliveryMode != DeliveryMode.PERSISTENT.nr) {
-            throw new IllegalArgumentException("BasicProperties.deliveryMode must be set to either 1 or 2");
         }
     }
 
@@ -195,15 +208,12 @@ public sealed interface Outgoing<T> extends Message<T> {
             return this.request().properties().getReplyTo();
         }
 
-        /**
-         * @return An {@link Outgoing.Builder} initialized with the metadata and content of this message.
-         */
         @Override
         public Response.Builder<REQ, RES> builder() {
             return new Builder<>(request).setContent(this.content).setType(this.type).setProperties(this.properties);
         }
 
-        public static final class Builder<REQ, RES> extends Outgoing.Builder<RES> {
+        public static final class Builder<REQ, RES> extends MessageBuilder<RES, Builder<REQ, RES>> {
 
             private final Incoming.Request<REQ> request;
 
@@ -213,29 +223,11 @@ public sealed interface Outgoing<T> extends Message<T> {
                 this.propertiesBuilder.correlationId(request.properties().getCorrelationId());
             }
 
-            @Override
-            public Builder<REQ, RES> setDeliveryMode(DeliveryMode deliveryMode) {
-                super.setDeliveryMode(deliveryMode);
-                return this;
-            }
-
-            @Override
-            public Builder<REQ, RES> setProperties(BasicProperties properties) {
-                super.setProperties(properties);
-                return this;
-            }
-
+            @SuppressWarnings("unchecked")
             @Override
             public <T> Builder<REQ, T> setContent(T content) {
-                super.setContent(content);
-                //noinspection unchecked
+                this.content = content;
                 return (Builder<REQ, T>) this;
-            }
-
-            @Override
-            public Builder<REQ, RES> setType(Type type) {
-                super.setType(type);
-                return this;
             }
 
             @Override
@@ -248,114 +240,6 @@ public sealed interface Outgoing<T> extends Message<T> {
             }
 
         }
-    }
-
-    sealed class Builder<RES> implements Message<RES> permits Cast.Builder, Request.Builder, Response.Builder {
-
-        protected final AMQP.BasicProperties.Builder propertiesBuilder;
-
-        protected Object content = null; // mutable for all
-        protected Type type = null; // mutable for all
-        protected String exchange; // immutable for Response.Builder
-        protected String routingKey; // immutable for Response.Builder
-
-        public Builder(final String exchange, final String routingKey, DeliveryMode deliveryMode) {
-            this.propertiesBuilder = new AMQP.BasicProperties.Builder().deliveryMode(deliveryMode.nr);
-            this.exchange = requireNonNull(exchange);
-            this.routingKey = requireNonNull(routingKey);
-        }
-
-        @Override
-        public String exchange() {
-            return exchange;
-        }
-
-        @Override
-        public String routingKey() {
-            return routingKey;
-        }
-
-        public Builder<RES> setDeliveryMode(DeliveryMode deliveryMode) {
-            this.propertiesBuilder.deliveryMode(deliveryMode.nr);
-            return this;
-        }
-
-        public AMQP.BasicProperties.Builder propertiesBuilder() {
-            return propertiesBuilder;
-        }
-
-        /**
-         * @return the current properties of the message being build.
-         */
-        @Override
-        public AMQP.BasicProperties properties() {
-            return this.propertiesBuilder.build();
-        }
-
-        public Builder<RES> setProperties(BasicProperties properties) {
-            this.propertiesBuilder.contentType(properties.getContentType())
-                    .contentEncoding(properties.getContentEncoding())
-                    .headers(properties.getHeaders())
-                    .deliveryMode(properties.getDeliveryMode())
-                    .priority(properties.getPriority())
-                    .correlationId(properties.getCorrelationId())
-                    .replyTo(properties.getReplyTo())
-                    .expiration(properties.getExpiration())
-                    .messageId(properties.getMessageId())
-                    .timestamp(properties.getTimestamp())
-                    .type(properties.getType())
-                    .userId(properties.getUserId())
-                    .appId(properties.getAppId());
-
-            return this;
-        }
-
-        /**
-         * Returns a <b>mutable</b> map containing all {@link BasicProperties#getHeaders() headers} currently contained
-         * in the {@link #propertiesBuilder()}. The returned map is also written to the builder so any changes to it
-         * will be reflected in the final message (except if
-         * {@link com.rabbitmq.client.AMQP.BasicProperties.Builder#headers(Map)} is not called)
-         *
-         * @return the (mutable) map of headers currently in the {@link #propertiesBuilder()}. Never null, but may be
-         * empty.
-         */
-        @Override
-        public Map<String, Object> getHeaders() {
-            final Map<String, Object> prevHeaders = properties().getHeaders();
-            Map<String, Object> mutableHeaders = prevHeaders == null ? new HashMap<>() : new HashMap<>(prevHeaders);
-            propertiesBuilder.headers(mutableHeaders);
-            return mutableHeaders;
-        }
-
-        @Override
-        @SuppressWarnings("unchecked")
-        public RES content() {
-            return (RES) this.content;
-        }
-
-        @SuppressWarnings("unchecked")
-        public <T> Builder<T> setContent(T content) {
-            this.content = content;
-            return (Builder<T>) this;
-        }
-
-        public Type type() {
-            return type;
-        }
-
-        public Builder<RES> setType(Type type) {
-            this.type = type;
-            return this;
-        }
-
-        public Outgoing<RES> build() {
-            final AMQP.BasicProperties properties = properties();
-            if (properties.getReplyTo() != null) {
-                return new Request<>(exchange(), routingKey(), properties, content(), type());
-            }
-            return new Cast<>(exchange(), routingKey(), properties, content(), type());
-        }
-
     }
     //endregion
 }

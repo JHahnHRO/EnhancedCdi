@@ -12,7 +12,6 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -69,14 +68,12 @@ class PlainTextReaderWriterTest {
         @Test
         void write() throws IOException {
             final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().deliveryMode(2).build();
-            Outgoing<String> outgoing = new Outgoing.Cast<>("exchange", "routing.key", properties, "äöü");
+            Outgoing.Cast<String> outgoing = new Outgoing.Cast<>("exchange", "routing.key", properties, "äöü");
 
             assertThat(readerWriter.canWrite(outgoing)).isTrue();
 
             final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            final Outgoing.Builder<OutputStream> builder = new Outgoing.Builder<>("exchange", "routing.key",
-                                                                                  Message.DeliveryMode.PERSISTENT).setContent(
-                    baos);
+            final Outgoing.Cast.Builder<OutputStream> builder = outgoing.builder().setContent(baos);
 
             readerWriter.write(outgoing, builder);
 

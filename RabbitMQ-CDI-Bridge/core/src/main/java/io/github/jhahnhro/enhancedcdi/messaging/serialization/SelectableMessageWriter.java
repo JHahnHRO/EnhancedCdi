@@ -3,6 +3,7 @@ package io.github.jhahnhro.enhancedcdi.messaging.serialization;
 import javax.enterprise.inject.spi.Prioritized;
 
 import com.rabbitmq.client.BasicProperties;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
 /**
@@ -21,7 +22,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
  * <p>
  * The library provides a {@link javax.enterprise.context.Dependent} scoped bean with type {@code MessageWriter<T>} and
  * qualifier {@link Selected} that automatically selects the right {@code SelectableMessageWriter} for each call to
- * {@link #write(Outgoing, Outgoing.Builder)}.
+ * {@link #write(Outgoing, MessageBuilder)}.
  *
  * @param <T> type of the message contents that this {@code SelectableMessageWriter} can serialize.
  * @see ByteArrayReaderWriter

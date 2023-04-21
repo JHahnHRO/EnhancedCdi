@@ -12,6 +12,7 @@ import javax.enterprise.inject.Any;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.inject.Inject;
 
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
@@ -23,7 +24,7 @@ import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
  * Represents the auto-selection process for {@link SelectableMessageWriter}s and makes it available to clients:
  * <ul>
  *     <li>It is possible to inject a {@code @Selected MessageWriter<T>} of any type {@code T} and when
- *     {@link #write(Outgoing, Outgoing.Builder)} is called on the injected instance, the call will be delegated to
+ *     {@link #write(Outgoing, MessageBuilder)} is called on the injected instance, the call will be delegated to
  *     the applicable {@code SelectableMessageWriter<T>} with the highest priority.</li>
  *     <li>Decorators can bind to the {@code @Selected MessageWriter<T>} bean and introduce behaviour that will be
  *     applied to the selected MessageWriter for every outgoing message, not matter what MessageWriter will actually be
@@ -56,7 +57,7 @@ class SelectedMessageWriter<T> implements MessageWriter<T> {
     }
 
     @Override
-    public void write(Outgoing<T> originalMessage, Outgoing.Builder<OutputStream> serializedMessage)
+    public void write(Outgoing<T> originalMessage, MessageBuilder<OutputStream,?> serializedMessage)
             throws IOException {
         final MessageWriter<T> applicableWriter = writers.stream()
                 .filter(writer -> writer.canWrite(originalMessage))

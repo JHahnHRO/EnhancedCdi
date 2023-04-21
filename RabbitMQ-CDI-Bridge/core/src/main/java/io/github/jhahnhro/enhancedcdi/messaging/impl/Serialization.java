@@ -11,6 +11,7 @@ import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
@@ -51,7 +52,7 @@ class Serialization {
     }
 
     public <T> Outgoing<byte[]> serialize(Outgoing<T> outgoingMessage) throws IOException {
-        final Outgoing.Builder<?> builder = outgoingMessage.builder();
+        final MessageBuilder<?, ?> builder = outgoingMessage.builder();
 
         try (var outputStream = new BoundedByteArrayOutputStream(maxMessageSize)) {
             writeWithSelectedWriter(outgoingMessage, builder.setType(OutputStream.class).setContent(outputStream));
@@ -61,7 +62,7 @@ class Serialization {
     }
 
     private <T> void writeWithSelectedWriter(Outgoing<T> outgoingMessage,
-                                             Outgoing.Builder<OutputStream> serializedMessage)
+                                             MessageBuilder<OutputStream, ?> serializedMessage)
             throws IOException {
 
         MessageWriter<T> selectedWriter = getSelectedWriter(outgoingMessage);

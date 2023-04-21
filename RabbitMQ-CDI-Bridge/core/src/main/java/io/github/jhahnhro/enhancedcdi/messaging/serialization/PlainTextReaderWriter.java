@@ -11,6 +11,7 @@ import java.util.regex.Pattern;
 import javax.inject.Singleton;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
 @Singleton
@@ -54,7 +55,7 @@ public class PlainTextReaderWriter implements SelectableMessageReader<String>, S
     }
 
     @Override
-    public void write(Outgoing<String> originalMessage, Outgoing.Builder<OutputStream> outgoingMessageBuilder)
+    public void write(Outgoing<String> originalMessage, MessageBuilder<OutputStream, ?> outgoingMessageBuilder)
             throws IOException {
         outgoingMessageBuilder.propertiesBuilder().contentType("text/plain; charset=UTF-8");
         try (var stream = outgoingMessageBuilder.content();

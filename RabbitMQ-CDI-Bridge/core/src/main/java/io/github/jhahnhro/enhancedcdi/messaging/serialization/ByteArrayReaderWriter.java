@@ -6,6 +6,7 @@ import java.io.OutputStream;
 import javax.inject.Singleton;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
 @Singleton
@@ -39,7 +40,7 @@ public class ByteArrayReaderWriter implements SelectableMessageReader<byte[]>, S
     }
 
     @Override
-    public void write(Outgoing<byte[]> originalMessage, Outgoing.Builder<OutputStream> builder)
+    public void write(Outgoing<byte[]> originalMessage, MessageBuilder<OutputStream,?> builder)
             throws IOException {
         builder.propertiesBuilder().contentType(APPLICATION_OCTET_STREAM);
         try (OutputStream outputStream = builder.content()) {

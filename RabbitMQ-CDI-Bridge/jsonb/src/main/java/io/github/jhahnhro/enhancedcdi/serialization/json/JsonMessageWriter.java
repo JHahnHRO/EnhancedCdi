@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import javax.json.bind.Jsonb;
 
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
 
@@ -34,7 +35,7 @@ public abstract class JsonMessageWriter<T> implements SelectableMessageWriter<T>
     }
 
     @Override
-    public void write(Outgoing<T> originalMessage, Outgoing.Builder<OutputStream> outgoingMessageBuilder)
+    public void write(Outgoing<T> originalMessage, MessageBuilder<OutputStream,?> outgoingMessageBuilder)
             throws IOException {
         outgoingMessageBuilder.propertiesBuilder()
                 .contentType("application/json")

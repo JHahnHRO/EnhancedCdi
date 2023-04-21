@@ -15,6 +15,7 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
@@ -146,7 +147,7 @@ class GzipWriterTest {
 
     private Outgoing<byte[]> getActualBytes(Outgoing<FooBar> outgoingMessage) throws IOException {
         try (ByteArrayOutputStream boas = new ByteArrayOutputStream()) {
-            final Outgoing.Builder<OutputStream> messageBuilder = outgoingMessage.builder()
+            final MessageBuilder<OutputStream, ?> messageBuilder = outgoingMessage.builder()
                     .setType(OutputStream.class)
                     .setContent(boas);
             gzipWriter.write(outgoingMessage, messageBuilder);
@@ -162,7 +163,7 @@ class GzipWriterTest {
         }
 
         @Override
-        public void write(Outgoing<FooBar> originalMessage, Outgoing.Builder<OutputStream> serializedMessage)
+        public void write(Outgoing<FooBar> originalMessage, MessageBuilder<OutputStream, ?> serializedMessage)
                 throws IOException {
             try (var content = serializedMessage.content()) {
                 content.write(BYTES);

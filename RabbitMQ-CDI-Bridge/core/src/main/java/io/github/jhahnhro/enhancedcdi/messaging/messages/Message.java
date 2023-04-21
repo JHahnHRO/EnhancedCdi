@@ -9,7 +9,7 @@ import com.rabbitmq.client.BasicProperties;
 /**
  * Common supertype of incoming and outgoing messages.
  */
-public sealed interface Message<T> permits Incoming, Outgoing, Outgoing.Builder {
+public sealed interface Message<T> permits Incoming, Outgoing, MessageBuilder {
     /**
      * @return the name of the exchange the message was received from / will be published to
      */
