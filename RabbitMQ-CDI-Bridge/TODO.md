@@ -5,10 +5,13 @@
   * lifecycle events? OnDelivery, OnDeserialization, ... ?
   * interface with specific log-callbacks?
   * interface with general-purpose `log(level,Message<T>,String,Throwable)` method?
+  * SLF4J + Markers?
 * support publisher confirms
-  * two channel pools? balancing between them?
+  * second channel pools: create() borrows from main pool?
+  * ConfirmHandler contains Map<message id, BlockingCell<AckOrNack>>
+  * publishConfirmed() synchronous
 * support mandatory publishing and ReturnHandlers
-  * How? ReturnHandlers are fundamentally asynchronous?
+  * async Event contains message id, publishMandatory returns message id
 * write tests for `IncomingMessageHandler` and `OutgoingMessageHandler`
 * write tests for `Incoming` and `Outgoing`
 * increase unit test coverage
