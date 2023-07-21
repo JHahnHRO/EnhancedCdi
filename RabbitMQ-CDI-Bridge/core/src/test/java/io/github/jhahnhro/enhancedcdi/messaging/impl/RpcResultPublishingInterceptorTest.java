@@ -148,7 +148,7 @@ class RpcResultPublishingInterceptorTest {
         @Test
         void givenRequestExists_whenRpcEvent_thenHandleRpcCall() throws IOException, InterruptedException {
             incomingEvent.select(String.class).fire("ping");
-            verify(publisherMock).send(response.capture());
+            verify(publisherMock).publish(response.capture());
             assertThat(response.getValue().content()).isEqualTo("pong");
         }
 
@@ -157,7 +157,7 @@ class RpcResultPublishingInterceptorTest {
                 throws IOException, InterruptedException {
 
             incomingEvent.select(Instant.class).fire(Instant.now());
-            verify(publisherMock).send(response.capture());
+            verify(publisherMock).publish(response.capture());
             // verify that the returned object is sent, not the manually constructed
             assertThat(response.getValue().properties().getType()).isEqualTo("special");
         }

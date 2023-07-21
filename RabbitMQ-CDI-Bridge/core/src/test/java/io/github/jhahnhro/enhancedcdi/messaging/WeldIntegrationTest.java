@@ -417,7 +417,7 @@ class WeldIntegrationTest {
         void testPublishingMessagesDeclaresExchanges() throws IOException, InterruptedException {
             Outgoing<String> cast = createSimpleCast("Hello World");
 
-            publisher.send(cast);
+            publisher.publish(cast);
 
             verify(channel).exchangeDeclare(EXCHANGE.getExchange(), EXCHANGE.getType(), EXCHANGE.getDurable(),
                                             EXCHANGE.getAutoDelete(), EXCHANGE.getArguments());
@@ -433,7 +433,7 @@ class WeldIntegrationTest {
             final String content = "Hello World";
             Outgoing<String> cast = createSimpleCast(content);
 
-            publisher.send(cast);
+            publisher.publish(cast);
 
             verifyActualPayloadIs(content.getBytes(StandardCharsets.UTF_8));
         }
@@ -443,7 +443,7 @@ class WeldIntegrationTest {
             final byte[] content = new byte[]{12, 3, 4, 5, 6, 7, 8, 9};
             Outgoing<byte[]> cast = createSimpleCast(content);
 
-            publisher.send(cast);
+            publisher.publish(cast);
 
             verifyActualPayloadIs(content);
         }

@@ -56,7 +56,7 @@ class RpcResultPublishingInterceptor {
 
         Object result = invocationContext.proceed();
 
-        publisher.send(getResponse(invocationContext.getMethod(), responseBuilder, result));
+        publisher.publish(getResponse(invocationContext.getMethod(), responseBuilder, result));
 
         return result;
     }

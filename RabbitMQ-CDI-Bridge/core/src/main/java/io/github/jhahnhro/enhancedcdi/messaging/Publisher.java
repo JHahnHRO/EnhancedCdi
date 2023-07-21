@@ -1,7 +1,8 @@
 package io.github.jhahnhro.enhancedcdi.messaging;
 
 import java.io.IOException;
-import java.util.Optional;
+import java.time.Duration;
+import java.util.concurrent.TimeoutException;
 
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
@@ -14,27 +15,27 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageW
 public interface Publisher {
 
     /**
-     * Sends the given message to the broker. If the message is a {@link Outgoing.Request}, the method blocks until a
-     * response is received (or until the current thread is interrupted) which is then returned to the caller.
+     * Sends the given message to the broker fire-and-forget style.
      *
      * @param message the outgoing message
      * @param <T>     the type of the content of the message
-     * @param <RES>   the type of the received response
-     * @return the response if the message was a request, an empty Optional otherwise.
      * @throws IOException           if anything goes wrong
-     * @throws InterruptedException  if the current thread gets interrupted while waiting for an available
-     *                               {@link com.rabbitmq.client.Channel} to publish the message.
+     * @throws InterruptedException  if the current thread gets interrupted while waiting for a
+     *                               {@link com.rabbitmq.client.Channel} to become available to publish the message.
      * @throws IllegalStateException if no {@link SelectableMessageWriter} for the content can be found.
-     * @apiNote Note that this method does not perform any type checks on the response content, i.e. a
-     * {@link ClassCastException} may be thrown if the response was in fact deserialized to something incompatible with
-     * {@code RES}.
      */
-    <T, RES> Optional<Incoming.Response<T, RES>> send(Outgoing<T> message) throws IOException, InterruptedException;
+    <T> void publish(Outgoing<T> message) throws IOException, InterruptedException;
+
+    <T> void publishMandatory(Outgoing<T> message) throws IOException, InterruptedException;
+
+    <T> void publishConfirmed(Outgoing<T> message, Duration timeout)
+            throws IOException, InterruptedException, TimeoutException;
 
     /**
      * Sends the given request to the broker and returns the response to the caller.
      *
-     * @param request the request to send
+     * @param request the request to send.
+     * @param timeout time to wait for a response before giving up.
      * @param <T>     the type of the request's content
      * @param <RES>   the expected response type. Note that this method does not perform any type checks on the response
      *                content, i.e. a {@link ClassCastException} may be thrown if the response was in fact deserialized
@@ -43,13 +44,11 @@ public interface Publisher {
      * @throws IOException           if anything goes wrong
      * @throws InterruptedException  if the current thread gets interrupted while waiting for an available
      *                               {@link com.rabbitmq.client.Channel} to publish the message.
+     * @throws TimeoutException      if no response was received within the given time.
      * @throws IllegalStateException if no {@link SelectableMessageWriter} for the content can be found.
      */
-    @SuppressWarnings({"OptionalGetWithoutIsPresent", "java:S3655"})
-    default <T, RES> Incoming.Response<T, RES> rpc(Outgoing.Request<T> request)
-            throws IOException, InterruptedException {
-        return this.<T, RES>send(request).get();
-    }
+    <T, RES> Incoming.Response<T, RES> rpc(Outgoing.Request<T> request, Duration timeout)
+            throws IOException, InterruptedException, TimeoutException;
 
     /**
      * Checks if there is still a consumer waiting for the response to the given request. Because the response to a
