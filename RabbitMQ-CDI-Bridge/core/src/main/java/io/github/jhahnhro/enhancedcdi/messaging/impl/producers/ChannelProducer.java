@@ -1,6 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.System.Logger.Level;
 import java.util.Optional;
 import java.util.concurrent.TimeoutException;
@@ -62,7 +63,7 @@ class ChannelProducer {
             try {
                 maybeChannel = connection.openChannel();
             } catch (IOException e) {
-                throw new RuntimeIOException(e);
+                throw new UncheckedIOException(e);
             }
             return maybeChannel.orElseThrow(() -> new IllegalStateException("No channels available"));
         }
