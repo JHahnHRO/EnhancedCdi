@@ -5,7 +5,7 @@ import static io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment.S
 import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.util.Map;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.Semaphore;
 import javax.enterprise.event.Event;
 
 import com.rabbitmq.client.AMQP;
@@ -27,6 +27,8 @@ class DispatchingConsumer extends DefaultConsumer {
     private final String queueName;
     private final Consumers.Options options;
     private final Event<InternalDelivery> dispatcher;
+    // guards against concurrent writes to the channel during acknowledgment
+    private final Semaphore ackPermit;
 
     public DispatchingConsumer(final Channel channel, String queueName, Consumers.Options options,
                                Event<InternalDelivery> dispatcher) {
@@ -34,6 +36,7 @@ class DispatchingConsumer extends DefaultConsumer {
         this.queueName = queueName;
         this.options = options;
         this.dispatcher = dispatcher;
+        this.ackPermit = options.autoAck() ? null : new Semaphore(1);
     }
 
     @Override
@@ -55,7 +58,7 @@ class DispatchingConsumer extends DefaultConsumer {
     }
 
     private Acknowledgment createMessageAcknowledgement(final long deliveryTag) {
-        return options.autoAck() ? AutoAck.INSTANCE : new ManualAck(deliveryTag, getChannel());
+        return options.autoAck() ? AutoAck.INSTANCE : new ManualAck(deliveryTag, getChannel(), ackPermit);
     }
 
     private Incoming<byte[]> createIncomingMessage(Envelope envelope, AMQP.BasicProperties properties, byte[] body,
@@ -88,11 +91,11 @@ class DispatchingConsumer extends DefaultConsumer {
     }
 
     public void stop() throws IOException {
-        this.cancel();
+        this.cancelConsumer();
         this.closeChannel();
     }
 
-    private void cancel() throws IOException {
+    private void cancelConsumer() throws IOException {
         Channel channel = getChannel();
         try {
             channel.basicCancel(getConsumerTag());
@@ -101,14 +104,12 @@ class DispatchingConsumer extends DefaultConsumer {
         }
     }
 
-    private void closeChannel() throws IOException {
+    private void closeChannel() {
         Channel channel = getChannel();
         try {
-            channel.close();
-        } catch (AlreadyClosedException sse) {
-            // already closed
-        } catch (TimeoutException e) {
-            throw new IOException(e);
+            channel.abort();
+        } catch (IOException ignored) {
+            // abort does not throw this exception. It's just specified in the interface for backwards compatibility.
         }
     }
 
@@ -132,24 +133,29 @@ class DispatchingConsumer extends DefaultConsumer {
     private static class ManualAck implements Acknowledgment {
         private final long deliveryTag;
         private final Channel channel;
+        private final Semaphore ackPermit;
         private State state;
 
-        private ManualAck(long deliveryTag, Channel channel) {
+        private ManualAck(long deliveryTag, Channel channel, Semaphore ackPermit) {
             this.deliveryTag = deliveryTag;
             this.channel = channel;
+            this.ackPermit = ackPermit;
             this.state = UNACKNOWLEDGED;
         }
 
         @Override
         public void ack() throws IOException {
             if (this.state == UNACKNOWLEDGED) {
-                this.state = ACKNOWLEDGED;
                 try {
+                    ackPermit.acquireUninterruptibly();
                     channel.basicAck(deliveryTag, false);
+                    this.state = ACKNOWLEDGED;
                 } catch (AlreadyClosedException ace) {
                     LOG.log(Level.WARNING, "Cannot acknowledge message, "
                                            + "because the channel on which it was received is already closed. "
                                            + "The broker will re-queue the message anyway.");
+                } finally {
+                    ackPermit.release();
                 }
             } else if (this.state == REJECTED) {
                 throw new IllegalStateException("Message cannot be acknowledged, because has already been rejected");
@@ -159,13 +165,16 @@ class DispatchingConsumer extends DefaultConsumer {
         @Override
         public void reject(final boolean requeue) throws IOException {
             if (this.state == UNACKNOWLEDGED) {
-                this.state = REJECTED;
                 try {
+                    ackPermit.acquireUninterruptibly();
                     channel.basicReject(deliveryTag, requeue);
+                    this.state = REJECTED;
                 } catch (AlreadyClosedException ace) {
                     LOG.log(Level.WARNING, "Cannot reject message, "
                                            + "because the channel on which it was received is already closed. "
                                            + "The broker will re-queue the message anyway.");
+                } finally {
+                    ackPermit.release();
                 }
             } else if (this.state == ACKNOWLEDGED) {
                 throw new IllegalStateException("Message cannot be rejected, because has already been acknowledged");
