@@ -36,7 +36,7 @@ class TopologyProducer {
     void setOtherTopologies(BeanManager bm) {
         // we need to filter beans here, because one of the beans of type Topology is the one with qualifier
         // @Consolidated that is the union of all others.
-        this.otherTopologies = bm.getBeans(Topology.class)
+        this.otherTopologies = bm.getBeans(Topology.class, Any.Literal.INSTANCE)
                 .stream()
                 .filter(bean -> !bean.getQualifiers().contains(Consolidated.Literal.INSTANCE))
                 .map(bean -> {
