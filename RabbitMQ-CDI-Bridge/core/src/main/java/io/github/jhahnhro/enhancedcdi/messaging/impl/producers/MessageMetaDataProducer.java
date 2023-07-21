@@ -1,5 +1,7 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Date;
@@ -9,6 +11,7 @@ import javax.enterprise.context.Dependent;
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.spi.InjectionPoint;
+import javax.inject.Inject;
 
 import com.rabbitmq.client.BasicProperties;
 import com.rabbitmq.client.Delivery;
@@ -73,8 +76,10 @@ public class MessageMetaDataProducer {
 
     @Produces
     @Dependent
-    <REQ, RES> Outgoing.Response.Builder<REQ, RES> responseBuilder() {
+    <REQ, RES> Outgoing.Response.Builder<REQ, RES> responseBuilder(InjectionPoint ip) {
         checkRequest();
+        Type typeRES = ((ParameterizedType) ip.getType()).getActualTypeArguments()[1];
+        this.responseBuilder.setType(typeRES);
         return (Outgoing.Response.Builder<REQ, RES>) this.responseBuilder;
     }
 
