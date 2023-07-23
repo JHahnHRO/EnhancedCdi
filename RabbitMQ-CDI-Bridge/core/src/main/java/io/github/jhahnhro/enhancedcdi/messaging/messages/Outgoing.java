@@ -57,11 +57,13 @@ public sealed interface Outgoing<T> extends Message<T> {
             throw new IllegalArgumentException("BasicProperties.deliveryMode must be set to either 1 or 2");
         }
     }
+    //endregion
 
     /**
      * @return A {@link MessageBuilder} initialized with the metadata and content of this message.
      */
-    @SuppressWarnings("java:S1452") // Sonar does not like returning wildcards, but here it is necessary
+    @SuppressWarnings("java:S1452")
+    // Sonar does not like returning wildcards, but here it is necessary
     MessageBuilder<T, ?> builder();
 
     record Cast<T>(String exchange, String routingKey, AMQP.BasicProperties properties, T content, Type type)
@@ -241,5 +243,4 @@ public sealed interface Outgoing<T> extends Message<T> {
 
         }
     }
-    //endregion
 }

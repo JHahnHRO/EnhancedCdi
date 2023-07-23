@@ -22,15 +22,15 @@ public interface BlockingPool<T> extends AutoCloseable {
     int capacity();
 
     /**
-     * Borrows an item from the pool to execute the given action on it, returning it to the pool afterwards. The value
-     * returned by the action is then returned.
+     * Borrows an item from the pool to execute the given action on it, returning it to the pool after completion if
+     * possible. The value returned by the action is then returned.
      * <p>
      * The pool guarantees that another thread will not perform actions on the same item concurrently (but it may on
      * other items in the pool). If all items are currently in use, this method blocks the calling thread until an item
      * becomes available or the thread gets interrupted.
      * <p>
-     * If the action throws an exception, then the item that was passed to it will be destroyed and not returned to the
-     * pool. The exception is then rethrown.
+     * If the action throws an exception, then the item that was passed to it may or may not be returned to the pool
+     * depending on the exception. In any case, the exception is re-thrown to the caller.
      *
      * @param action an action to perform with the item.
      * @param <V>    the type of the result of the action.
@@ -46,8 +46,8 @@ public interface BlockingPool<T> extends AutoCloseable {
     <V, EX extends Exception> V apply(ThrowingFunction<T, V, EX> action) throws InterruptedException, EX;
 
     /**
-     * Borrows an item from the pool to execute an action without return value on it, returning the item to the pool
-     * afterwards.
+     * Borrows an item from the pool to execute an action without return value on it, returning it to the pool after
+     * completion if possible.
      *
      * @see #apply(ThrowingFunction)
      */
@@ -60,8 +60,12 @@ public interface BlockingPool<T> extends AutoCloseable {
 
     /**
      * Closes this pool. This will cause any further calls to {@link #apply(ThrowingFunction)} and
-     * {@link #run(ThrowingConsumer)} to throw an {@link IllegalStateException}. Then blocks until all items currently
-     * in use are returned to the pool (or destroyed because of exceptions), then destroys all remaining items.
+     * {@link #run(ThrowingConsumer)} to throw an {@link IllegalStateException}. The method blocks until all calls to
+     * {@code apply} / {@code run} have finished that were in progress when this method got called.
+     * <p>
+     * All resources associated with this pool will be cleaned up.
+     * <p>
+     * This method is idempotent.
      */
     @Override
     void close();

@@ -3,8 +3,6 @@ package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.System.Logger.Level;
-import java.util.Optional;
-import java.util.concurrent.TimeoutException;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Disposes;
 import javax.enterprise.inject.Produces;
@@ -15,7 +13,6 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
-import io.github.jhahnhro.enhancedcdi.messaging.impl.RuntimeIOException;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
 import io.github.jhahnhro.enhancedcdi.pooled.LazyBlockingPool;
 
@@ -28,7 +25,8 @@ class ChannelProducer {
     @ApplicationScoped
     BlockingPool<Channel> channelPool(Connection connection, @Consolidated Topology consolidatedTopology) {
         LOG.log(Level.DEBUG, "Creating shared pool of channels");
-        return new ChannelPool(connection, consolidatedTopology);
+        return new LazyBlockingPool<>(0, computeCapacity(connection, consolidatedTopology),
+                                      new ChannelLifeCycle(connection));
     }
 
     void dispose(@Disposes BlockingPool<Channel> channelPool) {
@@ -36,40 +34,43 @@ class ChannelProducer {
         channelPool.close();
     }
 
-    private static class ChannelPool extends LazyBlockingPool<Channel> {
+    private int computeCapacity(Connection connection, Topology consolidatedTopology) {
+        // leave room for one consumer channel for each queue. These channels are not taken from the channel pool.
+        return connection.getChannelMax() - consolidatedTopology.queueDeclarations().size();
+    }
+
+    private static class ChannelLifeCycle implements LazyBlockingPool.Lifecycle<Channel> {
         private final Connection connection;
 
-        public ChannelPool(Connection connection, Topology consolidatedTopology) {
-            super(0, computeCapacity(connection, consolidatedTopology), ChannelPool::closeIfNecessary);
+        public ChannelLifeCycle(Connection connection) {
             this.connection = connection;
         }
 
-        private static int computeCapacity(Connection connection, Topology consolidatedTopology) {
-            // leave room for one consumer channel for each queue. These channels are not taken from the channel pool.
-            return connection.getChannelMax() - consolidatedTopology.queueDeclarations().size();
-        }
-
-        private static void closeIfNecessary(Channel channel) throws IOException, TimeoutException {
+        @Override
+        public void destroy(Channel channel) {
             try {
-                channel.close();
+                channel.abort();
             } catch (AlreadyClosedException sse) {
                 // already shut down
-            }
-        }
-
-        @Override
-        protected Channel create() {
-            Optional<Channel> maybeChannel;
-            try {
-                maybeChannel = connection.openChannel();
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            return maybeChannel.orElseThrow(() -> new IllegalStateException("No channels available"));
         }
 
         @Override
-        protected boolean isValid(Channel channel) {
+        public Channel createNew() {
+            final Channel channel;
+            try {
+                channel = connection.openChannel()
+                        .orElseThrow(() -> new IllegalStateException("No channels available"));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+            return channel;
+        }
+
+        @Override
+        public boolean isUseable(Channel channel) {
             return channel.isOpen();
         }
     }
