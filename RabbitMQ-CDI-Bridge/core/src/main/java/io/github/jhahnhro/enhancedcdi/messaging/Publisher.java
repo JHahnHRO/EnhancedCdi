@@ -7,6 +7,7 @@ import java.util.concurrent.TimeoutException;
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
 
 /**
@@ -28,8 +29,7 @@ public interface Publisher {
 
     <T> void publishMandatory(Outgoing<T> message) throws IOException, InterruptedException;
 
-    <T> void publishConfirmed(Outgoing<T> message, Duration timeout)
-            throws IOException, InterruptedException, TimeoutException;
+    <T> void publishConfirmed(Outgoing<T> message) throws IOException, InterruptedException;
 
     /**
      * Sends the given request to the broker and returns the response to the caller.
@@ -45,10 +45,11 @@ public interface Publisher {
      * @throws InterruptedException  if the current thread gets interrupted while waiting for an available
      *                               {@link com.rabbitmq.client.Channel} to publish the message.
      * @throws TimeoutException      if no response was received within the given time.
+     * @throws RpcException          if the remote procedure call could not be completed for some reason.
      * @throws IllegalStateException if no {@link SelectableMessageWriter} for the content can be found.
      */
     <T, RES> Incoming.Response<T, RES> rpc(Outgoing.Request<T> request, Duration timeout)
-            throws IOException, InterruptedException, TimeoutException;
+            throws IOException, InterruptedException, TimeoutException, RpcException;
 
     /**
      * Checks if there is still a consumer waiting for the response to the given request. Because the response to a

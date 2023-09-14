@@ -15,6 +15,7 @@ import javax.inject.Inject;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.FromExchange;
 import io.github.jhahnhro.enhancedcdi.messaging.FromQueue;
+import io.github.jhahnhro.enhancedcdi.messaging.Publisher;
 import io.github.jhahnhro.enhancedcdi.messaging.Redelivered;
 import io.github.jhahnhro.enhancedcdi.messaging.WithRoutingKey;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.MessageMetaDataProducer;
@@ -45,12 +46,13 @@ class IncomingMessageHandler {
     Serialization serialization;
 
     @Inject
-    Event<Outgoing<Object>> responseEvent;
+    Publisher publisher;
 
     @Inject
     ExceptionMapping exceptionMapping;
 
-    public void handleDelivery(@ObservesAsync InternalDelivery incomingDelivery) {
+    public void handleDelivery(@ObservesAsync InternalDelivery incomingDelivery)
+            throws IOException, InterruptedException {
         final Incoming<byte[]> rawMessage = incomingDelivery.rawMessage();
         final Acknowledgment acknowledgment = incomingDelivery.ack();
 
@@ -83,20 +85,22 @@ class IncomingMessageHandler {
         }
     }
 
-    private void handleException(final InternalDelivery incomingDelivery, Throwable e) {
+    private void handleException(final InternalDelivery incomingDelivery, Throwable e)
+            throws IOException, InterruptedException {
         if (e instanceof ObserverException) {
             e = e.getCause();
         }
 
-        if (incomingDelivery.rawMessage() instanceof Incoming.Request<byte[]>) {
+        if (incomingDelivery.rawMessage() instanceof Incoming.Request<byte[]> request) {
             if (e instanceof RabbitMqApplicationException applicationException) {
-                acknowledgeAndRespond(incomingDelivery, applicationException.getResponse());
+                acknowledgeAndRespond(applicationException.getResponse(), incomingDelivery.ack());
                 return;
             }
 
-            final Optional<Outgoing.Response<byte[], Object>> response = exceptionMapping.applyExceptionMapper(e);
+            final Optional<Outgoing.Response<byte[], Object>> response = exceptionMapping.applyExceptionMapper(request,
+                                                                                                               e);
             if (response.isPresent()) {
-                acknowledgeAndRespond(incomingDelivery, response.get());
+                acknowledgeAndRespond(response.get(), incomingDelivery.ack());
                 return;
             }
         }
@@ -104,10 +108,11 @@ class IncomingMessageHandler {
         rejectIfNecessary(incomingDelivery.ack(), e);
     }
 
-    private void acknowledgeAndRespond(InternalDelivery incomingDelivery,
-                                       final Outgoing.Response<byte[], Object> response) {
-        acknowledgeIfNecessary(incomingDelivery.ack());
-        responseEvent.fireAsync(response);
+    private void acknowledgeAndRespond(final Outgoing.Response<byte[], Object> response,
+                                       final Acknowledgment acknowledgment)
+            throws IOException, InterruptedException {
+        acknowledgeIfNecessary(acknowledgment);
+        publisher.publish(response);
     }
 
     private void rejectIfNecessary(Acknowledgment acknowledgment, Throwable e) {
