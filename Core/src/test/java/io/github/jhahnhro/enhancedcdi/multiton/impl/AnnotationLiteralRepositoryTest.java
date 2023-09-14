@@ -1,5 +1,12 @@
 package io.github.jhahnhro.enhancedcdi.multiton.impl;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import javax.enterprise.inject.IllegalProductException;
+
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedAnnotation;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Color;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.trueBeans.SomeOtherQualifier;
@@ -11,13 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import javax.enterprise.inject.IllegalProductException;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
 
 class AnnotationLiteralRepositoryTest {
 
@@ -58,7 +58,7 @@ class AnnotationLiteralRepositoryTest {
             Class<? extends Annotation> annotationClass, Color parameter) {
 
         Assertions.assertThatThrownBy(
-                () -> literalRepository.getLiteral(new ParametrizedAnnotationLiteral(annotationClass), parameter))
+                () -> literalRepository.getLiteral(new ParametrizedAnnotation.Literal(annotationClass), parameter))
                 .isInstanceOf(IllegalProductException.class);
     }
 
@@ -69,7 +69,7 @@ class AnnotationLiteralRepositoryTest {
             Class<? extends Annotation> annotationsClass, Color parameter)
             throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
         Optional<Annotation> literal =
-                literalRepository.getLiteral(new ParametrizedAnnotationLiteral(annotationsClass), parameter);
+                literalRepository.getLiteral(new ParametrizedAnnotation.Literal(annotationsClass), parameter);
 
         Assertions.assertThat(literal).isPresent().get().isInstanceOf(annotationsClass);
         Assertions.assertThat(annotationsClass.getMethod("color").invoke(literal.get())).isEqualTo(parameter);
@@ -77,7 +77,7 @@ class AnnotationLiteralRepositoryTest {
 
     @Test
     void givenParametrizedAnnotationWithDifferentInput_whenGetAnnotationLiteral_thenReturnEmpty(){
-        ParametrizedAnnotation parametrizedAnnotation = new ParametrizedAnnotationLiteral(SomeOtherQualifier.class);
+        ParametrizedAnnotation parametrizedAnnotation = new ParametrizedAnnotation.Literal(SomeOtherQualifier.class);
         Optional<Annotation> literal = literalRepository.getLiteral(parametrizedAnnotation, Color.BLUE);
         Assertions.assertThat(literal).isEmpty();
     }

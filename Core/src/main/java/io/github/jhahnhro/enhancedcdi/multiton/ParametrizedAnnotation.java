@@ -1,10 +1,10 @@
 package io.github.jhahnhro.enhancedcdi.multiton;
 
-import javax.enterprise.util.AnnotationLiteral;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import javax.enterprise.util.AnnotationLiteral;
 
 /**
  * In a {@link ParametrizedBean parametrized bean}, annotations on the class itself, its fields, constructors, methods
@@ -71,4 +71,29 @@ public @interface ParametrizedAnnotation {
         ParametrizedAnnotation[] value();
     }
 
+    final class Literal<A extends Annotation, L extends AnnotationLiteral<A>>
+            extends AnnotationLiteral<ParametrizedAnnotation> implements ParametrizedAnnotation {
+
+        private final Class<A> annotationClass;
+        private final Class<L> literalType;
+
+        private Literal(Class<A> annotationClass, Class<L> literalType) {
+            this.annotationClass = annotationClass;
+            this.literalType = literalType;
+        }
+
+        public Literal(Class<A> annotationClass) {
+            this(annotationClass, (Class) AnnotationLiteral.class);
+        }
+
+        @Override
+        public Class<A> value() {
+            return annotationClass;
+        }
+
+        @Override
+        public Class<L> literalType() {
+            return literalType;
+        }
+    }
 }

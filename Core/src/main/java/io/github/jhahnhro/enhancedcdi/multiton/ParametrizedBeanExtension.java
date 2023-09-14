@@ -1,10 +1,11 @@
 package io.github.jhahnhro.enhancedcdi.multiton;
 
-import io.github.jhahnhro.enhancedcdi.multiton.impl.*;
-import org.eclipse.microprofile.config.Config;
-import org.eclipse.microprofile.config.ConfigProvider;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
@@ -13,7 +14,17 @@ import javax.enterprise.inject.Vetoed;
 import javax.enterprise.inject.spi.*;
 import javax.enterprise.inject.spi.configurator.BeanConfigurator;
 import javax.enterprise.util.AnnotationLiteral;
-import java.util.*;
+
+import io.github.jhahnhro.enhancedcdi.multiton.impl.BeanClassData;
+import io.github.jhahnhro.enhancedcdi.multiton.impl.BeanData;
+import io.github.jhahnhro.enhancedcdi.multiton.impl.BeanParameterProducer;
+import io.github.jhahnhro.enhancedcdi.multiton.impl.MapBean;
+import io.github.jhahnhro.enhancedcdi.multiton.impl.ProducerMethodData;
+import io.github.jhahnhro.enhancedcdi.multiton.impl.Validator;
+import io.github.jhahnhro.enhancedcdi.multiton.impl.WithParameter;
+import org.eclipse.microprofile.config.Config;
+import org.eclipse.microprofile.config.ConfigProvider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * If a bean class has the {@link ParametrizedBean} annotation, then this extension will getOrCreate multiple instances of
@@ -237,7 +248,7 @@ public class ParametrizedBeanExtension implements Extension {
     }
 
     private <X> void discoverParametrizedProducerMethods(ProcessManagedBean<X> pmb, BeanManager beanManager) {
-        AnnotatedType<X> annotatedBeanClass = (AnnotatedType<X>) pmb.getAnnotated();
+        AnnotatedType<X> annotatedBeanClass = pmb.getAnnotatedBeanClass();
         for (AnnotatedMethod<? super X> method : annotatedBeanClass.getMethods()) {
             if (method.isAnnotationPresent(Produces.class) && method.isAnnotationPresent(ParametrizedBean.class)
                 && !method.isAnnotationPresent(Vetoed.class)) {
