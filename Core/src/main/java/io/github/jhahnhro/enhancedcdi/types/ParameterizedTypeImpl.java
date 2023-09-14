@@ -12,7 +12,13 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     private final Type[] actualTypeArguments;
 
     public ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... actualTypeArguments) {
-        this.rawType = Objects.requireNonNull(rawType);
+        if ((rawType.getDeclaringClass() == null) ^ (ownerType == null)) {
+            throw new IllegalArgumentException("ownerType must be present iff the rawType is declared by another class");
+        }
+        if (rawType.getTypeParameters().length != actualTypeArguments.length) {
+            throw new IllegalArgumentException("wrong number of type parameters");
+        }
+        this.rawType = rawType;
         this.ownerType = ownerType;
         this.actualTypeArguments = Arrays.copyOf(actualTypeArguments, actualTypeArguments.length);
     }
@@ -23,7 +29,7 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     }
 
     @Override
-    public Type getRawType() {
+    public Class<?> getRawType() {
         return rawType;
     }
 
@@ -43,13 +49,10 @@ public class ParameterizedTypeImpl implements ParameterizedType {
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
-        } else if (!(obj instanceof ParameterizedType)) {
-            return false;
         }
-
-        ParameterizedType that = (ParameterizedType) obj;
-        return Objects.equals(ownerType, that.getOwnerType()) && Objects.equals(rawType, that.getRawType()) && Arrays
-                .equals(actualTypeArguments, that.getActualTypeArguments());
+        return obj instanceof ParameterizedType that && Objects.equals(this.ownerType, that.getOwnerType())
+               && Objects.equals(this.rawType, that.getRawType()) && Arrays.equals(this.actualTypeArguments,
+                                                                                   that.getActualTypeArguments());
     }
 
     @Override
