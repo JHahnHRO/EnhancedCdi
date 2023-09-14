@@ -450,7 +450,7 @@ class WeldIntegrationTest {
 
         private void verifyActualPayloadIs(byte[] content) throws IOException {
             ArgumentCaptor<byte[]> payloadCaptor = ArgumentCaptor.forClass(byte[].class);
-            verify(channel).basicPublish(anyString(), anyString(), any(AMQP.BasicProperties.class),
+            verify(channel).basicPublish(anyString(), anyString(), anyBoolean(), any(AMQP.BasicProperties.class),
                                          payloadCaptor.capture());
             final byte[] actualPayload = payloadCaptor.getValue();
 
