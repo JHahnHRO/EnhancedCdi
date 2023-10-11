@@ -113,19 +113,13 @@ class DispatchingConsumer extends DefaultConsumer {
 
     public void start() throws IOException {
         final Channel channel = getChannel();
-        try {
-            channel.basicQos(options.qos());
+        channel.basicQos(options.qos());
 
-            // RabbitMQ Client lib uses null instead of empty map for absence of arguments
-            final Map<String, Object> arguments = options.arguments().isEmpty() ? null : options.arguments();
+        // RabbitMQ Client lib uses null instead of empty map for absence of arguments
+        final Map<String, Object> arguments = options.arguments().isEmpty() ? null : options.arguments();
 
-            channel.basicConsume(this.queueName, options.autoAck(), SERVER_GENERATED_CONSUMER_TAG, false,
-                                 options.exclusive(), arguments, this);
-        } catch (AlreadyClosedException sig) {
-            LOG.log(Level.ERROR,
-                    "Cannot start consumer on queue \"%s\", because channel is already closed (reason was \"%s\").",
-                    queueName, sig.getReason());
-        }
+        channel.basicConsume(this.queueName, options.autoAck(), SERVER_GENERATED_CONSUMER_TAG, false,
+                             options.exclusive(), arguments, this);
     }
 
     private static class ManualAck implements Acknowledgment {
