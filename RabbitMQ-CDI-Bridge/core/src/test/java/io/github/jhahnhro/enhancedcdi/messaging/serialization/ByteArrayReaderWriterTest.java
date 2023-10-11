@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
@@ -26,7 +25,7 @@ class ByteArrayReaderWriterTest {
                 .contentType("application/octet-stream")
                 .build();
         Envelope envelope = new Envelope(123456L, false, "exchange", "routing.key");
-        Incoming<byte[]> incoming = new Incoming.Cast<>(new Delivery(envelope, properties, body), "queue", body);
+        Incoming<byte[]> incoming = new Incoming.Cast<>("queue", envelope, properties, body);
 
         assertThat(readerWriter.canRead(incoming)).isTrue();
 

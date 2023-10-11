@@ -21,7 +21,6 @@ import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.BasicProperties;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.Exchange;
 import io.github.jhahnhro.enhancedcdi.messaging.Header;
@@ -62,10 +61,10 @@ class MessageMetaDataProducerTest {
             ))
             // @formatter:on
             .build();
-    private static final Delivery DELIVERY = new Delivery(ENVELOPE, PROPERTIES, CONTENT);
     public static final String QUEUE = "queue";
-    public static final Incoming.Cast<byte[]> CAST = new Incoming.Cast<>(DELIVERY, QUEUE, CONTENT);
-    private static final Incoming.Request<byte[]> REQUEST = new Incoming.Request<>(DELIVERY, QUEUE, CONTENT);
+    public static final Incoming.Cast<byte[]> CAST = new Incoming.Cast<>(QUEUE, ENVELOPE, PROPERTIES, CONTENT);
+    private static final Incoming.Request<byte[]> REQUEST = new Incoming.Request<>(QUEUE, ENVELOPE, PROPERTIES,
+                                                                                   CONTENT);
     private static final Acknowledgment ACKNOWLEDGMENT = mock(Acknowledgment.class);
     @WeldSetup
     WeldInitiator w = WeldInitiator.from(MessageMetaDataProducer.class).activate(RequestScoped.class).build();
@@ -112,7 +111,7 @@ class MessageMetaDataProducerTest {
     @MethodSource("beans")
     <T> void givenMessage_whenInjectMetaData_thenInjectValue(String beanName, T expectedResult, Class<T> type,
                                                              Annotation qualifier) {
-        metaData.setDelivery(REQUEST.delivery(), REQUEST.queue(), ACKNOWLEDGMENT);
+        metaData.setDelivery(REQUEST.queue(), ENVELOPE, PROPERTIES, ACKNOWLEDGMENT);
 
         final T actualResult = instance.select(type, qualifier).get();
         assertThat(actualResult).isEqualTo(expectedResult);
@@ -130,7 +129,7 @@ class MessageMetaDataProducerTest {
 
     @Test
     void givenMessage_whenInjectResponseBuilder_thenSucceed() {
-        metaData.setDelivery(DELIVERY, QUEUE, ACKNOWLEDGMENT);
+        metaData.setDelivery(QUEUE, ENVELOPE, PROPERTIES, ACKNOWLEDGMENT);
         metaData.setMessage(REQUEST);
 
         final Outgoing.Response.Builder<byte[], String> builder = instance.select(
@@ -141,7 +140,7 @@ class MessageMetaDataProducerTest {
 
     @Test
     void givenNonRequestMessage_whenInjectResponseBuilder_thenThrowRpcNotActiveException() {
-        metaData.setDelivery(DELIVERY, QUEUE, ACKNOWLEDGMENT);
+        metaData.setDelivery(QUEUE, ENVELOPE, PROPERTIES, ACKNOWLEDGMENT);
         metaData.setMessage(CAST);
 
         final Instance<Outgoing.Response.Builder<byte[], String>> builderInstance = instance.select(

@@ -7,7 +7,6 @@ import java.io.InputStream;
 
 import com.google.protobuf.Duration;
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import org.junit.jupiter.api.Test;
@@ -20,14 +19,12 @@ class ProtobufMessageReaderTest {
 
     private static Incoming<byte[]> getMessage(final String contentType, final String fullProtobufTypeName) {
         final byte[] bytes = DURATION.toByteArray();
-        final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder()
-                .deliveryMode(1)
+        final AMQP.BasicProperties properties = new AMQP.BasicProperties.Builder().deliveryMode(1)
                 .contentType(contentType)
                 .type(fullProtobufTypeName)
                 .build();
         final Envelope envelope = new Envelope(0L, false, "exchange", "routing.key");
-        final Delivery delivery = new Delivery(envelope, properties, bytes);
-        return new Incoming.Cast<>(delivery, "queue", bytes);
+        return new Incoming.Cast<>("queue", envelope, properties, bytes);
     }
 
     @Test

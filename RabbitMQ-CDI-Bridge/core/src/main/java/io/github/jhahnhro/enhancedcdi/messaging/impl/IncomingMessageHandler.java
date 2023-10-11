@@ -58,7 +58,7 @@ class IncomingMessageHandler {
 
         try {
             // make sure request metadata is available in the current request scope for injection into event observers
-            metaData.setDelivery(rawMessage.delivery(), rawMessage.queue(), acknowledgment);
+            metaData.setDelivery(rawMessage.queue(), rawMessage.envelope(), rawMessage.properties(), acknowledgment);
 
             Incoming<?> message = serialization.deserialize(rawMessage);
             metaData.setMessage(message);
@@ -129,8 +129,7 @@ class IncomingMessageHandler {
     }
 
     private void fireEvent(Incoming<?> message) {
-        processedEvent.select(getStandardQualifiers(message.delivery().getEnvelope(), message.queue()))
-                .fire(message.content());
+        processedEvent.select(getStandardQualifiers(message.envelope(), message.queue())).fire(message.content());
     }
 
     private Annotation[] getStandardQualifiers(Envelope messageEnvelope, String queueName) {

@@ -11,12 +11,13 @@ import javax.enterprise.context.Dependent;
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Produces;
 import javax.enterprise.inject.spi.InjectionPoint;
-import javax.inject.Inject;
 
+import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.BasicProperties;
-import com.rabbitmq.client.Delivery;
+import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.Exchange;
 import io.github.jhahnhro.enhancedcdi.messaging.Header;
+import io.github.jhahnhro.enhancedcdi.messaging.Headers;
 import io.github.jhahnhro.enhancedcdi.messaging.Queue;
 import io.github.jhahnhro.enhancedcdi.messaging.RoutingKey;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
@@ -26,14 +27,17 @@ import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
 
 @RequestScoped
 public class MessageMetaDataProducer {
-    private Delivery delivery = null;
+    private AMQP.BasicProperties deliveryProperties;
+    private Envelope envelope;
     private String queue = null;
     private Incoming<?> incomingMessage = null;
     private Acknowledgment acknowledgment = null;
     private Outgoing.Response.Builder<?, ?> responseBuilder = null;
 
-    public void setDelivery(Delivery delivery, String queue, Acknowledgment acknowledgment) {
-        this.delivery = delivery;
+    public void setDelivery(String queue, Envelope envelope, AMQP.BasicProperties properties,
+                            Acknowledgment acknowledgment) {
+        this.deliveryProperties = properties;
+        this.envelope = envelope;
         this.queue = queue;
         this.acknowledgment = acknowledgment;
     }
@@ -48,7 +52,7 @@ public class MessageMetaDataProducer {
     }
 
     private void checkDelivery() {
-        if (this.delivery == null) {
+        if (this.envelope == null) {
             throw new IllegalStateException("No RabbitMQ message has been received in the current RequestScope");
         }
     }
@@ -88,7 +92,7 @@ public class MessageMetaDataProducer {
     @Dependent
     String routingKey() {
         checkDelivery();
-        return delivery.getEnvelope().getRoutingKey();
+        return envelope.getRoutingKey();
     }
 
     @Produces
@@ -96,7 +100,7 @@ public class MessageMetaDataProducer {
     @Dependent
     String exchange() {
         checkDelivery();
-        return delivery.getEnvelope().getExchange();
+        return envelope.getExchange();
     }
 
     @Produces
@@ -111,7 +115,7 @@ public class MessageMetaDataProducer {
     @Dependent
     BasicProperties basicProperties() {
         checkDelivery();
-        return delivery.getProperties();
+        return deliveryProperties;
     }
 
     //region header objects

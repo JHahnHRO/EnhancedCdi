@@ -12,7 +12,6 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.DefaultConsumer;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import com.rabbitmq.client.ShutdownSignalException;
 import io.github.jhahnhro.enhancedcdi.messaging.Consumers;
@@ -63,11 +62,10 @@ class DispatchingConsumer extends DefaultConsumer {
 
     private Incoming<byte[]> createIncomingMessage(Envelope envelope, AMQP.BasicProperties properties, byte[] body,
                                                    String queueName) {
-        final Delivery delivery = new Delivery(envelope, properties, body);
         if (properties.getReplyTo() != null) {
-            return new Incoming.Request<>(delivery, queueName, body);
+            return new Incoming.Request<>(queueName, envelope, properties, body);
         } else {
-            return new Incoming.Cast<>(delivery, queueName, body);
+            return new Incoming.Cast<>(queueName, envelope, properties, body);
         }
     }
 

@@ -4,7 +4,7 @@ import static java.util.Objects.requireNonNull;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.BasicProperties;
-import com.rabbitmq.client.Delivery;
+import com.rabbitmq.client.Envelope;
 
 /**
  * Represents an incoming RabbitMQ message. Can either be a {@link Cast}, i.e. a fire-and-forget message, or a
@@ -16,31 +16,33 @@ import com.rabbitmq.client.Delivery;
  */
 public sealed interface Incoming<T> extends Message<T> {
 
-    private static void validate(Delivery delivery) {
-        requireNonNull(delivery, "delivery");
-        requireNonNull(delivery.getEnvelope(), "envelope of the delivery");
-        requireNonNull(delivery.getProperties(), "properties");
+    private static void validate(final Envelope envelope, final AMQP.BasicProperties properties) {
+        requireNonNull(envelope, "envelope of the delivery");
+        requireNonNull(properties, "properties");
 
-        final int deliveryMode = delivery.getProperties().getDeliveryMode();
+        final int deliveryMode = properties.getDeliveryMode();
         if (deliveryMode != DeliveryMode.TRANSIENT.nr && deliveryMode != DeliveryMode.PERSISTENT.nr) {
             throw new IllegalArgumentException("BasicProperties.deliveryMode must be set to either 1 or 2");
         }
     }
 
+    /**
+     * @return The envelope of the original {@link com.rabbitmq.client.Delivery}
+     */
+    Envelope envelope();
+
     @Override
     default String exchange() {
-        return delivery().getEnvelope().getExchange();
+        return envelope().getExchange();
     }
 
     @Override
     default String routingKey() {
-        return delivery().getEnvelope().getRoutingKey();
+        return envelope().getRoutingKey();
     }
 
     @Override
-    default AMQP.BasicProperties properties() {
-        return delivery().getProperties();
-    }
+    AMQP.BasicProperties properties();
 
     /**
      * Returns a new {@link Incoming} message of the same type as {@code this}, but with the given
@@ -59,36 +61,32 @@ public sealed interface Incoming<T> extends Message<T> {
      */
     String queue();
 
-    /**
-     * @return the raw delivery that is represented by this incoming message.
-     */
-    Delivery delivery();
-
-    record Cast<T>(Delivery delivery, String queue, T content) implements Incoming<T> {
+    record Cast<T>(String queue, Envelope envelope, AMQP.BasicProperties properties, T content) implements Incoming<T> {
         public Cast {
-            validate(delivery);
             requireNonNull(queue, "queue");
+            validate(envelope, properties);
         }
 
         @Override
         public <U> Incoming.Cast<U> withContent(U newContent) {
-            return new Cast<>(delivery, queue, newContent);
+            return new Cast<>(queue, envelope, properties, newContent);
         }
     }
 
-    record Request<T>(Delivery delivery, String queue, T content) implements Incoming<T> {
+    record Request<T>(String queue, Envelope envelope, AMQP.BasicProperties properties, T content)
+            implements Incoming<T> {
 
         public Request {
-            validate(delivery);
             requireNonNull(queue, "queue");
+            validate(envelope, properties);
 
-            requireNonNull(delivery.getProperties().getReplyTo(), "replyTo property");
-            requireNonNull(delivery.getProperties().getCorrelationId(), "correlationId property");
+            requireNonNull(properties.getReplyTo(), "replyTo property");
+            requireNonNull(properties.getCorrelationId(), "correlationId property");
         }
 
         @Override
         public <U> Incoming.Request<U> withContent(U newContent) {
-            return new Request<>(delivery, queue, newContent);
+            return new Request<>(queue, envelope, properties, newContent);
         }
 
         /**
@@ -99,10 +97,11 @@ public sealed interface Incoming<T> extends Message<T> {
         }
     }
 
-    record Response<REQ, RES>(Delivery delivery, RES content, Outgoing.Request<REQ> request) implements Incoming<RES> {
+    record Response<REQ, RES>(Envelope envelope, AMQP.BasicProperties properties, RES content,
+                              Outgoing.Request<REQ> request) implements Incoming<RES> {
         public Response {
-            validate(delivery);
             requireNonNull(request, "request");
+            validate(envelope, properties);
         }
 
         @Override
@@ -112,7 +111,7 @@ public sealed interface Incoming<T> extends Message<T> {
 
         @Override
         public <U> Incoming.Response<REQ, U> withContent(U newContent) {
-            return new Response<>(delivery, newContent, request);
+            return new Response<>(envelope, properties, newContent, request);
         }
     }
 }

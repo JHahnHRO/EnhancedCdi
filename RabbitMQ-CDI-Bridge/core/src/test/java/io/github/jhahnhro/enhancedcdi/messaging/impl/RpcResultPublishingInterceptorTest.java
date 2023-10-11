@@ -7,7 +7,6 @@ import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.io.IOException;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -20,10 +19,10 @@ import javax.enterprise.util.TypeLiteral;
 import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.Publisher;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcEndpoint;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
@@ -45,13 +44,11 @@ class RpcResultPublishingInterceptorTest {
 
     private static final Type INCOMING_TYPE =
             new TypeLiteral<io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming<String>>() {}.getType();
-    private static final Type INCOMING_REQUEST_TYPE =
-            new TypeLiteral<io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<String>>() {}.getType();
+    private static final Type INCOMING_REQUEST_TYPE = new TypeLiteral<Request<String>>() {}.getType();
 
     private static final Type RESPONSE_BUILDER_TYPE =
             new TypeLiteral<Outgoing.Response.Builder<String, Object>>() {}.getType();
-    private static final io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<String> INCOMING_REQUEST
-            = createIncomingRequest();
+    private static final Request<String> INCOMING_REQUEST = createIncomingRequest();
 
     Weld weld = new Weld().disableDiscovery()
             .addBeanClasses(RpcResultPublishingInterceptor.class)
@@ -68,14 +65,14 @@ class RpcResultPublishingInterceptorTest {
     @Inject
     Publisher publisherMock;
 
-    private static io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<String> createIncomingRequest() {
+    private static Request<String> createIncomingRequest() {
         final Envelope envelope = new Envelope(0L, false, "exchange", "routing.key");
         final AMQP.BasicProperties requestProperties = new AMQP.BasicProperties.Builder().deliveryMode(1)
                 .replyTo("auto-generated-reply-queue")
                 .correlationId("myCorrelationID")
                 .build();
-        final Delivery delivery = new Delivery(envelope, requestProperties, "ping".getBytes(StandardCharsets.UTF_8));
-        return new io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming.Request<>(delivery, "queue", "ping");
+
+        return new Request<>("queue", envelope, requestProperties, "ping");
     }
 
     @Dependent

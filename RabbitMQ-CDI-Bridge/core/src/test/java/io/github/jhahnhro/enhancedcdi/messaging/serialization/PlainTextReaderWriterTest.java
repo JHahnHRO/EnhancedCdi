@@ -9,7 +9,6 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
@@ -34,8 +33,7 @@ class PlainTextReaderWriterTest {
                     .contentType("text/plain; charset=" + StandardCharsets.ISO_8859_1.name())
                     .build();
 
-            Incoming<byte[]> incoming = new Incoming.Cast<>(new Delivery(defaultEnvelope(), properties, body), "queue",
-                                                            body);
+            Incoming<byte[]> incoming = new Incoming.Cast<>("queue", defaultEnvelope(), properties, body);
 
             assertThat(readerWriter.canRead(incoming)).isTrue();
 
@@ -51,8 +49,7 @@ class PlainTextReaderWriterTest {
                     .contentType("text/plain")
                     .build();
 
-            Incoming<byte[]> incoming = new Incoming.Cast<>(new Delivery(defaultEnvelope(), properties, body), "queue",
-                                                            body);
+            Incoming<byte[]> incoming = new Incoming.Cast<>("queue", defaultEnvelope(), properties, body);
 
             assertThat(readerWriter.canRead(incoming)).isTrue();
 

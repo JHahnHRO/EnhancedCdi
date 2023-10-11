@@ -12,7 +12,6 @@ import java.util.zip.GZIPOutputStream;
 import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
@@ -83,9 +82,8 @@ class GzipReaderTest {
 
     private Incoming.Cast<InputStream> getIncoming(String encoding, byte[] bytes) {
         final var properties = new AMQP.BasicProperties.Builder().deliveryMode(2).contentEncoding(encoding).build();
-        final var delivery = new Delivery(createEnvelope(), properties, bytes);
         final InputStream body = new ByteArrayInputStream(bytes);
-        return new Incoming.Cast<>(delivery, "queue", body);
+        return new Incoming.Cast<>("queue", createEnvelope(), properties, body);
     }
 
     private Envelope createEnvelope() {

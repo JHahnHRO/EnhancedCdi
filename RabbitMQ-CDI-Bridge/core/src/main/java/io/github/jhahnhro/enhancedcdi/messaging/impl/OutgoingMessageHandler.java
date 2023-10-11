@@ -13,7 +13,6 @@ import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.RpcClient;
 import com.rabbitmq.client.RpcClientParams;
 import com.rabbitmq.client.UnroutableRpcRequestException;
@@ -74,9 +73,8 @@ class OutgoingMessageHandler implements Publisher {
             throw e;
         }
 
-        final Delivery responseDelivery = new Delivery(rawResponse.getEnvelope(), rawResponse.getProperties(),
-                                                       rawResponse.getBody());
-        return new Incoming.Response<>(responseDelivery, rawResponse.getBody(), originalRequest);
+        return new Incoming.Response<>(rawResponse.getEnvelope(), rawResponse.getProperties(), rawResponse.getBody(),
+                                       originalRequest);
     }
 
     private RpcClient.Response doRpc(Outgoing.Request<byte[]> request, Channel channel, Duration timeout)

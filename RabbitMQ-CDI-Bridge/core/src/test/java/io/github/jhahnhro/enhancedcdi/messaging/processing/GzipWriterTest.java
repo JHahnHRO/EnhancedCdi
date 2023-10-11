@@ -5,14 +5,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPOutputStream;
 import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
-import com.rabbitmq.client.Delivery;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
@@ -136,8 +134,7 @@ class GzipWriterTest {
                 .correlationId("myCorrelationID")
                 .headers(Map.of("Accept-Encoding", acceptedEncoding))
                 .build();
-        final var request = new Incoming.Request<>(
-                new Delivery(envelope, requestProperties, "ping".getBytes(StandardCharsets.UTF_8)), "queue", "ping");
+        final var request = new Incoming.Request<>("queue", envelope, requestProperties, "ping");
 
         final AMQP.BasicProperties responseProperties = new AMQP.BasicProperties.Builder().deliveryMode(1)
                 .correlationId("myCorrelationID")
