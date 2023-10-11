@@ -117,6 +117,14 @@ public class MessageMetaDataProducer {
     //region header objects
     @Produces
     @Dependent
+    @Headers
+    Map<String, Object> allHeaders() {
+        checkDelivery();
+        return basicProperties().getHeaders();
+    }
+
+    @Produces
+    @Dependent
     @Header("")
     Boolean booleanHeader(InjectionPoint injectionPoint) {
         return header(injectionPoint, Boolean.class);
@@ -207,9 +215,7 @@ public class MessageMetaDataProducer {
     }
 
     private <T> T header(InjectionPoint injectionPoint, Class<T> clazz) {
-        checkDelivery();
-
-        final Map<String, Object> headers = basicProperties().getHeaders();
+        final Map<String, Object> headers = allHeaders();
         if (headers == null) {
             return null;
         }
