@@ -245,7 +245,6 @@ class WeldIntegrationTest {
             final BlockingPool<Channel> channelPool = w.select(new TypeLiteral<BlockingPool<Channel>>() {}).get();
 
             assertThat(channelPool).isNotNull();
-            assertThat(channelPool.size()).isZero();
             assertThat(channelPool.capacity()).isEqualTo(100 - topologyBean.queueDeclarations().size());
 
             // no channels created yet

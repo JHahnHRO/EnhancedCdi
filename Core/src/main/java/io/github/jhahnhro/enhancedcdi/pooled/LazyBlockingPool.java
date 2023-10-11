@@ -12,7 +12,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * An implementation of {@link BlockingPool} that creates items lazily on-demand if the capacity of this pool has not
@@ -26,7 +25,6 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
      * The items that are not currently in use inside {@link #apply(ThrowingFunction)}
      */
     protected final BlockingQueue<ItemAndCreationTime<T>> itemsNotInUse;
-    private final AtomicInteger size;
     private final Lifecycle<T> itemLifecycle;
     private final ScheduledExecutorService executorService;
     private final Duration keepAliveTime;
@@ -70,7 +68,6 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
         this.executorService = Executors.newSingleThreadScheduledExecutor();
 
         this.itemsNotInUse = new ArrayBlockingQueue<>(capacity);
-        this.size = new AtomicInteger();
         prefillPool(initialSize);
 
         this.clock = Objects.requireNonNull(clock);
@@ -78,7 +75,7 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
 
     private void prefillPool(int initialSize) {
         for (int i = 0; i < initialSize; i++) {
-            itemsNotInUse.add(new ItemAndCreationTime<>(createCounting(), clock.instant()));
+            itemsNotInUse.add(new ItemAndCreationTime<>(itemLifecycle.createNew(), clock.instant()));
         }
         if (initialSize > 0) {
             scheduleNextHousekeeping();
@@ -95,7 +92,7 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
         Instant now = clock.instant();
         itemsNotInUse.removeIf(x -> {
             if (Duration.between(x.createdAt(), now).compareTo(keepAliveTime) > 0) {
-                destroyCounting(x.item());
+                itemLifecycle.destroy(x.item());
                 return true;
             } else {
                 return false;
@@ -103,31 +100,16 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
         });
     }
 
-    private T createCounting() {
-        size.incrementAndGet();
-        return itemLifecycle.createNew();
-    }
-
-    private void destroyCounting(T item) {
-        itemLifecycle.destroy(item);
-        size.decrementAndGet();
-    }
-
-    @Override
-    public int size() {
-        return this.size.get();
-    }
-
     @Override
     protected T borrowFromPool() {
-        return Objects.requireNonNullElseGet(pollUntilValidOrEmpty(), this::createCounting);
+        return Objects.requireNonNullElseGet(pollUntilValidOrEmpty(), itemLifecycle::createNew);
     }
 
     private T pollUntilValidOrEmpty() {
         ItemAndCreationTime<T> x;
         while (null != (x = itemsNotInUse.poll())) {
             if (!itemLifecycle.isUsable(x.item())) {
-                destroyCounting(x.item());
+                itemLifecycle.destroy(x.item());
                 continue;
             }
             return x.item();
@@ -141,7 +123,7 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
             itemsNotInUse.add(new ItemAndCreationTime<>(item, clock.instant()));
             scheduleNextHousekeeping();
         } else {
-            destroyCounting(item);
+            itemLifecycle.destroy(item);
         }
     }
 
@@ -153,7 +135,7 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
     public void clear() {
         List<ItemAndCreationTime<T>> list = new ArrayList<>(this.capacity());
         itemsNotInUse.drainTo(list);
-        list.forEach(x -> destroyCounting(x.item()));
+        list.forEach(x -> itemLifecycle.destroy(x.item()));
     }
 
     /**

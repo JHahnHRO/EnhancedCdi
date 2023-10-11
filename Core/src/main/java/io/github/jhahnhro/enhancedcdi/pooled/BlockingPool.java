@@ -9,12 +9,6 @@ package io.github.jhahnhro.enhancedcdi.pooled;
  * @param <T> type of the pooled objects
  */
 public interface BlockingPool<T> extends AutoCloseable {
-    /**
-     * Returns the current size of the pool. Always less or equal than {@link #capacity()}.
-     *
-     * @return the current size of the pool.
-     */
-    int size();
 
     /**
      * @return The capacity of this pool.

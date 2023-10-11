@@ -63,11 +63,6 @@ class ChannelProducerTest {
     }
 
     @Test
-    void initialSizeIsZero() {
-        assertThat(channelPool.size()).isZero();
-    }
-
-    @Test
     void capacity() {
         assertThat(channelPool.capacity()).isEqualTo(MAX_CHANNEL_NR);
     }
@@ -78,8 +73,6 @@ class ChannelProducerTest {
         // TODO this should be a unit test for LazyBlockingPool
 
         when(channel.isOpen()).thenReturn(true);
-
-        assertThat(channelPool.size()).isZero();
 
         CountDownLatch afterStart = new CountDownLatch(2);
         CountDownLatch beforeEnd = new CountDownLatch(1);
@@ -103,13 +96,11 @@ class ChannelProducerTest {
 
         // make sure both threads have started and acquired a channel
         afterStart.await();
-        final int sizeWhenInUse = channelPool.size();
         // make sure threads become unblocked and wait for them to shut down
         beforeEnd.countDown();
         t1.join(2000);
         t2.join(2000);
 
         verify(connection, times(2)).openChannel();
-        assertThat(sizeWhenInUse).isGreaterThanOrEqualTo(2);
     }
 }
