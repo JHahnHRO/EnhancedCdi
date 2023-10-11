@@ -4,7 +4,6 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -44,7 +43,7 @@ public final class EnhancedInstance<T> implements Instance<T> {
      */
     @Inject
     EnhancedInstance(BeanManager beanManager, InjectionPoint injectionPoint) {
-        this(beanManager, injectionPoint, fakeFromOriginal(injectionPoint), newConcurrentHashSet());
+        this(beanManager, injectionPoint, fakeFromOriginal(injectionPoint), ConcurrentHashMap.newKeySet());
     }
 
     /**
@@ -75,10 +74,6 @@ public final class EnhancedInstance<T> implements Instance<T> {
         return new MutableInjectionPoint(injectionPoint).setType(newType).addQualifiers(additionalQualifiers);
     }
     //endregion
-
-    private static <X> Set<X> newConcurrentHashSet() {
-        return Collections.newSetFromMap(new ConcurrentHashMap<>());
-    }
 
     //region select
     @Override
@@ -136,8 +131,7 @@ public final class EnhancedInstance<T> implements Instance<T> {
 
     public T get() {
         final BeanInstance<T> beanInstance = BeanInstance.createInjectableReference(beanManager, currentInjectionPoint);
-
-        if (beanInstance.contextual() instanceof Bean<T> bean && bean.getScope() == Dependent.class) {
+        if (beanInstance.isDependentBean()) {
             this.dependents.add(beanInstance);
         }
         return beanInstance.instance();
@@ -146,8 +140,7 @@ public final class EnhancedInstance<T> implements Instance<T> {
     //region destroy
     @Override
     public void destroy(T instance) {
-        boolean wasDependentInstance = this.dependents.removeIf(
-                beanInstance -> destroyIfSameInstance(beanInstance, instance));
+        boolean wasDependentInstance = this.dependents.removeIf(beanInstance -> beanInstance.destroy(instance));
 
         if (!wasDependentInstance) {
             // if it is a not a @Dependent instance that was created here, then it is probably a client proxy, and
@@ -155,18 +148,6 @@ public final class EnhancedInstance<T> implements Instance<T> {
             beanManager.createInstance().destroy(instance);
         }
     }
-
-    private boolean destroyIfSameInstance(BeanInstance<T> beanInstance, T instance) {
-        if (beanInstance.contains(instance)) {
-            // There is a benign race condition here if some other thread destroys the instance after we checked, but
-            // before we call destroy() ourselves. Since destroy is idempotent, this is not a problem.
-            beanInstance.destroy();
-            return true;
-        } else {
-            return false;
-        }
-    }
-
     //endregion
 
     @PreDestroy
@@ -215,14 +196,14 @@ public final class EnhancedInstance<T> implements Instance<T> {
     }
 
     private Stream<BeanInstance<T>> makeStreamSafe(final Stream<BeanInstance<T>> beanInstanceStream) {
-        final Collection<BeanInstance<T>> mustBeDestroyed = newConcurrentHashSet();
+        final Collection<BeanInstance<T>> mustBeDestroyed = ConcurrentHashMap.newKeySet();
 
         // IntelliJ suggests replacing the call to Stream#map with a call Stream#peek(), but the latter is only
         // for debugging and not even guaranteed to be executed with every element of the stream. Therefore, we still
         // map here.
         //noinspection SimplifyStreamApiCallChains
         return beanInstanceStream.map(beanInstance -> {
-            if (beanInstance.contextual() instanceof Bean<?> bean && bean.getScope() == Dependent.class) {
+            if (beanInstance.isDependentBean()) {
                 mustBeDestroyed.add(beanInstance);
                 dependents.add(beanInstance);
             }

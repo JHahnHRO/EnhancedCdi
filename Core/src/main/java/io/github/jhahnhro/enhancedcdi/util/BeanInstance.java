@@ -4,6 +4,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Set;
 import java.util.function.Supplier;
+import javax.enterprise.context.Dependent;
 import javax.enterprise.context.spi.Contextual;
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.inject.UnsatisfiedResolutionException;
@@ -82,6 +83,26 @@ public final class BeanInstance<T> {
         }
     }
 
+    /**
+     * Destroys this instance iff it contains the given object.
+     *
+     * @param instance some instance of {@code T} that might be contained in this {@code BeanInstance} and will be
+     *                 destroyed if it is.
+     * @return {@code true} iff the given object was contained in this {@code BeanInstance} and has been destroyed.
+     */
+    synchronized boolean destroy(T instance) {
+        if (state == State.INITIALIZED && this.instance == instance) {
+            this.destroy();
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    public boolean isDependentBean() {
+        return this.contextual instanceof Bean<?> bean && bean.getScope() == Dependent.class;
+    }
+
     public synchronized T instance() {
         return switch (state) {
             case NOT_INITIALIZED -> {
@@ -92,10 +113,6 @@ public final class BeanInstance<T> {
             case INITIALIZED -> instance;
             case DESTROYED -> throw new IllegalStateException("Already destroyed");
         };
-    }
-
-    synchronized boolean contains(T t) {
-        return state == State.INITIALIZED && this.instance == t;
     }
 
     public Contextual<T> contextual() {return contextual;}
