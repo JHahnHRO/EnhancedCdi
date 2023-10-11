@@ -34,6 +34,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.impl.RabbitMqExtension;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
 import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
 import org.jboss.weld.environment.se.Weld;
@@ -414,7 +415,8 @@ class WeldIntegrationTest {
         }
 
         @Test
-        void testPublishingMessagesDeclaresExchanges() throws IOException, InterruptedException {
+        void testPublishingMessagesDeclaresExchanges() throws IOException, InterruptedException,
+                                                              SerializationException {
             Outgoing<String> cast = createSimpleCast("Hello World");
 
             publisher.publish(cast);
@@ -429,7 +431,7 @@ class WeldIntegrationTest {
         }
 
         @Test
-        void testPublishingStringMessage() throws IOException, InterruptedException {
+        void testPublishingStringMessage() throws IOException, InterruptedException, SerializationException {
             final String content = "Hello World";
             Outgoing<String> cast = createSimpleCast(content);
 
@@ -439,7 +441,7 @@ class WeldIntegrationTest {
         }
 
         @Test
-        void testPublishingByteArrayMessage() throws IOException, InterruptedException {
+        void testPublishingByteArrayMessage() throws IOException, InterruptedException, SerializationException {
             final byte[] content = new byte[]{12, 3, 4, 5, 6, 7, 8, 9};
             Outgoing<byte[]> cast = createSimpleCast(content);
 

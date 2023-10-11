@@ -13,9 +13,11 @@ import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.DeserializationException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
 import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
 import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
 
@@ -30,12 +32,14 @@ class Serialization {
     @Selected
     SelectedMessageReader selectedMessageReader;
 
-    public Incoming<Object> deserialize(Incoming<byte[]> incomingMessage) throws IOException {
+    public Incoming<Object> deserialize(Incoming<byte[]> incomingMessage) throws DeserializationException {
         selectedMessageReader.selectReader(incomingMessage);
 
         try (var inputStream = new ByteArrayInputStream(incomingMessage.content())) {
             final Object content = selectedMessageReader.read(incomingMessage.withContent(inputStream));
             return incomingMessage.withContent(content);
+        } catch (IOException | RuntimeException e) {
+            throw new DeserializationException(e);
         }
     }
     //endregion
@@ -51,14 +55,25 @@ class Serialization {
         this.maxMessageSize = configuration.maxMessageSize();
     }
 
-    public <T> Outgoing<byte[]> serialize(Outgoing<T> outgoingMessage) throws IOException {
+    public <T> Outgoing<byte[]> serialize(Outgoing<T> outgoingMessage) throws SerializationException {
         final MessageBuilder<?, ?> builder = outgoingMessage.builder();
 
         try (var outputStream = new BoundedByteArrayOutputStream(maxMessageSize)) {
             writeWithSelectedWriter(outgoingMessage, builder.setType(OutputStream.class).setContent(outputStream));
             outputStream.flush();
             return builder.setType(byte[].class).setContent(outputStream.toByteArray()).build();
+        } catch (MessageTooLargeException e) {
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            throw new SerializationException(e);
         }
+    }
+
+    /**
+     * Convenience overload. Delegates to {@link #serialize(Outgoing)} and casts the result.
+     */
+    public <T> Outgoing.Request<byte[]> serialize(Outgoing.Request<T> request) throws SerializationException {
+        return (Outgoing.Request<byte[]>) serialize((Outgoing<T>) request);
     }
 
     private <T> void writeWithSelectedWriter(Outgoing<T> outgoingMessage,
@@ -105,7 +120,7 @@ class Serialization {
 
         private void checkSize(int increment) {
             if (size() + increment > maxSize) {
-                throw new MessageTooLargeException();
+                throw new MessageTooLargeException(maxSize);
             }
         }
     }

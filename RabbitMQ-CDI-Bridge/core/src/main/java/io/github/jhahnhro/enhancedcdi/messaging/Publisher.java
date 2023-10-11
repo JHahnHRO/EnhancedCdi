@@ -25,9 +25,9 @@ public interface Publisher {
      *                               {@link com.rabbitmq.client.Channel} to become available to publish the message.
      * @throws IllegalStateException if no {@link SelectableMessageWriter} for the content can be found.
      */
-    <T> void publish(Outgoing<T> message) throws IOException, InterruptedException;
+    <T> void publish(Outgoing<T> message) throws IOException, InterruptedException, SerializationException;
 
-    <T> void publishMandatory(Outgoing<T> message) throws IOException, InterruptedException;
+    <T> void publishMandatory(Outgoing<T> message) throws IOException, InterruptedException, SerializationException;
 
     <T> void publishConfirmed(Outgoing<T> message) throws IOException, InterruptedException;
 
@@ -49,7 +49,8 @@ public interface Publisher {
      * @throws IllegalStateException if no {@link SelectableMessageWriter} for the content can be found.
      */
     <T, RES> Incoming.Response<T, RES> rpc(Outgoing.Request<T> request, Duration timeout)
-            throws IOException, InterruptedException, TimeoutException, RpcException;
+            throws IOException, InterruptedException, TimeoutException, RpcException, SerializationException,
+                   DeserializationException;
 
     /**
      * Checks if there is still a consumer waiting for the response to the given request. Because the response to a

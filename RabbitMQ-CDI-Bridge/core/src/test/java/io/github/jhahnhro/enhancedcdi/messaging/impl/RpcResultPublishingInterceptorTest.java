@@ -27,6 +27,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcEndpoint;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
 import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.junit.MockBean;
 import org.jboss.weld.junit5.EnableWeld;
@@ -87,8 +88,8 @@ class RpcResultPublishingInterceptorTest {
 
         @RpcEndpoint
         Outgoing.Response<String, Instant> plusThreeHours(@Observes @Incoming Instant input) {
-            final var responseBuilder = INCOMING_REQUEST.newResponseBuilder().setContent(
-                    input.plus(3, ChronoUnit.HOURS));
+            final var responseBuilder = INCOMING_REQUEST.newResponseBuilder()
+                    .setContent(input.plus(3, ChronoUnit.HOURS));
             responseBuilder.propertiesBuilder().deliveryMode(1).type("special");
             return responseBuilder.build();
         }
@@ -143,7 +144,8 @@ class RpcResultPublishingInterceptorTest {
         ArgumentCaptor<Outgoing<?>> response;
 
         @Test
-        void givenRequestExists_whenRpcEvent_thenHandleRpcCall() throws IOException, InterruptedException {
+        void givenRequestExists_whenRpcEvent_thenHandleRpcCall()
+                throws IOException, InterruptedException, SerializationException {
             incomingEvent.select(String.class).fire("ping");
             verify(publisherMock).publish(response.capture());
             assertThat(response.getValue().content()).isEqualTo("pong");
@@ -151,7 +153,7 @@ class RpcResultPublishingInterceptorTest {
 
         @Test
         void givenRpcMethodThatReturnsOutgoing_whenRpcEvent_thenSendReturnedObject()
-                throws IOException, InterruptedException {
+                throws IOException, InterruptedException, SerializationException {
 
             incomingEvent.select(Instant.class).fire(Instant.now());
             verify(publisherMock).publish(response.capture());

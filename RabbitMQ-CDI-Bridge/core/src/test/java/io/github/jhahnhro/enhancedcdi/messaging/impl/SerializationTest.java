@@ -18,9 +18,11 @@ import io.github.jhahnhro.enhancedcdi.messaging.Retry;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.DeserializationException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageTooLargeException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
 import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -70,7 +72,7 @@ class SerializationTest {
 
         @Test
         void givenOutgoingMessageWithAvailableMessageWriter_whenSerialize_thenBuilderIsInitializedWithOutgoingMessage()
-                throws IOException {
+                throws IOException, SerializationException {
             mockSelectedMessageWriter();
 
             Outgoing<String> outgoingMessage = createOutgoingMessage();
@@ -86,7 +88,7 @@ class SerializationTest {
 
         @Test
         void givenOutgoingMessageWithAvailableMessageWriter_whenSerialize_thenMessageWriterIsDestroyedAfterWrite()
-                throws IOException {
+                throws IOException, SerializationException {
             mockSelectedMessageWriter();
 
             Outgoing<String> outgoingMessage = createOutgoingMessage();
@@ -103,7 +105,8 @@ class SerializationTest {
             when(enhancedInstance.get()).thenThrow(exception);
 
             final Outgoing<String> outgoingMessage = createOutgoingMessage();
-            assertThatThrownBy(() -> serialization.serialize(outgoingMessage)).isSameAs(exception);
+            assertThatThrownBy(() -> serialization.serialize(outgoingMessage)).isInstanceOf(
+                    SerializationException.class).hasCause(exception);
         }
 
         @Test
@@ -114,7 +117,8 @@ class SerializationTest {
             final Exception exception = new IllegalStateException();
             doThrow(exception).when(messageWriter).write(eq(outgoingMessage), any());
 
-            assertThatThrownBy(() -> serialization.serialize(outgoingMessage)).isSameAs(exception);
+            assertThatThrownBy(() -> serialization.serialize(outgoingMessage)).isInstanceOf(
+                    SerializationException.class).hasCause(exception);
         }
 
         @Nested
@@ -149,7 +153,9 @@ class SerializationTest {
             private Answer<Void> writeBytes(final byte[] bytes) {
                 return invocation -> {
                     final MessageBuilder<OutputStream, ?> builder = invocation.getArgument(1);
-                    builder.content().write(bytes);
+                    try (OutputStream content = builder.content()) {
+                        content.write(bytes);
+                    }
                     return null; // void method
                 };
             }
@@ -161,7 +167,7 @@ class SerializationTest {
     class TestDeserialization {
 
         @Test
-        void givenStringMessage_whenDeserialize_thenSucceed() throws IOException {
+        void givenStringMessage_whenDeserialize_thenSucceed() throws IOException, DeserializationException {
             Incoming<byte[]> incoming = createPingRequest();
             when(selectedMessageReader.read(any())).thenReturn("ping");
 
@@ -177,7 +183,8 @@ class SerializationTest {
             when(selectedMessageReader.read(any())).thenThrow(ex);
 
             Incoming<byte[]> incoming = createPingRequest();
-            assertThatThrownBy(() -> serialization.deserialize(incoming)).isSameAs(ex);
+            assertThatThrownBy(() -> serialization.deserialize(incoming)).isInstanceOf(DeserializationException.class)
+                    .hasCause(ex);
         }
     }
 

@@ -98,13 +98,15 @@ class OutgoingMessageHandler implements Publisher {
     //endregion
 
     @Override
-    public <T> void publish(Outgoing<T> message) throws IOException, InterruptedException {
+    public <T> void publish(Outgoing<T> message)
+            throws IOException, InterruptedException, SerializationException {
         final Outgoing<byte[]> serializedMessage = serialization.serialize(message);
         doBasicPublish(serializedMessage, false);
     }
 
     @Override
-    public <T> void publishMandatory(Outgoing<T> message) throws IOException, InterruptedException {
+    public <T> void publishMandatory(Outgoing<T> message)
+            throws IOException, InterruptedException, SerializationException {
         final Outgoing<byte[]> serializedMessage = serialization.serialize(message);
         doBasicPublish(serializedMessage, true);
     }
@@ -116,20 +118,20 @@ class OutgoingMessageHandler implements Publisher {
 
     @Override
     public <T, RES> Incoming.Response<T, RES> rpc(Outgoing.Request<T> request, Duration timeout)
-            throws IOException, InterruptedException, TimeoutException, RpcException {
-        final Outgoing.Request<byte[]> serializedRequest = (Outgoing.Request<byte[]>) serialization.serialize(request);
+            throws IOException, InterruptedException, TimeoutException, RpcException, SerializationException,
+                   DeserializationException {
+        final Outgoing.Request<byte[]> serializedRequest = serialization.serialize(request);
         final Incoming.Response<T, byte[]> serializedResponse = doRpc(serializedRequest, request, timeout);
         return (Incoming.Response<T, RES>) serialization.deserialize(serializedResponse);
     }
 
     <T> void observeOutgoing(@ObservesAsync Outgoing<T> message, EventMetadata eventMetadata)
-            throws IOException, InterruptedException, TimeoutException {
+            throws IOException, InterruptedException, TimeoutException, SerializationException {
         final Type runtimeType = getRuntimeType(message, (ParameterizedType) eventMetadata.getType());
         final Outgoing<T> messageWithAdjustedType = message.builder().setType(runtimeType).build();
 
         if (messageWithAdjustedType instanceof Outgoing.Request<T> originalRequest) {
-            final Outgoing.Request<byte[]> serializedRequest = (Outgoing.Request<byte[]>) serialization.serialize(
-                    messageWithAdjustedType);
+            final Outgoing.Request<byte[]> serializedRequest = serialization.serialize(originalRequest);
             final Incoming.Response<T, byte[]> serializedResponse = doRpc(serializedRequest, originalRequest, null);
             responseEvent.fireAsync(new InternalDelivery(serializedResponse, AutoAck.INSTANCE));
         } else {
