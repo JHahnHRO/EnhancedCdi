@@ -34,7 +34,7 @@ public interface BlockingPool<T> extends AutoCloseable {
      *
      * @param action an action to perform with the item.
      * @param <V>    the type of the result of the action.
-     * @param <EX>   exceptions the action is allows to throw
+     * @param <EX>   exceptions the action is allowed to throw
      * @return the result of the action on one of the items in this pool.
      * @throws IllegalStateException if the pool is already closed.
      * @throws NullPointerException  if {@code action} is {@code null}.

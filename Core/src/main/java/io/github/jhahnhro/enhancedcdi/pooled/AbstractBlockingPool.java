@@ -62,7 +62,7 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
      *
      * @param action an action to perform with the item.
      * @param <V>    the type of the result of the action.
-     * @param <EX>   exceptions the action is allows to throw
+     * @param <EX>   exceptions the action is allowed to throw
      * @return the result of the action on one of the items in this pool.
      * @throws IllegalStateException if this pool is already closed.
      * @throws NullPointerException  if {@code action} is {@code null} or if {@link #borrowFromPool()} returned
@@ -80,9 +80,6 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
         try {
             return action.apply(item);
         } catch (Exception e) {
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
-            }
             exception = e;
             throw e;
         } finally {
@@ -98,6 +95,18 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
         return Objects.requireNonNull(borrowFromPool());
     }
 
+    /**
+     * Called when {@link #apply(ThrowingFunction)} obtains the item from the pool which will be passed to the action.
+     * <p>
+     * Items may not necessarily exist before this method is called, i.e. an implementation is free to create items on
+     * demand.
+     *
+     * @return An item from the pool. Must not be null.
+     * @implSpec Before {@link #returnToPool(Object) returnToPool} is called with the same instance, the method must not
+     * return that instance again.
+     */
+    protected abstract T borrowFromPool();
+
     private void releaseItem(T item, Exception ex) {
         if (ex == null) {
             returnToPool(item);
@@ -107,6 +116,27 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
         permissionToUseItem.release();
     }
 
+    /**
+     * Called when {@link #apply(ThrowingFunction)} has successfully executed the given action and is done with the
+     * item. The implementation should return the item back into the pool and make it available to be borrowed again if
+     * possible.
+     *
+     * @param item the item. Not null.
+     */
+    protected abstract void returnToPool(T item);
+
+    /**
+     * Called when {@link #apply(ThrowingFunction)} has failed to execute the given action and is done with the item.
+     * The implementation should return the item back into the pool and make it available to be borrowed again if
+     * possible.
+     *
+     * @param item the item. Not null.
+     * @param ex   the exception that was thrown by the action.
+     * @implNote The default implementation simply calls {@link #returnToPool(Object)}, ignoring the exception.
+     */
+    protected void maybeReturnToPool(T item, Exception ex) {
+        returnToPool(item);
+    }
 
     @Override
     public final void close() {
@@ -141,41 +171,5 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
      */
     protected void onClose() {
 
-    }
-
-    /**
-     * Borrows an item from the pool if one is available. Before {@link #returnToPool(Object) returnToPool} is called
-     * with the same instance, the method must not return that instance again.
-     * <p>
-     * If no item is available and the {@link #capacity()} has not been reached, new item may be created on-the-fly.
-     * <p>
-     * If no item is available and no new item can be created, the method must block the current thread until an item
-     * becomes available or the thread gets interrupted.
-     *
-     * @return An item from the pool. Must not be null.
-     */
-    protected abstract T borrowFromPool();
-
-
-    /**
-     * Called when {@link #apply(ThrowingFunction)} has successfully executed the given action and is done with the
-     * item. The implementation should return the item back into the pool and make it available to be borrowed again if
-     * possible.
-     *
-     * @param item the item. Not null.
-     */
-    protected abstract void returnToPool(T item);
-
-    /**
-     * Called when {@link #apply(ThrowingFunction)} has failed to execute the given action and is done with the item.
-     * The implementation should return the item back into the pool and make it available to be borrowed again if
-     * possible.
-     *
-     * @param item the item. Not null.
-     * @param ex   the exception that was thrown by the action.
-     * @implNote The default implementation simply calls {@link #returnToPool(Object)}, ignoring the exception.
-     */
-    protected void maybeReturnToPool(T item, Exception ex) {
-        returnToPool(item);
     }
 }
