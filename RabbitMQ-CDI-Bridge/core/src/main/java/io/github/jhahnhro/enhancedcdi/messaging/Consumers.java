@@ -18,8 +18,11 @@ public interface Consumers {
     record Options(int qos, boolean autoAck, boolean exclusive, Map<String, Object> arguments) {
 
         public Options {
-            if (0 > qos || qos > 65535) {
+            if (qos < 0 || 65535 < qos) {
                 throw new IllegalArgumentException("QoS must be between 0 and 65535");
+            }
+            if (qos > 0 && autoAck) {
+                throw new IllegalArgumentException("If prefetchCount is greater zero, autoAck must be false.");
             }
             arguments = Map.copyOf(arguments);
         }
@@ -29,11 +32,18 @@ public interface Consumers {
         }
 
         public Options withAutoAck(boolean autoAck) {
-            return new Options(this.qos, autoAck, this.exclusive, this.arguments);
+            return new Options(0, autoAck, this.exclusive, this.arguments);
         }
 
+        /**
+         * Returns new Options with qos equal to the given number. If {@code qos > 0}, then {@link #autoAck} will also
+         * be set to false.
+         *
+         * @param qos
+         * @return new Options with qos equal to the given number.
+         */
         public Options withQoS(int qos) {
-            return new Options(qos, this.autoAck, this.exclusive, this.arguments);
+            return new Options(qos, qos <= 0 && this.autoAck, this.exclusive, this.arguments);
         }
     }
 }
