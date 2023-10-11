@@ -3,6 +3,7 @@ package io.github.jhahnhro.enhancedcdi.messaging.messages;
 import static java.util.Objects.requireNonNull;
 
 import java.lang.reflect.Type;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -19,6 +20,7 @@ public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SE
         permits Outgoing.Cast.Builder, Outgoing.Request.Builder, Outgoing.Response.Builder {
 
     protected final AMQP.BasicProperties.Builder propertiesBuilder;
+    private final Map<String, Object> headers;
 
     protected Object content = null; // mutable for all
     protected Type type = null; // mutable for all
@@ -26,7 +28,8 @@ public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SE
     protected String routingKey; // immutable for Response.Builder
 
     protected MessageBuilder(final String exchange, final String routingKey, DeliveryMode deliveryMode) {
-        this.propertiesBuilder = new AMQP.BasicProperties.Builder().deliveryMode(deliveryMode.nr);
+        this.headers = new HashMap<>();
+        this.propertiesBuilder = new AMQP.BasicProperties.Builder().deliveryMode(deliveryMode.nr).headers(headers);
         this.exchange = requireNonNull(exchange);
         this.routingKey = requireNonNull(routingKey);
     }
@@ -60,20 +63,29 @@ public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SE
      */
     @Override
     public AMQP.BasicProperties properties() {
-        return this.propertiesBuilder.build();
+        return this.propertiesBuilder.headers(this.headers.isEmpty() ? null : this.headers).build();
     }
 
     public SELF setProperties(BasicProperties properties) {
+        final Map<String, Object> newHeaders = properties.getHeaders();
+        this.headers.clear();
+        if (newHeaders != null) {
+            this.headers.putAll(newHeaders);
+        }
+
+        Date timestamp = properties.getTimestamp();
+        if (timestamp != null) {
+            timestamp = (Date) timestamp.clone();
+        }
         this.propertiesBuilder.contentType(properties.getContentType())
                 .contentEncoding(properties.getContentEncoding())
-                .headers(properties.getHeaders())
                 .deliveryMode(properties.getDeliveryMode())
                 .priority(properties.getPriority())
                 .correlationId(properties.getCorrelationId())
                 .replyTo(properties.getReplyTo())
                 .expiration(properties.getExpiration())
                 .messageId(properties.getMessageId())
-                .timestamp(properties.getTimestamp())
+                .timestamp(timestamp)
                 .type(properties.getType())
                 .userId(properties.getUserId())
                 .appId(properties.getAppId());
@@ -82,18 +94,14 @@ public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SE
     }
 
     /**
-     * Returns a <b>mutable</b> map containing all {@link BasicProperties#getHeaders() headers} currently contained in
-     * the {@link #propertiesBuilder()}. The returned map is also written to the builder so any changes to it will be
-     * reflected in the final message (except if {@link AMQP.BasicProperties.Builder#headers(Map)} is not called)
+     * Returns a <b>modifiable</b> map. Upon calling {@link #build()}, that map is written into the propertiesBuilder
+     * before the message's properties are being built so that the final message will have these headers.
      *
      * @return the (mutable) map of headers currently in the {@link #propertiesBuilder()}. Never null, but may be empty.
      */
     @Override
     public Map<String, Object> getHeaders() {
-        final Map<String, Object> prevHeaders = properties().getHeaders();
-        Map<String, Object> mutableHeaders = prevHeaders == null ? new HashMap<>() : new HashMap<>(prevHeaders);
-        propertiesBuilder.headers(mutableHeaders);
-        return mutableHeaders;
+        return headers;
     }
 
     @Override
@@ -107,7 +115,7 @@ public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SE
      *
      * @param content the new content
      * @param <U>     type of the content
-     * @return this build (with new type bounds)
+     * @return this builder (with new type bounds)
      */
     @SuppressWarnings("java:S1452") // Sonar does not like returning wildcards, but here it is necessary
     public abstract <U> MessageBuilder<U, ?> setContent(U content);
@@ -116,17 +124,26 @@ public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SE
         return type;
     }
 
+    /**
+     * Sets the type
+     *
+     * @param type the new type
+     * @return this builder (with the same type bounds)
+     */
     public SELF setType(Type type) {
         this.type = type;
         return self();
     }
 
-    public Outgoing<T> build() {
-        final AMQP.BasicProperties properties = properties();
-        if (properties.getReplyTo() != null) {
-            return new Outgoing.Request<>(exchange(), routingKey(), properties, content(), type());
-        }
-        return new Outgoing.Cast<>(exchange(), routingKey(), properties, content(), type());
-    }
+    /**
+     * Sets the type
+     *
+     * @param type the new type
+     * @param <U>  the new type
+     * @return this builder (with the new type bounds)
+     */
+    @SuppressWarnings("java:S1452") // Sonar does not like returning wildcards, but here it is necessary
+    public abstract <U> MessageBuilder<U, ?> setType(Class<U> type);
 
+    public abstract Outgoing<T> build();
 }

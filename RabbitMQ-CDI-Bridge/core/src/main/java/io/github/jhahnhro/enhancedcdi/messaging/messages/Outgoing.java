@@ -80,7 +80,7 @@ public sealed interface Outgoing<T> extends Message<T> {
 
         @Override
         public Builder<T> builder() {
-            return new Builder<>(this.exchange(), this.routingKey(), DeliveryMode.PERSISTENT).setContent(this.content)
+            return new Builder<>(this.exchange(), this.routingKey(), this.deliveryMode()).setContent(this.content)
                     .setType(this.type)
                     .setProperties(this.properties);
         }
@@ -108,6 +108,14 @@ public sealed interface Outgoing<T> extends Message<T> {
                 return (Builder<U>) this;
             }
 
+            @SuppressWarnings("unchecked")
+            @Override
+            public <U> Builder<U> setType(Class<U> type) {
+                this.type = type;
+                return (Builder<U>) this;
+            }
+
+
             @Override
             public Cast<T> build() {
                 return new Cast<>(exchange, routingKey, this.properties(), this.content(), this.type());
@@ -123,7 +131,7 @@ public sealed interface Outgoing<T> extends Message<T> {
             type = requireNonNullElse(type, content.getClass());
             validate(exchange, routingKey, properties, content, type);
 
-            if (properties.getReplyTo() == null) {
+            if (properties.getReplyTo() == null || properties.getReplyTo().isEmpty()) {
                 properties = properties.builder().replyTo(Topology.RABBITMQ_REPLY_TO).build();
             }
             if (properties.getCorrelationId() == null) {
@@ -137,7 +145,7 @@ public sealed interface Outgoing<T> extends Message<T> {
 
         @Override
         public Builder<T> builder() {
-            return new Builder<>(this.exchange(), this.routingKey(), DeliveryMode.PERSISTENT).setContent(this.content)
+            return new Builder<>(this.exchange(), this.routingKey(), this.deliveryMode()).setContent(this.content)
                     .setType(this.type)
                     .setProperties(this.properties);
         }
@@ -163,6 +171,13 @@ public sealed interface Outgoing<T> extends Message<T> {
             public <U> Builder<U> setContent(U content) {
                 super.content = content;
                 return (Builder<U>) self();
+            }
+
+            @SuppressWarnings("unchecked")
+            @Override
+            public <U> Builder<U> setType(Class<U> type) {
+                this.type = type;
+                return (Builder<U>) this;
             }
 
             @Override
@@ -230,6 +245,13 @@ public sealed interface Outgoing<T> extends Message<T> {
             public <T> Builder<REQ, T> setContent(T content) {
                 this.content = content;
                 return (Builder<REQ, T>) this;
+            }
+
+            @SuppressWarnings("unchecked")
+            @Override
+            public <U> Builder<REQ, U> setType(Class<U> type) {
+                this.type = type;
+                return (Builder<REQ, U>) this;
             }
 
             @Override
