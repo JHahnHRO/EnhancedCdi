@@ -7,6 +7,8 @@ import static org.mockito.Mockito.*;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeoutException;
 import javax.enterprise.inject.Default;
 import javax.enterprise.inject.Instance;
@@ -44,7 +46,7 @@ class ConnectionProducerTest {
             .addBeans(MockBean.of(createConfiguration(), Configuration.class))
             .build();
     @Mock
-    Connection connectionMock;
+    Connection underlyingConnection;
     @Inject
     Connection connectionBean;
     @Inject
@@ -73,25 +75,24 @@ class ConnectionProducerTest {
     }
 
     private void mockShutdownBehaviour() throws IOException {
-        final ShutdownListener[] shutdownListener = new ShutdownListener[1];
+        final List<ShutdownListener> shutdownListeners = new ArrayList<>();
 
         // lenient because the shutdown listener does not get added when creating the connection fails completely
         lenient().doAnswer(invocationOnMock -> {
-            shutdownListener[0] = invocationOnMock.getArgument(0);
+            shutdownListeners.add(invocationOnMock.getArgument(0));
             return null; // void method
-        }).when(connectionMock).addShutdownListener(any());
+        }).when(underlyingConnection).addShutdownListener(any());
 
         // must be lenient, even though it will be called in all tests: The call happens in the disposer method which
         // is called by the WeldJUnitExtension's afterEach method, not by the test method itself.
         lenient().doAnswer(invocationOnMock -> {
-            final ShutdownListener listener = shutdownListener[0];
-            if (listener != null) {
-                listener.shutdownCompleted(
-                        new ShutdownSignalException(true, true, new AMQP.Connection.Close.Builder().build(),
-                                                    connectionMock));
+            var sse = new ShutdownSignalException(true, true, new AMQP.Connection.Close.Builder().build(),
+                                                  underlyingConnection);
+            for (ShutdownListener listener : shutdownListeners) {
+                listener.shutdownCompleted(sse);
             }
             return null; // void method
-        }).when(connectionMock).close();
+        }).when(underlyingConnection).close();
     }
 
     @Test
@@ -106,11 +107,11 @@ class ConnectionProducerTest {
         initializeConnectionBean();
 
         verify(connectionFactory).newConnection();
-        verify(connectionMock).isOpen();
+        verify(underlyingConnection).isOpen();
     }
 
     private void mockForSuccessfulCreation() throws IOException, TimeoutException {
-        when(connectionFactory.newConnection()).thenReturn(connectionMock);
+        when(connectionFactory.newConnection()).thenReturn(underlyingConnection);
     }
 
     private void initializeConnectionBean() {
@@ -122,7 +123,7 @@ class ConnectionProducerTest {
     void testRetry() throws IOException, TimeoutException {
         when(connectionFactory.newConnection()).thenThrow(new TimeoutException("test-exception-1"))
                 .thenThrow(new IOException("test-exception-2"))
-                .thenReturn(connectionMock);
+                .thenReturn(underlyingConnection);
 
         initializeConnectionBean();
 
@@ -135,19 +136,19 @@ class ConnectionProducerTest {
         initializeConnectionBean();
 
         assertThatNoException().isThrownBy(() -> connectionInstance.destroy(connectionBean));
-        verify(connectionMock).close();
+        verify(underlyingConnection).close();
     }
 
     @Test
     void givenConnectionAlreadyClosed_whenDestroy_thenSucceed() throws IOException, TimeoutException {
         mockForSuccessfulCreation();
         final var sse = new ShutdownSignalException(true, true, new AMQP.Connection.Close.Builder().build(),
-                                                    connectionMock);
-        doThrow(new AlreadyClosedException(sse)).when(connectionMock).close();
+                                                    underlyingConnection);
+        doThrow(new AlreadyClosedException(sse)).when(underlyingConnection).close();
 
         initializeConnectionBean();
 
         assertThatNoException().isThrownBy(() -> connectionInstance.destroy(connectionBean));
-        verify(connectionMock).close();
+        verify(underlyingConnection).close();
     }
 }

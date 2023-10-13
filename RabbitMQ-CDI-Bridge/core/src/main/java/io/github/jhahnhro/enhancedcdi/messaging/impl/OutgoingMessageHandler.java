@@ -4,10 +4,13 @@ import java.io.IOException;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.time.Duration;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
 import javax.enterprise.event.ObservesAsync;
+import javax.enterprise.inject.Default;
 import javax.enterprise.inject.spi.EventMetadata;
 import javax.inject.Inject;
 
@@ -15,18 +18,30 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.RpcClient;
 import com.rabbitmq.client.RpcClientParams;
+import com.rabbitmq.client.ShutdownSignalException;
 import com.rabbitmq.client.UnroutableRpcRequestException;
 import io.github.jhahnhro.enhancedcdi.messaging.Publisher;
+import io.github.jhahnhro.enhancedcdi.messaging.Topology;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.NotConfirmedException;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.DeserializationException;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
 
 @ApplicationScoped
 class OutgoingMessageHandler implements Publisher {
 
     @Inject
+    @Default
     BlockingPool<Channel> publisherChannels;
+
+    @Inject
+    Confirmations confirmations;
+    @Inject
+    @WithConfirms
+    BlockingPool<Channel> publisherChannelsWithConfirms;
 
     @Inject
     Event<InternalDelivery> responseEvent;
@@ -61,7 +76,11 @@ class OutgoingMessageHandler implements Publisher {
     private <T> Incoming.Response<T, byte[]> doRpc(Outgoing.Request<byte[]> serializedRequest,
                                                    Outgoing.Request<T> originalRequest, Duration timeout)
             throws RpcException, InterruptedException, IOException, TimeoutException {
-        infrastructure.setUpForExchange(originalRequest.exchange());
+        infrastructure.setUpForExchange(serializedRequest.exchange());
+        final String replyTo = serializedRequest.properties().getReplyTo();
+        if (!Topology.RABBITMQ_REPLY_TO.equals(replyTo)) {
+            infrastructure.setUpForQueue(replyTo);
+        }
 
         final RpcClient.Response rawResponse;
         try {
@@ -95,11 +114,35 @@ class OutgoingMessageHandler implements Publisher {
         }
     }
 
+    private void doPublishConfirmed(Outgoing<byte[]> serializedMessage)
+            throws InterruptedException, IOException, NotConfirmedException {
+
+        infrastructure.setUpForExchange(serializedMessage.exchange());
+
+        final Future<Confirmations.Result> resultFuture = publisherChannelsWithConfirms.apply(channel -> {
+            Future<Confirmations.Result> result = confirmations.getNextConfirmationResult(channel);
+
+            channel.basicPublish(serializedMessage.exchange(), serializedMessage.routingKey(), true,
+                                 serializedMessage.properties(), serializedMessage.content());
+
+            return result;
+        });
+
+        final Confirmations.Result result;
+        try {
+            result = resultFuture.get();
+        } catch (ExecutionException e) {
+            throw (ShutdownSignalException) e.getCause();
+        }
+
+        if (result == Confirmations.Result.NACK) {
+            throw new NotConfirmedException();
+        }
+    }
     //endregion
 
     @Override
-    public <T> void publish(Outgoing<T> message)
-            throws IOException, InterruptedException, SerializationException {
+    public <T> void publish(Outgoing<T> message) throws IOException, InterruptedException, SerializationException {
         final Outgoing<byte[]> serializedMessage = serialization.serialize(message);
         doBasicPublish(serializedMessage, false);
     }
@@ -112,8 +155,10 @@ class OutgoingMessageHandler implements Publisher {
     }
 
     @Override
-    public <T> void publishConfirmed(Outgoing<T> message) {
-        throw new UnsupportedOperationException("Currently not implemented");
+    public <T> void publishConfirmed(Outgoing<T> message)
+            throws IOException, InterruptedException, NotConfirmedException, SerializationException {
+        final Outgoing<byte[]> serializedMessage = serialization.serialize(message);
+        doPublishConfirmed(serializedMessage);
     }
 
     @Override

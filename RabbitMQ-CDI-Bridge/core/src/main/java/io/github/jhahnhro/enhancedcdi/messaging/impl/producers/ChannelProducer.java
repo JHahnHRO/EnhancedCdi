@@ -8,6 +8,8 @@ import java.io.UncheckedIOException;
 import java.lang.System.Logger.Level;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
+import javax.enterprise.inject.Any;
+import javax.enterprise.inject.Default;
 import javax.enterprise.inject.Disposes;
 import javax.enterprise.inject.Produces;
 import javax.inject.Inject;
@@ -16,8 +18,9 @@ import javax.inject.Singleton;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ReturnListener;
+import io.github.jhahnhro.enhancedcdi.messaging.impl.Confirmations;
+import io.github.jhahnhro.enhancedcdi.messaging.impl.WithConfirms;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Message.DeliveryMode;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
@@ -37,28 +40,50 @@ class ChannelProducer {
     }
 
     @Produces
+    @Default
     @ApplicationScoped
     BlockingPool<Channel> channelPool(BookkeepingConnection connection) throws InterruptedException {
         LOG.log(Level.DEBUG, "Creating shared pool of channels");
-        return new LazyBlockingPool<>(0, computeCapacity(connection), new ChannelLifeCycle(connection, returnCallback));
+        return new LazyBlockingPool<>(0, connection.getChannelMax(), new ChannelLifeCycle(connection) {
+            @Override
+            public Channel createNew() throws InterruptedException {
+                final Channel channel = super.createNew();
+                channel.addReturnListener(returnCallback);
+                return channel;
+            }
+        });
     }
 
-    void dispose(@Disposes BlockingPool<Channel> channelPool) {
+    @Produces
+    @WithConfirms
+    @ApplicationScoped
+    BlockingPool<Channel> channelPoolWithConfirms(BookkeepingConnection connection, Confirmations confirmations)
+            throws InterruptedException {
+        LOG.log(Level.DEBUG, "Creating shared pool of channels");
+        return new LazyBlockingPool<>(0, connection.getChannelMax(), new ChannelLifeCycle(connection) {
+            @Override
+            public Channel createNew() throws InterruptedException {
+                final Channel channel = super.createNew();
+                try {
+                    confirmations.putChannelInConfirmMode(channel);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+                return channel;
+            }
+        });
+    }
+
+    void dispose(@Disposes @Any BlockingPool<Channel> channelPool) {
         LOG.log(Level.DEBUG, "Shutting down shared pool of channels");
         channelPool.close();
     }
 
-    private int computeCapacity(Connection connection) {
-        return connection.getChannelMax();
-    }
-
     private static class ChannelLifeCycle implements LazyBlockingPool.Lifecycle<Channel> {
         private final BookkeepingConnection connection;
-        private final ReturnListener returnCallback;
 
-        public ChannelLifeCycle(BookkeepingConnection connection, ReturnListener returnCallback) {
+        public ChannelLifeCycle(BookkeepingConnection connection) {
             this.connection = connection;
-            this.returnCallback = returnCallback;
         }
 
         @Override
@@ -80,7 +105,6 @@ class ChannelProducer {
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
-            channel.addReturnListener(this.returnCallback);
             return channel;
         }
 
@@ -102,6 +126,7 @@ class ChannelProducer {
                                  AMQP.BasicProperties properties, byte[] body) {
             final Outgoing<byte[]> outgoing = convertToOutgoing(exchange, routingKey, properties, body);
             event.fireAsync(new ReturnedMessage(replyCode, replyText, outgoing));
+            // TODO: Logging
         }
 
         private Outgoing<byte[]> convertToOutgoing(final String exchange, final String routingKey,

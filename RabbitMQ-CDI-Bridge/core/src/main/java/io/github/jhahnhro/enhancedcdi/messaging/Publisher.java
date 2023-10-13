@@ -6,9 +6,12 @@ import java.util.concurrent.TimeoutException;
 
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.NotConfirmedException;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.DeserializationException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
+import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
 
 /**
  * Provides methods to publish {@link Outgoing} messages to the RabbitMQ broker.
@@ -16,20 +19,48 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageW
 public interface Publisher {
 
     /**
-     * Sends the given message to the broker fire-and-forget style.
+     * Sends the given message to the broker fire-and-forget style (non-mandatory and without publisher confirms)
      *
      * @param message the outgoing message
      * @param <T>     the type of the content of the message
-     * @throws IOException           if anything goes wrong
-     * @throws InterruptedException  if the current thread gets interrupted while waiting for a
-     *                               {@link com.rabbitmq.client.Channel} to become available to publish the message.
-     * @throws IllegalStateException if no {@link SelectableMessageWriter} for the content can be found.
+     * @throws IOException            if anything goes wrong
+     * @throws InterruptedException   if the current thread gets interrupted while waiting for a
+     *                                {@link com.rabbitmq.client.Channel} to become available to publish the message.
+     * @throws SerializationException if the message could not be serialized
      */
     <T> void publish(Outgoing<T> message) throws IOException, InterruptedException, SerializationException;
 
+    /**
+     * Similar to {@link #publish(Outgoing)} but sends the given message to the broker in "mandatory" mode, i.e. the
+     * broker will send an error back if the message could not be delivered to any receipts. That error will manifest as
+     * an {@link javax.enterprise.event.ObservesAsync asynchronous event} of type
+     * {@link io.github.jhahnhro.enhancedcdi.messaging.messages.ReturnedMessage}.
+     *
+     * @param message the outgoing message
+     * @param <T>     the type of the content of the message
+     * @throws IOException            if anything goes wrong
+     * @throws InterruptedException   if the current thread gets interrupted while waiting for a
+     *                                {@link com.rabbitmq.client.Channel} to become available to publish the message.
+     * @throws SerializationException if the message could not be serialized
+     */
     <T> void publishMandatory(Outgoing<T> message) throws IOException, InterruptedException, SerializationException;
 
-    <T> void publishConfirmed(Outgoing<T> message) throws IOException, InterruptedException;
+    /**
+     * Send a message to the broker and waits until the broker confirms it could process the message.
+     *
+     * @param message the outgoing message
+     * @param <T>     the type of the content of the message
+     * @throws IOException                                 if anything goes wrong
+     * @throws InterruptedException                        if the current thread gets interrupted while waiting for a
+     *                                                     {@link com.rabbitmq.client.Channel} to become available to
+     *                                                     publish the message or while waiting for the confirmation.
+     * @throws SerializationException                      if the message could not be serialized
+     * @throws NotConfirmedException                    if the broker could not process the message
+     * @throws com.rabbitmq.client.ShutdownSignalException if the underlying channel/connection was closed before the
+     *                                                     confirmation could arrive.
+     */
+    <T> void publishConfirmed(Outgoing<T> message)
+            throws IOException, InterruptedException, NotConfirmedException, SerializationException;
 
     /**
      * Sends the given request to the broker and returns the response to the caller.

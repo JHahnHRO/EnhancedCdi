@@ -12,6 +12,7 @@ import javax.inject.Inject;
 import com.rabbitmq.client.Channel;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
+import io.github.jhahnhro.enhancedcdi.messaging.impl.Confirmations;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
 import org.jboss.weld.junit.MockBean;
 import org.jboss.weld.junit5.EnableWeld;
@@ -38,10 +39,13 @@ class ChannelProducerTest {
                               .addQualifier(new AnnotationLiteral<Consolidated>() {})
                               .build())
             .addBeans(MockBean.of(mock(BookkeepingConnection.class), BookkeepingConnection.class))
+            .addBeans(MockBean.of(mock(Confirmations.class), Confirmations.class))
             .build();
 
     @Inject
-    BookkeepingConnection connection;
+    BookkeepingConnection connectionMock;
+    @Inject
+    Confirmations confirmationsMock;
 
     @Inject
     BlockingPool<Channel> channelPool;
@@ -51,8 +55,8 @@ class ChannelProducerTest {
 
     @BeforeEach
     void setUp() throws IOException, InterruptedException {
-        when(connection.acquireChannel()).thenReturn(channel);
-        when(connection.getChannelMax()).thenReturn(MAX_CHANNEL_NR);
+        when(connectionMock.acquireChannel()).thenReturn(channel);
+        when(connectionMock.getChannelMax()).thenReturn(MAX_CHANNEL_NR);
     }
 
     @Test
@@ -99,6 +103,6 @@ class ChannelProducerTest {
         t1.join(2000);
         t2.join(2000);
 
-        verify(connection, times(2)).acquireChannel();
+        verify(connectionMock, times(2)).acquireChannel();
     }
 }
