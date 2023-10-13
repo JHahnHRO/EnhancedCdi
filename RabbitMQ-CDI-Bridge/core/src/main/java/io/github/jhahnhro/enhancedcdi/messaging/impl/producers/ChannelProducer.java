@@ -17,8 +17,7 @@ import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.Return;
-import com.rabbitmq.client.ReturnCallback;
+import com.rabbitmq.client.ReturnListener;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Message.DeliveryMode;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
@@ -30,7 +29,7 @@ import io.github.jhahnhro.enhancedcdi.pooled.LazyBlockingPool;
 class ChannelProducer {
 
     private static final System.Logger LOG = System.getLogger(ChannelProducer.class.getCanonicalName());
-    private final ReturnCallback returnCallback;
+    private final ReturnListener returnCallback;
 
     @Inject
     ChannelProducer(Event<ReturnedMessage> event) {
@@ -55,9 +54,9 @@ class ChannelProducer {
 
     private static class ChannelLifeCycle implements LazyBlockingPool.Lifecycle<Channel> {
         private final BookkeepingConnection connection;
-        private final ReturnCallback returnCallback;
+        private final ReturnListener returnCallback;
 
-        public ChannelLifeCycle(BookkeepingConnection connection, ReturnCallback returnCallback) {
+        public ChannelLifeCycle(BookkeepingConnection connection, ReturnListener returnCallback) {
             this.connection = connection;
             this.returnCallback = returnCallback;
         }
@@ -92,22 +91,21 @@ class ChannelProducer {
 
     }
 
-    private static final class ReturnHandler implements ReturnCallback {
+    private static final class ReturnHandler implements ReturnListener {
 
         private final Event<ReturnedMessage> event;
 
         private ReturnHandler(Event<ReturnedMessage> event) {this.event = event;}
 
         @Override
-        public void handle(Return returnedMsg) {
-            event.fireAsync(new ReturnedMessage(returnedMsg.getReplyCode(), returnedMsg.getReplyText(),
-                                                convertToOutgoing(returnedMsg)));
+        public void handleReturn(int replyCode, String replyText, String exchange, String routingKey,
+                                 AMQP.BasicProperties properties, byte[] body) {
+            final Outgoing<byte[]> outgoing = convertToOutgoing(exchange, routingKey, properties, body);
+            event.fireAsync(new ReturnedMessage(replyCode, replyText, outgoing));
         }
 
-        private Outgoing<byte[]> convertToOutgoing(Return returnedMsg) {
-            final AMQP.BasicProperties properties = returnedMsg.getProperties();
-            final String exchange = returnedMsg.getExchange();
-            final String routingKey = returnedMsg.getRoutingKey();
+        private Outgoing<byte[]> convertToOutgoing(final String exchange, final String routingKey,
+                                                   final AMQP.BasicProperties properties, final byte[] body) {
             final DeliveryMode deliveryMode = properties.getDeliveryMode() == 1 ? TRANSIENT : PERSISTENT;
 
             final MessageBuilder<byte[], ?> messageBuilder;
@@ -117,10 +115,7 @@ class ChannelProducer {
                 messageBuilder = new Outgoing.Cast.Builder<>(exchange, routingKey, deliveryMode);
             }
 
-            return messageBuilder.setProperties(properties)
-                    .setType(byte[].class)
-                    .setContent(returnedMsg.getBody())
-                    .build();
+            return messageBuilder.setProperties(properties).setType(byte[].class).setContent(body).build();
         }
     }
 }
