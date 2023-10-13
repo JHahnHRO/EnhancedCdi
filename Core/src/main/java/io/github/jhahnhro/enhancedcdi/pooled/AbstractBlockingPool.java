@@ -105,7 +105,7 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
      * @implSpec Before {@link #returnToPool(Object) returnToPool} is called with the same instance, the method must not
      * return that instance again.
      */
-    protected abstract T borrowFromPool();
+    protected abstract T borrowFromPool() throws InterruptedException;
 
     private void releaseItem(T item, Exception ex) {
         if (ex == null) {

@@ -39,18 +39,21 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
      * @param capacity      maximum number of items in the pool.
      * @param itemLifecycle the lifecycle of items, defining how they are created and destroyed and if they are still
      *                      usable.
+     * @throws NullPointerException     if {@code itemLifecycle} is {@code null}.
      * @throws IllegalArgumentException if {@code 0<=initialSize<=capacity} is violated or
      *                                  {@code itemLifecycle.keepAlive()} is negative.
-     * @throws NullPointerException     if {@code itemLifecycle} is {@code null}.
+     * @throws InterruptedException     if the current thread is interrupted while waiting for the pool to fill to its
+     *                                  initial size. Will not happen if {@code initialSize == 0}.
      */
-    public LazyBlockingPool(int initialSize, int capacity, Lifecycle<T> itemLifecycle) {
+    public LazyBlockingPool(int initialSize, int capacity, Lifecycle<T> itemLifecycle) throws InterruptedException {
         this(initialSize, capacity, itemLifecycle, InstantSource.system());
     }
 
     /**
      * Package-private constructor that sets the clock. Used in tests.
      */
-    LazyBlockingPool(int initialSize, int capacity, Lifecycle<T> itemLifecycle, final InstantSource clock) {
+    LazyBlockingPool(int initialSize, int capacity, Lifecycle<T> itemLifecycle, final InstantSource clock)
+            throws InterruptedException {
         super(capacity);
         if (initialSize > capacity) {
             throw new IllegalArgumentException("initialSize must be less or equal to maxSize");
@@ -73,7 +76,7 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
         this.clock = Objects.requireNonNull(clock);
     }
 
-    private void prefillPool(int initialSize) {
+    private void prefillPool(int initialSize) throws InterruptedException {
         for (int i = 0; i < initialSize; i++) {
             itemsNotInUse.add(new ItemAndCreationTime<>(itemLifecycle.createNew(), clock.instant()));
         }
@@ -101,8 +104,13 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
     }
 
     @Override
-    protected T borrowFromPool() {
-        return Objects.requireNonNullElseGet(pollUntilValidOrEmpty(), itemLifecycle::createNew);
+    protected T borrowFromPool() throws InterruptedException {
+        T item = pollUntilValidOrEmpty();
+        if (item == null) {
+            return Objects.requireNonNull(itemLifecycle.createNew());
+        } else {
+            return item;
+        }
     }
 
     private T pollUntilValidOrEmpty() {
@@ -146,9 +154,14 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
      */
     public interface Lifecycle<T> {
         /**
+         * Creates a new item for the pool. May block the calling thread is it is necessary to wait for some other
+         * process to finish, e.g. if the item is related to a network connection.
+         *
          * @return a newly created item for the pool. Must not be null.
+         * @throws InterruptedException if creating an item is a blocking operation and the current thread get
+         *                              interrupted while waiting for it to finish.
          */
-        T createNew();
+        T createNew() throws InterruptedException;
 
         /**
          * Detects if an item is still usable. Unusable items will be destroyed.
