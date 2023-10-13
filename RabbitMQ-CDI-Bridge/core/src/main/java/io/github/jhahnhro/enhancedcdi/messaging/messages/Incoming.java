@@ -18,6 +18,7 @@ public sealed interface Incoming<T> extends Message<T> {
 
     private static void validate(final Envelope envelope, final AMQP.BasicProperties properties) {
         requireNonNull(envelope, "envelope of the delivery");
+        requireNonNull(envelope.getExchange(), "exchange");
         requireNonNull(properties, "properties");
 
         final int deliveryMode = properties.getDeliveryMode();
