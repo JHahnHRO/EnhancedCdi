@@ -6,7 +6,6 @@ import static org.mockito.Mockito.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -59,7 +58,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @SuppressWarnings("CdiManagedBeanInconsistencyInspection")
 @ExtendWith(MockitoExtension.class)
 @Tag("integration-test")
-        //@Disabled
 class WeldIntegrationTest {
 
     static final TypeLiteral<io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming<?>> INCOMING_TYPE =
@@ -194,14 +192,14 @@ class WeldIntegrationTest {
         WeldInitiator w = WeldInitiator.of(weld);
 
         @Mock
-        Connection connection;
+        Connection underlyingConnection;
 
         @Inject
         Connection connectionBean;
 
         @BeforeEach
         void setUp() throws IOException, TimeoutException {
-            when(CONNECTION_FACTORY.newConnection()).thenReturn(connection);
+            when(CONNECTION_FACTORY.newConnection()).thenReturn(underlyingConnection);
         }
 
         @Test
@@ -210,7 +208,7 @@ class WeldIntegrationTest {
 
             connectionBean.isOpen(); // trigger lazy initialization
             verify(CONNECTION_FACTORY).newConnection();
-            verify(connection).isOpen();
+            verify(underlyingConnection).isOpen();
         }
 
     }
@@ -223,7 +221,7 @@ class WeldIntegrationTest {
         WeldInitiator w = WeldInitiator.of(weld);
 
         @Mock
-        Connection connection;
+        Connection underlyingConnection;
 
         @Mock
         Channel channel;
@@ -234,9 +232,9 @@ class WeldIntegrationTest {
 
         @BeforeEach
         void setUp() throws IOException, TimeoutException {
-            when(CONNECTION_FACTORY.newConnection()).thenReturn(connection);
-            when(connection.openChannel()).thenReturn(Optional.ofNullable(channel));
-            when(connection.getChannelMax()).thenReturn(100);
+            when(CONNECTION_FACTORY.newConnection()).thenReturn(underlyingConnection);
+            when(underlyingConnection.createChannel()).thenReturn(channel);
+            when(underlyingConnection.getChannelMax()).thenReturn(100);
         }
 
         @Test
@@ -245,16 +243,16 @@ class WeldIntegrationTest {
             final BlockingPool<Channel> channelPool = w.select(new TypeLiteral<BlockingPool<Channel>>() {}).get();
 
             assertThat(channelPool).isNotNull();
-            assertThat(channelPool.capacity()).isEqualTo(100 - topologyBean.queueDeclarations().size());
+            assertThat(channelPool.capacity()).isEqualTo(100);
 
             // no channels created yet
-            verify(connection, never()).openChannel();
+            verify(underlyingConnection, never()).createChannel();
 
             // Declare a non-durable, auto-delete, auto-named, exclusive queue
             channelPool.run(Channel::queueDeclare);
 
             // now there's a channel
-            verify(connection).openChannel();
+            verify(underlyingConnection).createChannel();
             verify(channel).queueDeclare();
         }
     }
@@ -267,7 +265,7 @@ class WeldIntegrationTest {
         @WeldSetup
         WeldInitiator w = WeldInitiator.of(weld);
         @Mock
-        Connection connection;
+        Connection underlyingConnection;
         @Mock
         Channel channel;
         @Inject
@@ -277,8 +275,8 @@ class WeldIntegrationTest {
 
         @BeforeEach
         void setUp() throws IOException, TimeoutException {
-            when(CONNECTION_FACTORY.newConnection()).thenReturn(connection);
-            when(connection.openChannel()).thenReturn(Optional.ofNullable(channel));
+            when(CONNECTION_FACTORY.newConnection()).thenReturn(underlyingConnection);
+            when(underlyingConnection.createChannel()).thenReturn(channel);
             mockBasicConsume();
 
             observer.getIncomingMessagePayload().clear();
@@ -400,7 +398,7 @@ class WeldIntegrationTest {
         @WeldSetup
         WeldInitiator w = WeldInitiator.of(weld);
         @Mock
-        Connection connection;
+        Connection underlyingConnection;
         @Mock
         Channel channel;
         @Inject
@@ -408,14 +406,14 @@ class WeldIntegrationTest {
 
         @BeforeEach
         void setUp() throws IOException, TimeoutException {
-            when(CONNECTION_FACTORY.newConnection()).thenReturn(connection);
-            when(connection.openChannel()).thenReturn(Optional.ofNullable(channel));
-            when(connection.getChannelMax()).thenReturn(100);
+            when(CONNECTION_FACTORY.newConnection()).thenReturn(underlyingConnection);
+            when(underlyingConnection.createChannel()).thenReturn(channel);
+            when(underlyingConnection.getChannelMax()).thenReturn(100);
         }
 
         @Test
-        void testPublishingMessagesDeclaresExchanges() throws IOException, InterruptedException,
-                                                              SerializationException {
+        void testPublishingMessagesDeclaresExchanges()
+                throws IOException, InterruptedException, SerializationException {
             Outgoing<String> cast = createSimpleCast("Hello World");
 
             publisher.publish(cast);

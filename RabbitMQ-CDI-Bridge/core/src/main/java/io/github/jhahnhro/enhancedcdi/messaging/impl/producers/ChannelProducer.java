@@ -19,8 +19,6 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.Return;
 import com.rabbitmq.client.ReturnCallback;
-import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
-import io.github.jhahnhro.enhancedcdi.messaging.Topology;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Message.DeliveryMode;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
@@ -39,13 +37,11 @@ class ChannelProducer {
         this.returnCallback = new ReturnHandler(event);
     }
 
-
     @Produces
     @ApplicationScoped
-    BlockingPool<Channel> channelPool(Connection connection, @Consolidated Topology consolidatedTopology) {
+    BlockingPool<Channel> channelPool(BookkeepingConnection connection) throws InterruptedException {
         LOG.log(Level.DEBUG, "Creating shared pool of channels");
-        return new LazyBlockingPool<>(0, computeCapacity(connection, consolidatedTopology),
-                                      new ChannelLifeCycle(connection, returnCallback));
+        return new LazyBlockingPool<>(0, computeCapacity(connection), new ChannelLifeCycle(connection, returnCallback));
     }
 
     void dispose(@Disposes BlockingPool<Channel> channelPool) {
@@ -53,16 +49,15 @@ class ChannelProducer {
         channelPool.close();
     }
 
-    private int computeCapacity(Connection connection, Topology consolidatedTopology) {
-        // leave room for one consumer channel for each queue. These channels are not taken from the channel pool.
-        return connection.getChannelMax() - consolidatedTopology.queueDeclarations().size();
+    private int computeCapacity(Connection connection) {
+        return connection.getChannelMax();
     }
 
-    private static final class ChannelLifeCycle implements LazyBlockingPool.Lifecycle<Channel> {
-        private final Connection connection;
+    private static class ChannelLifeCycle implements LazyBlockingPool.Lifecycle<Channel> {
+        private final BookkeepingConnection connection;
         private final ReturnCallback returnCallback;
 
-        public ChannelLifeCycle(Connection connection, ReturnCallback returnCallback) {
+        public ChannelLifeCycle(BookkeepingConnection connection, ReturnCallback returnCallback) {
             this.connection = connection;
             this.returnCallback = returnCallback;
         }
@@ -79,11 +74,10 @@ class ChannelProducer {
         }
 
         @Override
-        public Channel createNew() {
+        public Channel createNew() throws InterruptedException {
             final Channel channel;
             try {
-                channel = connection.openChannel()
-                        .orElseThrow(() -> new IllegalStateException("No channels available"));
+                channel = connection.acquireChannel();
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -99,6 +93,7 @@ class ChannelProducer {
     }
 
     private static final class ReturnHandler implements ReturnCallback {
+
         private final Event<ReturnedMessage> event;
 
         private ReturnHandler(Event<ReturnedMessage> event) {this.event = event;}

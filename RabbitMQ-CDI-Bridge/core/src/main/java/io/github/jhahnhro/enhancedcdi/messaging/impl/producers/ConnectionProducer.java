@@ -5,14 +5,21 @@ import static java.util.Objects.requireNonNullElse;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.System.Logger.Level;
+import java.util.Objects;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Disposes;
 import javax.enterprise.inject.Produces;
 import javax.inject.Singleton;
 
 import com.rabbitmq.client.AlreadyClosedException;
+import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ShutdownListener;
+import com.rabbitmq.client.ShutdownNotifier;
+import com.rabbitmq.client.ShutdownSignalException;
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.Retry;
 
@@ -21,20 +28,10 @@ class ConnectionProducer {
 
     private static final System.Logger LOG = System.getLogger(ConnectionProducer.class.getCanonicalName());
 
-    private static void logFailure(int nr, Exception ex, String formatString) {
-        final String msg = String.format(formatString, nr,
-                                         requireNonNullElse(ex.getMessage(), ex.getClass().getSimpleName()));
-        if (LOG.isLoggable(Level.DEBUG)) {
-            LOG.log(Level.DEBUG, msg, ex);
-        } else {
-            LOG.log(Level.WARNING, msg + " Set log level to DEBUG for full stack trace.");
-        }
-    }
-
     @Produces
     @ApplicationScoped
-    Connection produceConnection(Configuration configuration) throws InterruptedException, TimeoutException {
-        return newConnection(configuration);
+    BookkeepingConnection produceConnection(Configuration configuration) throws InterruptedException, TimeoutException {
+        return new ChannelTrackingConnection(newConnection(configuration));
     }
 
     void disposeConnection(@Disposes Connection connection) {
@@ -88,4 +85,91 @@ class ConnectionProducer {
         }
     }
 
+
+    private void logFailure(int nr, Exception ex, String formatString) {
+        final String msg = String.format(formatString, nr,
+                                         requireNonNullElse(ex.getMessage(), ex.getClass().getSimpleName()));
+        if (LOG.isLoggable(Level.DEBUG)) {
+            LOG.log(Level.DEBUG, msg, ex);
+        } else {
+            LOG.log(Level.WARNING, msg + " Set log level to DEBUG for full stack trace.");
+        }
+    }
+
+    private static class ChannelTrackingConnection extends ConnectionDecorator implements BookkeepingConnection {
+        private final TrackingSemaphore channelPermit;
+
+        ChannelTrackingConnection(Connection internalConnection) {
+            super(internalConnection);
+            this.channelPermit = new TrackingSemaphore(internalConnection.getChannelMax());
+        }
+
+        @Override
+        public Channel createChannel() throws IOException {
+            channelPermit.reducePermits(1);
+            return getChannelAndEnsureRelease(super::createChannel);
+        }
+
+        @Override
+        public Channel createChannel(int channelNumber) throws IOException {
+            channelPermit.reducePermits(1);
+            return getChannelAndEnsureRelease(() -> super.createChannel(channelNumber));
+        }
+
+        @Override
+        public Channel acquireChannel() throws InterruptedException, IOException {
+            channelPermit.acquire(); // the corresponding release is in the shutdownListener
+            return getChannelAndEnsureRelease(() -> Objects.requireNonNull(super.createChannel()));
+        }
+
+        private Channel getChannelAndEnsureRelease(ChannelSupplier channelSupplier) throws IOException {
+            Channel channel;
+            try {
+                channel = channelSupplier.get();
+            } catch (IOException | RuntimeException e) {
+                channelPermit.release();
+                throw e;
+            }
+            if (channel == null) {
+                channelPermit.release();
+            } else {
+                channelPermit.ensureReleaseOnShutdown(channel);
+            }
+            return channel;
+        }
+
+        @FunctionalInterface
+        private interface ChannelSupplier {
+            Channel get() throws IOException;
+        }
+    }
+
+    private static class TrackingSemaphore extends Semaphore {
+        public TrackingSemaphore(final int permits) {super(permits, true);}
+
+        // override to make the protected method available for use
+        @Override
+        public void reducePermits(int reduction) {
+            super.reducePermits(reduction);
+        }
+
+        public void ensureReleaseOnShutdown(ShutdownNotifier channelOrConnection) {
+            final ShutdownListener listener = new ShutdownListener() {
+                private final AtomicBoolean closed = new AtomicBoolean(false);
+
+                @Override
+                public void shutdownCompleted(ShutdownSignalException sse) {
+                    // workaround because Channel#close is not idempotent in RabbitMQ Java Client 5.x
+                    // Will be fixed in 6.x
+                    if (closed.compareAndSet(false, true)) {
+                        TrackingSemaphore.this.release();
+                        channelOrConnection.removeShutdownListener(this);
+                    }
+                }
+            };
+
+            channelOrConnection.addShutdownListener(listener);
+        }
+
+    }
 }

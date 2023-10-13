@@ -4,14 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import javax.enterprise.util.AnnotationLiteral;
 import javax.inject.Inject;
 
 import com.rabbitmq.client.Channel;
-import com.rabbitmq.client.Connection;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
@@ -39,11 +37,11 @@ class ChannelProducerTest {
                               .types(Topology.class)
                               .addQualifier(new AnnotationLiteral<Consolidated>() {})
                               .build())
-            .addBeans(MockBean.of(mock(Connection.class), Connection.class))
+            .addBeans(MockBean.of(mock(BookkeepingConnection.class), BookkeepingConnection.class))
             .build();
 
     @Inject
-    Connection connection;
+    BookkeepingConnection connection;
 
     @Inject
     BlockingPool<Channel> channelPool;
@@ -52,8 +50,8 @@ class ChannelProducerTest {
     Channel channel;
 
     @BeforeEach
-    void setUp() throws IOException {
-        when(connection.openChannel()).thenReturn(Optional.of(channel));
+    void setUp() throws IOException, InterruptedException {
+        when(connection.acquireChannel()).thenReturn(channel);
         when(connection.getChannelMax()).thenReturn(MAX_CHANNEL_NR);
     }
 
@@ -101,6 +99,6 @@ class ChannelProducerTest {
         t1.join(2000);
         t2.join(2000);
 
-        verify(connection, times(2)).openChannel();
+        verify(connection, times(2)).acquireChannel();
     }
 }
