@@ -3,7 +3,10 @@ package io.github.jhahnhro.enhancedcdi.pooled;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 
 /**
  * Provides a basic implementation of {@link #apply(ThrowingFunction)} using a semaphore to block.
@@ -11,10 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * @param <T> type of the pooled objects
  */
 public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
-    /**
-     * This pool's capacity.
-     */
-    private final int capacity;
+    private final Lock poolLock;
     /**
      * A semaphore limiting the access to the pooled objects.
      */
@@ -38,6 +38,7 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
             throw new IllegalArgumentException("capacity must not be negative");
         }
         this.permissionToUseItem = new Semaphore(capacity, true);
+        this.poolLock = new InternalLock();
         this.closed = new AtomicBoolean(false);
         this.closingFinished = new CountDownLatch(1);
     }
@@ -45,6 +46,19 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
     @Override
     public int capacity() {
         return capacity;
+    }
+
+    /**
+     * Returns a {@link Lock} that locks the whole pool, i.e. its lock-methods acquire all items in the pool and its
+     * unlock method releases all items, so that actions performed under this lock are guaranteed that no calls to
+     * {@link #apply(ThrowingFunction)} or {@link #run(ThrowingConsumer)} are concurrently executing.
+     * <p>
+     * The returned lock is NOT reentrant and does not support {@link Lock#newCondition()}.
+     *
+     * @return a {@link Lock} that locks the whole pool.
+     */
+    protected final Lock getLock() {
+        return poolLock;
     }
 
     /**
@@ -155,14 +169,12 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
     @Override
     public final void close() {
         if (closed.compareAndSet(false, true)) {
+            // closed is now true and this thread has made the change.
+            poolLock.lock();
             try {
-                // closed is now true and this thread has made the change. Now we block here until concurrent
-                // executions that were still running when this method got called have finished.
-                permissionToUseItem.acquireUninterruptibly(capacity);
-                // After all executions have finished, we clean up.
                 onClose();
             } finally {
-                permissionToUseItem.release(capacity);
+                poolLock.unlock();
                 closingFinished.countDown();
             }
         } else {
@@ -185,5 +197,56 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
      */
     protected void onClose() {
 
+    }
+
+
+    private class InternalLock implements Lock {
+
+        private volatile Thread owner = null;
+
+        @Override
+        public void lock() {
+            permissionToUseItem.acquireUninterruptibly(capacity);
+            this.owner = Thread.currentThread();
+        }
+
+        @Override
+        public void lockInterruptibly() throws InterruptedException {
+            permissionToUseItem.acquire(capacity);
+            this.owner = Thread.currentThread();
+        }
+
+        @Override
+        public boolean tryLock() {
+            final boolean acquired = permissionToUseItem.tryAcquire(capacity);
+            if (acquired) {
+                this.owner = Thread.currentThread();
+            }
+            return acquired;
+        }
+
+        @Override
+        public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
+            final boolean acquired = permissionToUseItem.tryAcquire(capacity, time, unit);
+            if (acquired) {
+                this.owner = Thread.currentThread();
+            }
+            return acquired;
+        }
+
+        @Override
+        public void unlock() {
+            if (this.owner == Thread.currentThread()) {
+                this.owner = null;
+                permissionToUseItem.release(capacity);
+            } else {
+                throw new IllegalMonitorStateException();
+            }
+        }
+
+        @Override
+        public Condition newCondition() {
+            throw new UnsupportedOperationException();
+        }
     }
 }
