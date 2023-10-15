@@ -87,6 +87,11 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
         }
     }
 
+    @Override
+    public final <EX extends Exception> void run(ThrowingConsumer<T, EX> action) throws InterruptedException, EX {
+        BlockingPool.super.run(action);
+    }
+
     private T acquireItem() throws InterruptedException {
         permissionToUseItem.acquire();
         if (closed.get()) {
