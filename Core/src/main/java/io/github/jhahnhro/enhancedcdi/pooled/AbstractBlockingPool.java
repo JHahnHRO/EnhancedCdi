@@ -88,11 +88,17 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
     }
 
     private T acquireItem() throws InterruptedException {
+        permissionToUseItem.acquire();
         if (closed.get()) {
+            permissionToUseItem.release();
             throw new IllegalStateException("BlockingPool closed.");
         }
-        permissionToUseItem.acquire();
-        return Objects.requireNonNull(borrowFromPool());
+        try {
+            return Objects.requireNonNull(borrowFromPool());
+        } catch (InterruptedException | RuntimeException e) {
+            permissionToUseItem.release();
+            throw e;
+        }
     }
 
     /**
@@ -108,12 +114,15 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
     protected abstract T borrowFromPool() throws InterruptedException;
 
     private void releaseItem(T item, Exception ex) {
-        if (ex == null) {
-            returnToPool(item);
-        } else {
-            maybeReturnToPool(item, ex);
+        try {
+            if (ex == null) {
+                returnToPool(item);
+            } else {
+                maybeReturnToPool(item, ex);
+            }
+        } finally {
+            permissionToUseItem.release();
         }
-        permissionToUseItem.release();
     }
 
     /**
