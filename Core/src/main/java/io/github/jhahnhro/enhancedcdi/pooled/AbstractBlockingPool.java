@@ -19,6 +19,10 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
      * A semaphore limiting the access to the pooled objects.
      */
     private final Semaphore permissionToUseItem;
+    /**
+     * This pool's capacity.
+     */
+    private volatile int capacity;
 
     /**
      * whether this pool is closed.
@@ -44,7 +48,7 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
     }
 
     @Override
-    public int capacity() {
+    public final int capacity() {
         return capacity;
     }
 
@@ -199,6 +203,44 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
 
     }
 
+
+    /**
+     * An implementation for {@link BlockingPool.ResizeMixin} for use in subclasses that want to implement the resize
+     * capability.
+     *
+     * @implNote Contains a short-cut for the case that {@code capacity == newCapacity} in which case nothing is done
+     * and no blocking happens.
+     */
+    protected abstract class ResizeMixin implements BlockingPool.ResizeMixin {
+
+        @Override
+        public final void resize(int newCapacity) {
+            if (newCapacity <= 0) {
+                throw new IllegalArgumentException("capacity must be positive.");
+            }
+            if (capacity == newCapacity) {
+                return;
+            }
+
+            // setting capacity will make #runExclusive release the new amount of permits
+            poolLock.lock();
+            try {
+                onResize(newCapacity);
+                // setting capacity will make InternalLock#unlock release the right amount of permits
+                capacity = newCapacity;
+            } finally {
+                poolLock.unlock();
+            }
+        }
+
+        /**
+         * The action needed to resize the pool. Guaranteed to be executed under the pool's
+         * {@link #getLock() full lock}.
+         *
+         * @param newCapacity new desired new capacity
+         */
+        protected abstract void onResize(int newCapacity);
+    }
 
     private class InternalLock implements Lock {
 

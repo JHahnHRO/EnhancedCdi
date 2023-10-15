@@ -73,4 +73,17 @@ public interface BlockingPool<T> extends AutoCloseable {
     interface ThrowingConsumer<IN, EX extends Exception> {
         void accept(IN item) throws EX;
     }
+
+    /**
+     * Optional mix-in interface that implements can implement if they can re-size the pool's capacity.
+     */
+    interface ResizeMixin {
+        /**
+         * Resizes the pool to a new capacity.
+         *
+         * @param newCapacity the desired new capacity for this pool.
+         * @throws IllegalArgumentException if {@code newCapacity <= 0}
+         */
+        void resize(int newCapacity);
+    }
 }

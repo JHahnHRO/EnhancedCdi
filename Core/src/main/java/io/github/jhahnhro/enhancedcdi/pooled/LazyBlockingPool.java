@@ -19,15 +19,16 @@ import java.util.concurrent.TimeUnit;
  *
  * @param <T> type of pooled objects
  */
-public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
+public class LazyBlockingPool<T> extends AbstractBlockingPool<T> implements BlockingPool.ResizeMixin {
 
-    /**
-     * The items that are not currently in use inside {@link #apply(ThrowingFunction)}
-     */
-    protected final BlockingQueue<ItemAndCreationTime<T>> itemsNotInUse;
+    protected final AbstractBlockingPool<T>.ResizeMixin resizeMixin;
     private final Lifecycle<T> itemLifecycle;
     private final ScheduledExecutorService executorService;
     private final Duration keepAliveTime;
+    /**
+     * The items that are not currently in use inside {@link #apply(ThrowingFunction)}
+     */
+    private BlockingQueue<ItemAndCreationTime<T>> itemsNotInUse;
 
     // package-private and non-final to mock time in tests
     InstantSource clock;
@@ -71,6 +72,7 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
         this.executorService = Executors.newSingleThreadScheduledExecutor();
 
         this.itemsNotInUse = new ArrayBlockingQueue<>(capacity);
+        this.resizeMixin = new ResizeMixin();
         prefillPool(initialSize);
 
         this.clock = Objects.requireNonNull(clock);
@@ -93,8 +95,10 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
 
     private void retireOldItems() {
         Instant now = clock.instant();
+        Instant cutoff = now.minus(keepAliveTime);
+
         itemsNotInUse.removeIf(x -> {
-            if (Duration.between(x.createdAt(), now).compareTo(keepAliveTime) > 0) {
+            if (x.createdAt().isBefore(cutoff)) {
                 itemLifecycle.destroy(x.item());
                 return true;
             } else {
@@ -191,5 +195,28 @@ public class LazyBlockingPool<T> extends AbstractBlockingPool<T> {
         }
     }
 
-    protected record ItemAndCreationTime<T>(T item, Instant createdAt) {}
+    //region Re-sizing
+    @Override
+    public void resize(int newCapacity) {
+        resizeMixin.resize(newCapacity);
+    }
+
+    private record ItemAndCreationTime<T>(T item, Instant createdAt) {}
+
+    private class ResizeMixin extends AbstractBlockingPool<T>.ResizeMixin {
+        @Override
+        protected void onResize(int newCapacity) {
+            // if the old queue has more elements than the new, we drain the superfluous elements (beginning with the
+            // oldest, i.e. the head of the queue) and destroy them
+            int nrOfSuperfluousElements = capacity() - newCapacity;
+            for (int i = 0; i < nrOfSuperfluousElements; i++) {
+                T item = itemsNotInUse.remove().item();
+                itemLifecycle.destroy(item);
+            }
+
+            // replace old queue with a new queue with the new capacity
+            itemsNotInUse = new ArrayBlockingQueue<>(newCapacity, true, itemsNotInUse);
+        }
+    }
+    //endregion
 }
