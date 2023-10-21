@@ -18,6 +18,7 @@ import javax.inject.Singleton;
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ReturnListener;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.Confirmations;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.WithConfirms;
@@ -44,7 +45,7 @@ class ChannelProducer {
     @ApplicationScoped
     BlockingPool<Channel> channelPool(BookkeepingConnection connection) throws InterruptedException {
         LOG.log(Level.DEBUG, "Creating shared pool of channels");
-        return new LazyBlockingPool<>(0, connection.getChannelMax(), new ChannelLifeCycle(connection) {
+        return new ChannelPool(new ChannelLifeCycle(connection) {
             @Override
             public Channel createNew() throws InterruptedException {
                 final Channel channel = super.createNew();
@@ -59,8 +60,8 @@ class ChannelProducer {
     @ApplicationScoped
     BlockingPool<Channel> channelPoolWithConfirms(BookkeepingConnection connection, Confirmations confirmations)
             throws InterruptedException {
-        LOG.log(Level.DEBUG, "Creating shared pool of channels");
-        return new LazyBlockingPool<>(0, connection.getChannelMax(), new ChannelLifeCycle(connection) {
+        LOG.log(Level.DEBUG, "Creating shared pool of channels in confirm-mode");
+        return new ChannelPool(new ChannelLifeCycle(connection) {
             @Override
             public Channel createNew() throws InterruptedException {
                 final Channel channel = super.createNew();
@@ -77,6 +78,36 @@ class ChannelProducer {
     void dispose(@Disposes @Any BlockingPool<Channel> channelPool) {
         LOG.log(Level.DEBUG, "Shutting down shared pool of channels");
         channelPool.close();
+    }
+
+    private static final class ChannelPool implements BlockingPool<Channel> {
+        private final Connection connection;
+        private final LazyBlockingPool<Channel> delegate;
+
+        ChannelPool(ChannelLifeCycle channelLifeCycle) throws InterruptedException {
+            this.connection = channelLifeCycle.connection;
+            this.delegate = new LazyBlockingPool<>(0, connection.getChannelMax(), channelLifeCycle);
+            this.connection.addShutdownListener(sse -> delegate.clear());
+        }
+
+        @Override
+        public <V, EX extends Exception> V apply(ThrowingFunction<Channel, V, EX> action)
+                throws InterruptedException, EX {
+            // in case the connection bean has been destroyed and re-created since the last time, we re-size the pool
+            // to the new capacity. This is a no-op if the capacity has not changed.
+            delegate.resize(connection.getChannelMax());
+            return delegate.apply(action);
+        }
+
+        @Override
+        public int capacity() {
+            return delegate.capacity();
+        }
+
+        @Override
+        public void close() {
+            delegate.close();
+        }
     }
 
     private static class ChannelLifeCycle implements LazyBlockingPool.Lifecycle<Channel> {
