@@ -57,7 +57,7 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
      * unlock method releases all items, so that actions performed under this lock are guaranteed that no calls to
      * {@link #apply(ThrowingFunction)} or {@link #run(ThrowingConsumer)} are concurrently executing.
      * <p>
-     * The returned lock is NOT reentrant and does not support {@link Lock#newCondition()}.
+     * The returned lock is reentrant but does NOT support {@link Lock#newCondition()}.
      *
      * @return a {@link Lock} that locks the whole pool.
      */
@@ -244,46 +244,87 @@ public abstract class AbstractBlockingPool<T> implements BlockingPool<T> {
 
     private class InternalLock implements Lock {
 
+        /**
+         * The owner of this lock. Will only be updated by the thread that holds all the permits.
+         */
+        @SuppressWarnings("java:S3077") // Sonar warns that just using "volatile" may not be enough for thread-safety
         private volatile Thread owner = null;
+        /**
+         * Invariants: {@code holdCount == 0} iff {@code owner == null} and {@code holdCount > 0} iff
+         * {@code owner != null}
+         * <p>
+         * Only the owning thread ever updates this value while having all the permits.
+         */
+        private int holdCount = 0;
 
         @Override
         public void lock() {
-            permissionToUseItem.acquireUninterruptibly(capacity);
-            this.owner = Thread.currentThread();
+            if (this.owner == Thread.currentThread()) {
+                lockedAgain();
+            } else {
+                permissionToUseItem.acquireUninterruptibly(capacity);
+                newlyLocked();
+            }
         }
 
         @Override
         public void lockInterruptibly() throws InterruptedException {
-            permissionToUseItem.acquire(capacity);
-            this.owner = Thread.currentThread();
+            if (this.owner == Thread.currentThread()) {
+                lockedAgain();
+            } else {
+                permissionToUseItem.acquire(capacity);
+                newlyLocked();
+            }
         }
 
         @Override
         public boolean tryLock() {
-            final boolean acquired = permissionToUseItem.tryAcquire(capacity);
-            if (acquired) {
-                this.owner = Thread.currentThread();
+            if (this.owner == Thread.currentThread()) {
+                lockedAgain();
+                return true;
+            } else {
+                final boolean acquired = permissionToUseItem.tryAcquire(capacity);
+                if (acquired) {
+                    newlyLocked();
+                }
+                return acquired;
             }
-            return acquired;
         }
 
         @Override
         public boolean tryLock(long time, TimeUnit unit) throws InterruptedException {
-            final boolean acquired = permissionToUseItem.tryAcquire(capacity, time, unit);
-            if (acquired) {
-                this.owner = Thread.currentThread();
+            if (this.owner == Thread.currentThread()) {
+                lockedAgain();
+                return true;
+            } else {
+                final boolean acquired = permissionToUseItem.tryAcquire(capacity, time, unit);
+                if (acquired) {
+                    newlyLocked();
+                }
+                return acquired;
             }
-            return acquired;
         }
 
         @Override
         public void unlock() {
             if (this.owner == Thread.currentThread()) {
-                this.owner = null;
-                permissionToUseItem.release(capacity);
+                this.holdCount--;
+                if (this.holdCount == 0) {
+                    this.owner = null;
+                    permissionToUseItem.release(capacity);
+                }
             } else {
                 throw new IllegalMonitorStateException();
             }
+        }
+
+        private void lockedAgain() {
+            this.holdCount++;
+        }
+
+        private void newlyLocked() {
+            this.owner = Thread.currentThread();
+            this.holdCount = 1;
         }
 
         @Override
