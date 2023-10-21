@@ -5,6 +5,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -168,6 +169,12 @@ public record Topology(Set<Exchange.Declare> exchangeDeclarations, Set<Queue.Dec
             return this;
         }
 
+        public Builder addExchangeDeclaration(Consumer<Exchange.Declare.Builder> configurator) {
+            final Exchange.Declare.Builder builder = new Exchange.Declare.Builder();
+            configurator.accept(builder);
+            return this.addExchangeDeclaration(builder.build());
+        }
+
         public Builder setQueueDeclarations(Collection<AMQP.Queue.Declare> queueDeclarations) {
             this.queueDeclarations.clear();
             return this.addQueueDeclarations(queueDeclarations);
@@ -183,9 +190,20 @@ public record Topology(Set<Exchange.Declare> exchangeDeclarations, Set<Queue.Dec
             return this;
         }
 
+        public Builder addQueueDeclaration(Consumer<AMQP.Queue.Declare.Builder> configurator) {
+            final Queue.Declare.Builder builder = new Queue.Declare.Builder();
+            configurator.accept(builder);
+            return addQueueDeclaration(builder.build());
+        }
+
         public Builder setQueueBindings(Collection<AMQP.Queue.Bind> queueBindings) {
             this.queueBindings.clear();
             return this.addQueueBindings(queueBindings);
+        }
+
+        public Builder addQueueBindings(Collection<AMQP.Queue.Bind> queueBindings) {
+            this.queueBindings.addAll(queueBindings);
+            return this;
         }
 
         public Builder addQueueBinding(AMQP.Queue.Bind queueBinding) {
@@ -193,9 +211,18 @@ public record Topology(Set<Exchange.Declare> exchangeDeclarations, Set<Queue.Dec
             return this;
         }
 
-        public Builder addQueueBindings(Collection<AMQP.Queue.Bind> queueBindings) {
-            this.queueBindings.addAll(queueBindings);
-            return this;
+        public Builder addQueueBinding(Consumer<AMQP.Queue.Bind.Builder> configurator) {
+            final Queue.Bind.Builder builder = new Queue.Bind.Builder();
+            if (this.exchangeDeclarations.size() == 1) {
+                final Exchange.Declare exchangeDecl = this.exchangeDeclarations.stream().findAny().orElseThrow();
+                builder.exchange(exchangeDecl.getExchange());
+            }
+            if (this.queueDeclarations.size() == 1) {
+                final Queue.Declare queueDecl = this.queueDeclarations.stream().findAny().orElseThrow();
+                builder.queue(queueDecl.getQueue());
+            }
+            configurator.accept(builder);
+            return addQueueBinding(builder.build());
         }
 
         public Topology build() {
