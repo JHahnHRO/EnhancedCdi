@@ -20,7 +20,6 @@ import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ReturnListener;
-import io.github.jhahnhro.enhancedcdi.messaging.impl.Confirmations;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.WithConfirms;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Message.DeliveryMode;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
@@ -58,7 +57,7 @@ class ChannelProducer {
     @Produces
     @WithConfirms
     @ApplicationScoped
-    BlockingPool<Channel> channelPoolWithConfirms(BookkeepingConnection connection, Confirmations confirmations)
+    BlockingPool<Channel> channelPoolWithConfirms(BookkeepingConnection connection)
             throws InterruptedException {
         LOG.log(Level.DEBUG, "Creating shared pool of channels in confirm-mode");
         return new ChannelPool(new ChannelLifeCycle(connection) {
@@ -66,7 +65,7 @@ class ChannelProducer {
             public Channel createNew() throws InterruptedException {
                 final Channel channel = super.createNew();
                 try {
-                    confirmations.putChannelInConfirmMode(channel);
+                    channel.confirmSelect();
                 } catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }

@@ -55,7 +55,7 @@ public interface Publisher {
      *                                                     {@link com.rabbitmq.client.Channel} to become available to
      *                                                     publish the message or while waiting for the confirmation.
      * @throws SerializationException                      if the message could not be serialized
-     * @throws NotConfirmedException                    if the broker could not process the message
+     * @throws NotConfirmedException                       if the broker could not process the message
      * @throws com.rabbitmq.client.ShutdownSignalException if the underlying channel/connection was closed before the
      *                                                     confirmation could arrive.
      */

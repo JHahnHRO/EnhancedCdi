@@ -55,6 +55,9 @@ class OutgoingMessageHandler implements Publisher {
     //region low-level
 
     private static int getTimeoutInMilliSeconds(Duration timeout) {
+        if (timeout == null) {
+            return -1; // no timeout
+        }
         if (timeout.isNegative()) {
             throw new IllegalArgumentException("Timeout must not be negative");
         }
@@ -73,9 +76,8 @@ class OutgoingMessageHandler implements Publisher {
                                                               message.properties(), message.content()));
     }
 
-    private <T> Incoming.Response<T, byte[]> doRpc(Outgoing.Request<byte[]> serializedRequest,
-                                                   Outgoing.Request<T> originalRequest, Duration timeout)
-            throws RpcException, InterruptedException, IOException, TimeoutException {
+    private RpcClient.Response doRcp(Outgoing.Request<byte[]> serializedRequest, Duration timeout)
+            throws IOException, InterruptedException, TimeoutException {
         infrastructure.setUpForExchange(serializedRequest.exchange());
         final String replyTo = serializedRequest.properties().getReplyTo();
         if (!Topology.RABBITMQ_REPLY_TO.equals(replyTo)) {
@@ -91,24 +93,22 @@ class OutgoingMessageHandler implements Publisher {
             }
             throw e;
         }
-
-        return new Incoming.Response<>(rawResponse.getEnvelope(), rawResponse.getProperties(), rawResponse.getBody(),
-                                       originalRequest);
+        return rawResponse;
     }
 
     private RpcClient.Response doRpc(Outgoing.Request<byte[]> request, Channel channel, Duration timeout)
             throws IOException {
 
+        final AMQP.BasicProperties requestProperties = request.properties();
         final RpcClientParams rpcClientParams = new RpcClientParams().channel(channel)
                 .exchange(request.exchange())
                 .routingKey(request.routingKey())
                 .useMandatory()
-                .replyTo(request.properties().getReplyTo())
-                .timeout(getTimeoutInMilliSeconds(timeout))
-                .correlationIdSupplier(() -> request.properties().getCorrelationId());
+                .replyTo(requestProperties.getReplyTo())
+                .correlationIdSupplier(requestProperties::getCorrelationId);
 
         try (RpcClient rpcClient = new RpcClient(rpcClientParams)) {
-            return rpcClient.doCall(request.properties(), request.content());
+            return rpcClient.doCall(requestProperties, request.content(), getTimeoutInMilliSeconds(timeout));
         } catch (TimeoutException | UnroutableRpcRequestException e) {
             throw new RpcException(e);
         }
@@ -119,14 +119,8 @@ class OutgoingMessageHandler implements Publisher {
 
         infrastructure.setUpForExchange(serializedMessage.exchange());
 
-        final Future<Confirmations.Result> resultFuture = publisherChannelsWithConfirms.apply(channel -> {
-            Future<Confirmations.Result> result = confirmations.getNextConfirmationResult(channel);
-
-            channel.basicPublish(serializedMessage.exchange(), serializedMessage.routingKey(), true,
-                                 serializedMessage.properties(), serializedMessage.content());
-
-            return result;
-        });
+        final Future<Confirmations.Result> resultFuture = publisherChannelsWithConfirms.apply(
+                channel -> confirmations.publishConfirmed(channel, serializedMessage));
 
         final Confirmations.Result result;
         try {
@@ -165,9 +159,16 @@ class OutgoingMessageHandler implements Publisher {
     public <T, RES> Incoming.Response<T, RES> rpc(Outgoing.Request<T> request, Duration timeout)
             throws IOException, InterruptedException, TimeoutException, RpcException, SerializationException,
                    DeserializationException {
-        final Outgoing.Request<byte[]> serializedRequest = serialization.serialize(request);
-        final Incoming.Response<T, byte[]> serializedResponse = doRpc(serializedRequest, request, timeout);
+        final Incoming.Response<T, byte[]> serializedResponse = serializeAndRpc(request, timeout);
         return (Incoming.Response<T, RES>) serialization.deserialize(serializedResponse);
+    }
+
+    private <T> Incoming.Response<T, byte[]> serializeAndRpc(Outgoing.Request<T> request, Duration timeout)
+            throws IOException, InterruptedException, TimeoutException {
+        final Outgoing.Request<byte[]> serializedRequest = serialization.serialize(request);
+        final RpcClient.Response rawResponse = doRcp(serializedRequest, timeout);
+        return new Incoming.Response<>(rawResponse.getEnvelope(), rawResponse.getProperties(), rawResponse.getBody(),
+                                       request);
     }
 
     <T> void observeOutgoing(@ObservesAsync Outgoing<T> message, EventMetadata eventMetadata)
@@ -176,8 +177,7 @@ class OutgoingMessageHandler implements Publisher {
         final Outgoing<T> messageWithAdjustedType = message.builder().setType(runtimeType).build();
 
         if (messageWithAdjustedType instanceof Outgoing.Request<T> originalRequest) {
-            final Outgoing.Request<byte[]> serializedRequest = serialization.serialize(originalRequest);
-            final Incoming.Response<T, byte[]> serializedResponse = doRpc(serializedRequest, originalRequest, null);
+            final Incoming.Response<T, byte[]> serializedResponse = serializeAndRpc(originalRequest, null);
             responseEvent.fireAsync(new InternalDelivery(serializedResponse, AutoAck.INSTANCE));
         } else {
             publish(messageWithAdjustedType);

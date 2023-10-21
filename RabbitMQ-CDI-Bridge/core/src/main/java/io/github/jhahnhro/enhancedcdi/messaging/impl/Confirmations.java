@@ -14,70 +14,48 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.ShutdownListener;
 import com.rabbitmq.client.ShutdownSignalException;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 
 /**
  * Manages confirmations
  */
 @ApplicationScoped
-public class Confirmations {
+class Confirmations {
 
-    private final Map<Channel, ConfirmHandler> handlerMap;
+    private final Map<Channel, ConfirmHandler> handlerMap = new ConcurrentHashMap<>();
 
-    public Confirmations() {
-        this.handlerMap = new ConcurrentHashMap<>();
-    }
+    public Future<Result> publishConfirmed(Channel channel, Outgoing<byte[]> serializedMessage) throws IOException {
+        Future<Result> result = handlerMap.computeIfAbsent(channel, ConfirmHandler::new).preparePublishing();
 
-    /**
-     * Returns a future for the confirmation of the immediate next message published on the given channel. The returned
-     * future completes when either
-     * <ul>
-     *     <li>the message is confirmed by the broker</li>
-     *     <li>the message is disconfirmed by the broker</li>
-     *     <li>the channel/connection closes (exceptional completion)</li>
-     * </ul>
-     *
-     * @param channel a channel that was {@link #putChannelInConfirmMode(Channel) put in confirm mode} previously.
-     * @return a future for the confirmation of the immediate next message published on the given channel.
-     */
-    public Future<Result> getNextConfirmationResult(final Channel channel) {
-        return handlerMap.get(channel).preparePublishing();
-    }
-
-    /**
-     * Configures a channel for confirm mode, installs the appropriate {@link ConfirmListener} and
-     * {@link ShutdownListener}
-     *
-     * @param channel
-     */
-    public void putChannelInConfirmMode(Channel channel) throws IOException {
-        final ConfirmHandler newHandler = new ConfirmHandler(channel);
-
-        if (handlerMap.putIfAbsent(channel, newHandler) == null) {
-            channel.confirmSelect();
-            channel.addConfirmListener(newHandler);
-            channel.addShutdownListener(new ShutdownListener() {
-                @Override
-                public void shutdownCompleted(ShutdownSignalException sse) {
-                    final ConfirmHandler handler = handlerMap.remove(channel);
-                    if (handler != null) {
-                        channel.removeConfirmListener(handler);
-                        channel.removeShutdownListener(this);
-                        handler.shutdownCompleted(sse);
-                    }
-                }
-            });
-        }
+        channel.basicPublish(serializedMessage.exchange(), serializedMessage.routingKey(), true,
+                             serializedMessage.properties(), serializedMessage.content());
+        return result;
     }
 
     public enum Result {ACK, NACK}
 
-    private static class ConfirmHandler implements ConfirmListener {
+    private class ConfirmHandler implements ConfirmListener {
         private final NavigableMap<Long, CompletableFuture<Result>> outstanding;
         private final Channel channel;
 
         private ConfirmHandler(Channel channel) {
             this.outstanding = new TreeMap<>();
             this.channel = channel;
+
+            installListeners();
+        }
+
+        private void installListeners() {
+            channel.addConfirmListener(this);
+            channel.addShutdownListener(new ShutdownListener() {
+                @Override
+                public void shutdownCompleted(ShutdownSignalException cause) {
+                    handlerMap.remove(channel); // do not leave references to closed channels lying around
+                    channel.removeConfirmListener(ConfirmHandler.this);
+                    channel.removeShutdownListener(this);
+                    ConfirmHandler.this.shutdownCompleted(cause);
+                }
+            });
         }
 
         @Override
@@ -116,9 +94,8 @@ public class Confirmations {
         }
 
         private <X> void applyAndClear(Map<?, X> map, Consumer<X> action) {
-            final var values = map.values();
-            values.forEach(action);
-            values.clear();
+            map.values().forEach(action);
+            map.clear();
         }
 
         public CompletableFuture<Result> preparePublishing() {
