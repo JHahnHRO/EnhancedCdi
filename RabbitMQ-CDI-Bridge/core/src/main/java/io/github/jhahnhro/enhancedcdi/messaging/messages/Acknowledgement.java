@@ -5,7 +5,7 @@ import java.io.IOException;
 /**
  * Allows to acknowledge or reject a RabbitMQ message to the broker.
  */
-public interface Acknowledgment {
+public interface Acknowledgement {
     /**
      * Acknowledges the message if not already acknowledged. Does nothing if it has been acknowledged before. Throws
      * {@link IllegalStateException} if it has been rejected before.

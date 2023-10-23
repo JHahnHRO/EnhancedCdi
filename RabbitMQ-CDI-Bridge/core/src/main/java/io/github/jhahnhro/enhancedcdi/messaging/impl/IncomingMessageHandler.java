@@ -19,7 +19,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.RabbitMqApplicationException;
 import io.github.jhahnhro.enhancedcdi.messaging.Redelivered;
 import io.github.jhahnhro.enhancedcdi.messaging.WithRoutingKey;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.producers.MessageMetaDataProducer;
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgement;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.DeserializationException;
@@ -54,31 +54,31 @@ class IncomingMessageHandler {
 
     public void handleDelivery(@ObservesAsync InternalDelivery incomingDelivery) {
         final Incoming<byte[]> rawMessage = incomingDelivery.rawMessage();
-        final Acknowledgment acknowledgment = incomingDelivery.ack();
+        final Acknowledgement acknowledgement = incomingDelivery.ack();
 
         try {
             // make sure request metadata is available in the current request scope for injection into event observers
-            metaData.setDelivery(rawMessage.queue(), rawMessage.envelope(), rawMessage.properties(), acknowledgment);
+            metaData.setDelivery(rawMessage.queue(), rawMessage.envelope(), rawMessage.properties(), acknowledgement);
 
             Incoming<?> message = serialization.deserialize(rawMessage);
             metaData.setMessage(message);
 
             fireEvent(message);
 
-            acknowledgeIfNecessary(acknowledgment);
+            acknowledgeIfNecessary(acknowledgement);
         } catch (DeserializationException e) {
-            rejectIfNecessary(acknowledgment, e);
+            rejectIfNecessary(acknowledgement, e);
         } catch (RuntimeException e) {
             handleException(incomingDelivery, e);
         }
     }
 
-    private void acknowledgeIfNecessary(Acknowledgment acknowledgment) {
-        if (acknowledgment.getState() == Acknowledgment.State.UNACKNOWLEDGED) {
+    private void acknowledgeIfNecessary(Acknowledgement acknowledgement) {
+        if (acknowledgement.getState() == Acknowledgement.State.UNACKNOWLEDGED) {
             LOG.log(WARNING, "Incoming delivery in manual acknowledge mode was not explicitly acknowledged. "
                              + "That is probably an error. It will be acknowledged now.");
             try {
-                acknowledgment.ack();
+                acknowledgement.ack();
             } catch (IOException ex) {
                 LOG.log(ERROR, "Incoming delivery could not be acknowledged.", ex);
             }
@@ -106,8 +106,8 @@ class IncomingMessageHandler {
         rejectIfNecessary(incomingDelivery.ack(), e);
     }
 
-    private void acknowledgeAndRespond(final Outgoing.Response<?, ?> response, final Acknowledgment acknowledgment) {
-        acknowledgeIfNecessary(acknowledgment);
+    private void acknowledgeAndRespond(final Outgoing.Response<?, ?> response, final Acknowledgement acknowledgement) {
+        acknowledgeIfNecessary(acknowledgement);
         try {
             publisher.publish(response);
         } catch (SerializationException | IOException | InterruptedException e) {
@@ -118,11 +118,11 @@ class IncomingMessageHandler {
         }
     }
 
-    private void rejectIfNecessary(Acknowledgment acknowledgment, Throwable e) {
-        if (acknowledgment.getState() == Acknowledgment.State.UNACKNOWLEDGED) {
+    private void rejectIfNecessary(Acknowledgement acknowledgement, Throwable e) {
+        if (acknowledgement.getState() == Acknowledgement.State.UNACKNOWLEDGED) {
             LOG.log(ERROR, "Could not handle incoming delivery. It will be rejected now without re-queueing it.", e);
             try {
-                acknowledgment.reject(false);
+                acknowledgement.reject(false);
             } catch (IOException ex) {
                 LOG.log(ERROR, "Incoming delivery could not be rejected.", ex);
             }

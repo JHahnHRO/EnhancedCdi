@@ -30,7 +30,7 @@ import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.RabbitMqExtension;
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgement;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
@@ -179,7 +179,7 @@ class WeldIntegrationTest {
 
         @Test
         void givenRequestContextNotActive_whenSelectAcknowledgement_thenThrow() {
-            final var instance = w.select(Acknowledgment.class);
+            final var instance = w.select(Acknowledgement.class);
             assertThatExceptionOfType(ContextNotActiveException.class).isThrownBy(instance::get);
         }
     }

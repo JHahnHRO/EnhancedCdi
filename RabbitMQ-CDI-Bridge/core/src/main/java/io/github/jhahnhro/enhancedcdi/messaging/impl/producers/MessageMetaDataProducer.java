@@ -20,7 +20,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.Header;
 import io.github.jhahnhro.enhancedcdi.messaging.Headers;
 import io.github.jhahnhro.enhancedcdi.messaging.Queue;
 import io.github.jhahnhro.enhancedcdi.messaging.RoutingKey;
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgement;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
@@ -31,15 +31,15 @@ public class MessageMetaDataProducer {
     private Envelope envelope;
     private String queue = null;
     private Incoming<?> incomingMessage = null;
-    private Acknowledgment acknowledgment = null;
+    private Acknowledgement acknowledgement = null;
     private Outgoing.Response.Builder<?, ?> responseBuilder = null;
 
     public void setDelivery(String queue, Envelope envelope, AMQP.BasicProperties properties,
-                            Acknowledgment acknowledgment) {
+                            Acknowledgement acknowledgement) {
         this.deliveryProperties = properties;
         this.envelope = envelope;
         this.queue = queue;
-        this.acknowledgment = acknowledgment;
+        this.acknowledgement = acknowledgement;
     }
 
     public void setMessage(final Incoming<?> incomingMessage) {
@@ -73,9 +73,9 @@ public class MessageMetaDataProducer {
 
     @Produces
     @Dependent
-    Acknowledgment acknowledgement() {
+    Acknowledgement acknowledgement() {
         checkDelivery();
-        return acknowledgment;
+        return acknowledgement;
     }
 
     @Produces

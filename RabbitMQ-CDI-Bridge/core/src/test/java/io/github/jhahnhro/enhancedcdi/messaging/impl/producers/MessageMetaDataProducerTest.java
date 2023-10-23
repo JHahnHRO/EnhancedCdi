@@ -26,7 +26,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.Exchange;
 import io.github.jhahnhro.enhancedcdi.messaging.Header;
 import io.github.jhahnhro.enhancedcdi.messaging.Queue;
 import io.github.jhahnhro.enhancedcdi.messaging.RoutingKey;
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgement;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
@@ -65,7 +65,7 @@ class MessageMetaDataProducerTest {
     public static final Incoming.Cast<byte[]> CAST = new Incoming.Cast<>(QUEUE, ENVELOPE, PROPERTIES, CONTENT);
     private static final Incoming.Request<byte[]> REQUEST = new Incoming.Request<>(QUEUE, ENVELOPE, PROPERTIES,
                                                                                    CONTENT);
-    private static final Acknowledgment ACKNOWLEDGMENT = mock(Acknowledgment.class);
+    private static final Acknowledgement ACKNOWLEDGEMENT = mock(Acknowledgement.class);
     @WeldSetup
     WeldInitiator w = WeldInitiator.from(MessageMetaDataProducer.class).activate(RequestScoped.class).build();
 
@@ -102,7 +102,7 @@ class MessageMetaDataProducerTest {
                 arguments("Queue Name",      QUEUE,                  String.class, new AnnotationLiteral<Queue>() {}),
                 arguments("routing key",     "routing.key",          String.class, new AnnotationLiteral<RoutingKey>() {}),
                 arguments("BasicProperties", PROPERTIES,    BasicProperties.class, Default.Literal.INSTANCE),
-                arguments("Acknowledgement", ACKNOWLEDGMENT, Acknowledgment.class, Default.Literal.INSTANCE)
+                arguments("Acknowledgement", ACKNOWLEDGEMENT, Acknowledgement.class, Default.Literal.INSTANCE)
                 //@formatter:on
         );
     }
@@ -111,7 +111,7 @@ class MessageMetaDataProducerTest {
     @MethodSource("beans")
     <T> void givenMessage_whenInjectMetaData_thenInjectValue(String beanName, T expectedResult, Class<T> type,
                                                              Annotation qualifier) {
-        metaData.setDelivery(REQUEST.queue(), ENVELOPE, PROPERTIES, ACKNOWLEDGMENT);
+        metaData.setDelivery(REQUEST.queue(), ENVELOPE, PROPERTIES, ACKNOWLEDGEMENT);
 
         final T actualResult = instance.select(type, qualifier).get();
         assertThat(actualResult).isEqualTo(expectedResult);
@@ -129,7 +129,7 @@ class MessageMetaDataProducerTest {
 
     @Test
     void givenMessage_whenInjectResponseBuilder_thenSucceed() {
-        metaData.setDelivery(QUEUE, ENVELOPE, PROPERTIES, ACKNOWLEDGMENT);
+        metaData.setDelivery(QUEUE, ENVELOPE, PROPERTIES, ACKNOWLEDGEMENT);
         metaData.setMessage(REQUEST);
 
         final Outgoing.Response.Builder<byte[], String> builder = instance.select(
@@ -140,7 +140,7 @@ class MessageMetaDataProducerTest {
 
     @Test
     void givenNonRequestMessage_whenInjectResponseBuilder_thenThrowRpcNotActiveException() {
-        metaData.setDelivery(QUEUE, ENVELOPE, PROPERTIES, ACKNOWLEDGMENT);
+        metaData.setDelivery(QUEUE, ENVELOPE, PROPERTIES, ACKNOWLEDGEMENT);
         metaData.setMessage(CAST);
 
         final Instance<Outgoing.Response.Builder<byte[], String>> builderInstance = instance.select(

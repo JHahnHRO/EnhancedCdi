@@ -1,11 +1,11 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgement;
 
 /**
  * The singleton that does automatic acknowledgement.
  */
-enum AutoAck implements Acknowledgment {
+enum AutoAck implements Acknowledgement {
     INSTANCE;
 
     @Override

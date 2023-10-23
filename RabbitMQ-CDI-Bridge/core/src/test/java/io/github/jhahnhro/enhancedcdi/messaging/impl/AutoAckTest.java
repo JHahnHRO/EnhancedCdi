@@ -2,7 +2,7 @@ package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
 import static org.assertj.core.api.Assertions.*;
 
-import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgment;
+import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgement;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -22,6 +22,6 @@ class AutoAckTest {
 
     @Test
     void getState() {
-        assertThat(AutoAck.INSTANCE.getState()).isEqualTo(Acknowledgment.State.ACKNOWLEDGED);
+        assertThat(AutoAck.INSTANCE.getState()).isEqualTo(Acknowledgement.State.ACKNOWLEDGED);
     }
 }
