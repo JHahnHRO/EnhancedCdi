@@ -11,6 +11,7 @@
     <modules>
         <module>Core</module>
         <module>Contexts</module>
+        <module>Multiton</module>
         <module>RabbitMQ-CDI-Bridge</module>
     </modules>
 

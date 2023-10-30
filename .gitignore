@@ -5,6 +5,7 @@
 
 /Core/target/
 /Contexts/target/
+/Multiton/target/
 /RabbitMQ-CDI-Bridge/protobuf/target/
 /RabbitMQ-CDI-Bridge/jsonb/target/
 /RabbitMQ-CDI-Bridge/core/target/
