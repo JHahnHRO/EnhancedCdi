@@ -6,6 +6,7 @@ import java.lang.reflect.Type;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.BasicProperties;
@@ -19,7 +20,15 @@ import com.rabbitmq.client.BasicProperties;
 public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SELF>> implements Message<T>
         permits Outgoing.Cast.Builder, Outgoing.Request.Builder, Outgoing.Response.Builder {
 
+    /**
+     * builds the properties of the message
+     */
     protected final AMQP.BasicProperties.Builder propertiesBuilder;
+    /**
+     * the headers of the message. Invariant: This is always the <i>same</i> map as in {@code propertiesBuilder}
+     *
+     * @see #syncHeaders(Map)
+     */
     private final Map<String, Object> headers;
 
     protected Object content = null; // mutable for all
@@ -63,20 +72,29 @@ public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SE
      */
     @Override
     public AMQP.BasicProperties properties() {
-        return this.propertiesBuilder.headers(this.headers.isEmpty() ? null : this.headers).build();
+        return this.propertiesBuilder.build();
+    }
+
+    /**
+     * Accepts a lambda that configures the message's {@link com.rabbitmq.client.AMQP.BasicProperties.Builder}.
+     * <p>
+     * If the lambda sets new headers and/or the timestamp, defensive copies will be created.
+     *
+     * @param configurator a lambda
+     * @return
+     */
+    public SELF configureProperties(Consumer<AMQP.BasicProperties.Builder> configurator) {
+        configurator.accept(this.propertiesBuilder);
+        final AMQP.BasicProperties newProperties = this.propertiesBuilder.build();
+        syncHeaders(newProperties.getHeaders());
+        syncTimestamp(newProperties.getTimestamp());
+        return self();
     }
 
     public SELF setProperties(BasicProperties properties) {
-        final Map<String, Object> newHeaders = properties.getHeaders();
-        this.headers.clear();
-        if (newHeaders != null) {
-            this.headers.putAll(newHeaders);
-        }
+        syncHeaders(properties.getHeaders());
+        syncTimestamp(properties.getTimestamp());
 
-        Date timestamp = properties.getTimestamp();
-        if (timestamp != null) {
-            timestamp = (Date) timestamp.clone();
-        }
         this.propertiesBuilder.contentType(properties.getContentType())
                 .contentEncoding(properties.getContentEncoding())
                 .deliveryMode(properties.getDeliveryMode())
@@ -85,12 +103,32 @@ public abstract sealed class MessageBuilder<T, SELF extends MessageBuilder<T, SE
                 .replyTo(properties.getReplyTo())
                 .expiration(properties.getExpiration())
                 .messageId(properties.getMessageId())
-                .timestamp(timestamp)
                 .type(properties.getType())
                 .userId(properties.getUserId())
                 .appId(properties.getAppId());
 
         return self();
+    }
+
+    private void syncTimestamp(Date newTimestamp) {
+        if (newTimestamp != null) {
+            newTimestamp = (Date) newTimestamp.clone();
+        }
+        this.propertiesBuilder.timestamp(newTimestamp);
+    }
+
+    /**
+     * Ensures that {@code this.headers} and the headers in {@code this.propertiesBuilder} are the same map by creating
+     * a fresh copy of the argument and overwriting both with it.
+     *
+     * @param newHeaders the new headers.
+     */
+    private void syncHeaders(final Map<String, Object> newHeaders) {
+        this.headers.clear();
+        if (newHeaders != null) {
+            this.headers.putAll(newHeaders);
+        }
+        this.propertiesBuilder.headers(this.headers);
     }
 
     /**
