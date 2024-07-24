@@ -4,9 +4,11 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.enterprise.context.Dependent;
 import javax.enterprise.context.RequestScoped;
 import javax.enterprise.inject.Produces;
@@ -27,41 +29,48 @@ import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
 
 @RequestScoped
 public class MessageMetaDataProducer {
-    private AMQP.BasicProperties deliveryProperties;
-    private Envelope envelope;
     private String queue = null;
-    private Incoming<?> incomingMessage = null;
+    private Envelope envelope = null;
+    private AMQP.BasicProperties deliveryProperties = null;
     private Acknowledgement acknowledgement = null;
-    private Outgoing.Response.Builder<?, ?> responseBuilder = null;
+    private Incoming<?> incomingMessage = null;
+
+    private State state = State.NO_DATA;
 
     public void setDelivery(String queue, Envelope envelope, AMQP.BasicProperties properties,
                             Acknowledgement acknowledgement) {
-        this.deliveryProperties = properties;
-        this.envelope = envelope;
-        this.queue = queue;
-        this.acknowledgement = acknowledgement;
+        if (this.state == State.NO_DATA) {
+            this.queue = Objects.requireNonNull(queue);
+            this.envelope = Objects.requireNonNull(envelope);
+            this.deliveryProperties = Objects.requireNonNull(properties);
+            this.acknowledgement = Objects.requireNonNull(acknowledgement);
+            this.state = State.RAW_DATA_AVAILABLE;
+        } else {
+            throw new IllegalStateException();
+        }
     }
 
     public void setMessage(final Incoming<?> incomingMessage) {
-        checkDelivery(); // setDelivery must  be called first
-        this.incomingMessage = incomingMessage;
-
-        if (this.incomingMessage instanceof Incoming.Request<?> request) {
-            this.responseBuilder = request.newResponseBuilder();
+        if (this.state == State.RAW_DATA_AVAILABLE) {
+            this.incomingMessage = incomingMessage;
+            this.state = State.DATA_AVAILABLE;
+        } else {
+            throw new IllegalStateException();
         }
     }
 
     private void checkDelivery() {
-        if (this.envelope == null) {
+        if (this.state == State.NO_DATA) {
             throw new IllegalStateException("No RabbitMQ message has been received in the current RequestScope");
         }
     }
 
-    private void checkRequest() {
+    private Incoming.Request<?> checkRequest() {
         checkDelivery();
-        if (responseBuilder == null) {
-            throw new RpcNotActiveException();
+        if (this.state == State.DATA_AVAILABLE && this.incomingMessage instanceof Incoming.Request<?> request) {
+            return request;
         }
+        throw new RpcNotActiveException();
     }
 
     @Produces
@@ -72,7 +81,7 @@ public class MessageMetaDataProducer {
     }
 
     @Produces
-    @Dependent
+    @RequestScoped
     Acknowledgement acknowledgement() {
         checkDelivery();
         return acknowledgement;
@@ -81,10 +90,10 @@ public class MessageMetaDataProducer {
     @Produces
     @Dependent
     <REQ, RES> Outgoing.Response.Builder<REQ, RES> responseBuilder(InjectionPoint ip) {
-        checkRequest();
         Type typeRES = ((ParameterizedType) ip.getType()).getActualTypeArguments()[1];
-        this.responseBuilder.setType(typeRES);
-        return (Outgoing.Response.Builder<REQ, RES>) this.responseBuilder;
+
+        final var builder = checkRequest().newResponseBuilder().setType(typeRES);
+        return (Outgoing.Response.Builder<REQ, RES>) builder;
     }
 
     @Produces
@@ -112,7 +121,7 @@ public class MessageMetaDataProducer {
     }
 
     @Produces
-    @Dependent
+    @RequestScoped
     BasicProperties basicProperties() {
         checkDelivery();
         return deliveryProperties;
@@ -120,11 +129,12 @@ public class MessageMetaDataProducer {
 
     //region header objects
     @Produces
-    @Dependent
+    @RequestScoped
     @Headers
     Map<String, Object> allHeaders() {
         checkDelivery();
-        return basicProperties().getHeaders();
+        final Map<String, Object> headers = basicProperties().getHeaders();
+        return headers == null ? null : Collections.unmodifiableMap(headers);
     }
 
     @Produces
@@ -215,7 +225,7 @@ public class MessageMetaDataProducer {
     @Header("")
     <T> List<T> listHeader(InjectionPoint injectionPoint) {
         final List<T> list = header(injectionPoint, List.class);
-        return list == null ? null : List.copyOf(list);
+        return list == null ? null : Collections.unmodifiableList(list);
     }
 
     private <T> T header(InjectionPoint injectionPoint, Class<T> clazz) {
@@ -235,4 +245,8 @@ public class MessageMetaDataProducer {
         return clazz.cast(headers.get(headerName));
     }
     //endregion
+
+    private enum State {
+        NO_DATA, RAW_DATA_AVAILABLE, DATA_AVAILABLE
+    }
 }
