@@ -6,6 +6,9 @@ import static io.github.jhahnhro.enhancedcdi.messaging.messages.Message.Delivery
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.lang.System.Logger.Level;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Event;
 import javax.enterprise.inject.Any;
@@ -20,6 +23,7 @@ import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ReturnListener;
+import com.rabbitmq.client.ShutdownListener;
 import io.github.jhahnhro.enhancedcdi.messaging.impl.WithConfirms;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Message.DeliveryMode;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
@@ -33,34 +37,23 @@ class ChannelProducer {
 
     private static final System.Logger LOG = System.getLogger(ChannelProducer.class.getCanonicalName());
     private final ReturnListener returnCallback;
+    private final ChannelLifeCycle defaultChannelLifeCycle;
+    private final ChannelLifeCycle confirmChannelLifeCycle;
 
     @Inject
-    ChannelProducer(Event<ReturnedMessage> event) {
+    ChannelProducer(Event<ReturnedMessage> event, BookkeepingConnection connection) {
         this.returnCallback = new ReturnHandler(event);
-    }
 
-    @Produces
-    @Default
-    @ApplicationScoped
-    BlockingPool<Channel> channelPool(BookkeepingConnection connection) throws InterruptedException {
-        LOG.log(Level.DEBUG, "Creating shared pool of channels");
-        return new ChannelPool(new ChannelLifeCycle(connection) {
+        this.defaultChannelLifeCycle = new ChannelLifeCycle(connection) {
             @Override
             public Channel createNew() throws InterruptedException {
                 final Channel channel = super.createNew();
                 channel.addReturnListener(returnCallback);
                 return channel;
             }
-        });
-    }
+        };
 
-    @Produces
-    @WithConfirms
-    @ApplicationScoped
-    BlockingPool<Channel> channelPoolWithConfirms(BookkeepingConnection connection)
-            throws InterruptedException {
-        LOG.log(Level.DEBUG, "Creating shared pool of channels in confirm-mode");
-        return new ChannelPool(new ChannelLifeCycle(connection) {
+        this.confirmChannelLifeCycle = new ChannelLifeCycle(connection) {
             @Override
             public Channel createNew() throws InterruptedException {
                 final Channel channel = super.createNew();
@@ -71,12 +64,46 @@ class ChannelProducer {
                 }
                 return channel;
             }
-        });
+        };
+    }
+
+    @Produces
+    @Default
+    @ApplicationScoped
+    BlockingPool<Channel> channelPool() throws InterruptedException {
+        LOG.log(Level.DEBUG, "Creating shared pool of channels");
+        return new ChannelPool(defaultChannelLifeCycle);
+    }
+
+    @Produces
+    @Default
+    @ApplicationScoped
+    ChannelSupplier defaultChannelSupplier() {
+        return new ChannelSupplier(defaultChannelLifeCycle);
+    }
+
+    @Produces
+    @WithConfirms
+    @ApplicationScoped
+    BlockingPool<Channel> channelPoolWithConfirms() throws InterruptedException {
+        LOG.log(Level.DEBUG, "Creating shared pool of channels in confirm-mode");
+        return new ChannelPool(confirmChannelLifeCycle);
+    }
+
+    @Produces
+    @WithConfirms
+    @ApplicationScoped
+    ChannelSupplier confirmChannelSupplier() {
+        return new ChannelSupplier(confirmChannelLifeCycle);
     }
 
     void dispose(@Disposes @Any BlockingPool<Channel> channelPool) {
         LOG.log(Level.DEBUG, "Shutting down shared pool of channels");
         channelPool.close();
+    }
+
+    void dispose(@Disposes @Any ChannelSupplier channelSupplier) {
+        channelSupplier.close();
     }
 
     private static final class ChannelPool implements BlockingPool<Channel> {
@@ -92,8 +119,8 @@ class ChannelProducer {
         @Override
         public <V, EX extends Exception> V apply(ThrowingFunction<Channel, V, EX> action)
                 throws InterruptedException, EX {
-            // in case the connection bean has been destroyed and re-created since the last time, we re-size the pool
-            // to the new capacity. This is a no-op if the capacity has not changed.
+            // in case the connection bean has been destroyed (not closed) and re-created since the last time, we
+            // re-size the pool to the new capacity. This is a no-op if the capacity has not changed.
             delegate.resize(connection.getChannelMax());
             return delegate.apply(action);
         }
@@ -119,11 +146,13 @@ class ChannelProducer {
         @Override
         public void destroy(Channel channel) {
             try {
+                LOG.log(Level.DEBUG, "Destroying channel " + channel + "...");
                 channel.abort();
+                LOG.log(Level.DEBUG, "Channel destroyed.");
             } catch (AlreadyClosedException sse) {
-                // already shut down
+                LOG.log(Level.DEBUG, "Channel was already closed.");
             } catch (IOException e) {
-                throw new UncheckedIOException(e);
+                LOG.log(Level.WARNING, "Channel " + channel + " was not closed properly. Continuing anyway.", e);
             }
         }
 
@@ -131,9 +160,19 @@ class ChannelProducer {
         public Channel createNew() throws InterruptedException {
             final Channel channel;
             try {
+                LOG.log(Level.DEBUG, "Creating channel...");
                 channel = connection.acquireChannel();
+                LOG.log(Level.DEBUG, "Channel " + channel + " created.");
             } catch (IOException e) {
+                LOG.log(Level.DEBUG, "Channel could not be created.", e);
                 throw new UncheckedIOException(e);
+            } catch (InterruptedException e) {
+                LOG.log(Level.DEBUG, "Channel could not be created, because the thread was interrupted.");
+                Thread.currentThread().interrupt();
+                throw e;
+            } catch (RuntimeException e) {
+                LOG.log(Level.DEBUG, "Channel could not be created.", e);
+                throw e;
             }
             return channel;
         }
@@ -171,6 +210,34 @@ class ChannelProducer {
             }
 
             return messageBuilder.setProperties(properties).setType(byte[].class).setContent(body).build();
+        }
+    }
+
+    private static class ChannelSupplier implements Supplier<Channel>, AutoCloseable {
+
+        private final ChannelLifeCycle channelLifeCycle;
+        private final Set<Channel> channels = ConcurrentHashMap.newKeySet();
+
+        private ChannelSupplier(final ChannelLifeCycle lifeCycle) {channelLifeCycle = lifeCycle;}
+
+        @Override
+        public Channel get() {
+            try {
+                final Channel channel = channelLifeCycle.createNew();
+                channels.add(channel);
+                final ShutdownListener shutdownListener = sse -> channels.remove(channel);
+                channel.addShutdownListener(shutdownListener);
+
+                return channel;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+
+        @Override
+        public void close() {
+            channels.forEach(channelLifeCycle::destroy);
         }
     }
 }
