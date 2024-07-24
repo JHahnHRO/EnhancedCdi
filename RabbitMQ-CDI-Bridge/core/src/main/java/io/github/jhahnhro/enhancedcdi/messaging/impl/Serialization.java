@@ -4,9 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Comparator;
 import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.inject.spi.Prioritized;
 import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
@@ -23,9 +21,6 @@ import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
 
 @ApplicationScoped
 class Serialization {
-
-    static final Comparator<Prioritized> HIGHEST_PRIORITY_FIRST = Comparator.comparingInt(Prioritized::getPriority)
-            .reversed();
 
     //region Deserialization
     @Inject

@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
-import static io.github.jhahnhro.enhancedcdi.messaging.impl.Serialization.HIGHEST_PRIORITY_FIRST;
+import static io.github.jhahnhro.enhancedcdi.messaging.impl.PriorityComparator.HIGHEST_FIRST;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -47,7 +47,7 @@ class ExceptionMapping {
                 .stream()
                 .map(bean -> BeanInstance.createContextualReference(beanManager, (Bean<ExceptionMapper<?, ?>>) bean,
                                                                     parameterizedType))
-                .sorted(Comparator.comparing(BeanInstance::instance, HIGHEST_PRIORITY_FIRST))
+                .sorted(Comparator.comparing(BeanInstance::instance, HIGHEST_FIRST))
                 .toList();
     }
 

@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
-import static io.github.jhahnhro.enhancedcdi.messaging.impl.Serialization.HIGHEST_PRIORITY_FIRST;
+import static io.github.jhahnhro.enhancedcdi.messaging.impl.PriorityComparator.HIGHEST_FIRST;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -47,7 +47,7 @@ class SelectedMessageWriter<T> implements MessageWriter<T> {
 
         this.writers = enhancedInstance.<SelectableMessageWriter<T>>select(messageWriterType, Any.Literal.INSTANCE)
                 .stream()
-                .sorted(HIGHEST_PRIORITY_FIRST)
+                .sorted(HIGHEST_FIRST)
                 .toList();
 
         if (this.writers.isEmpty()) {
