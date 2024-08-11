@@ -5,22 +5,19 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Objects;
 
-public class ParameterizedTypeImpl implements ParameterizedType {
+public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... actualTypeArguments)
+        implements ParameterizedType {
 
-    private final Class<?> rawType;
-    private final Type ownerType;
-    private final Type[] actualTypeArguments;
-
-    public ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... actualTypeArguments) {
+    public ParameterizedTypeImpl {
+        // implicit NPE if rawType == null
         if ((rawType.getDeclaringClass() == null) ^ (ownerType == null)) {
-            throw new IllegalArgumentException("ownerType must be present iff the rawType is declared by another class");
+            throw new IllegalArgumentException(
+                    "ownerType must be present iff the rawType is declared by another class");
         }
         if (rawType.getTypeParameters().length != actualTypeArguments.length) {
             throw new IllegalArgumentException("wrong number of type parameters");
         }
-        this.rawType = rawType;
-        this.ownerType = ownerType;
-        this.actualTypeArguments = Arrays.copyOf(actualTypeArguments, actualTypeArguments.length);
+        actualTypeArguments = Arrays.copyOf(actualTypeArguments, actualTypeArguments.length);
     }
 
     @Override

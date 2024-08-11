@@ -7,6 +7,7 @@ import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.SequencedSet;
 import java.util.Set;
 
 import io.github.jhahnhro.enhancedcdi.util.Iteration;
@@ -19,17 +20,13 @@ public final class Types {
     private Types() {}
 
     public static Class<?> erasure(Type type) {
-        if (type instanceof Class<?> clazz) {
-            return clazz;
-        } else if (type instanceof ParameterizedType parameterizedType) {
-            return (Class<?>) parameterizedType.getRawType();
-        } else if (type instanceof GenericArrayType genericArrayType) {
-            return erasure(genericArrayType.getGenericComponentType()).arrayType();
-        } else if (type instanceof TypeVariable<?> typeVariable) {
-            return erasure(typeVariable.getBounds()[0]);
-        } else {
-            throw new IllegalArgumentException();
-        }
+        return switch (type) {
+            case Class<?> clazz -> clazz;
+            case ParameterizedType parameterizedType -> (Class<?>) parameterizedType.getRawType();
+            case GenericArrayType genericArrayType -> erasure(genericArrayType.getGenericComponentType()).arrayType();
+            case TypeVariable<?> typeVariable -> erasure(typeVariable.getBounds()[0]);
+            default -> throw new IllegalArgumentException();
+        };
     }
 
     /**
@@ -47,12 +44,12 @@ public final class Types {
             return Set.of(Object.class);
         }
 
-        Set<Class<?>> result = new LinkedHashSet<>();
+        SequencedSet<Class<?>> result = new LinkedHashSet<>();
         for (Class<?> superClass = clazz; superClass != null; superClass = superClass.getSuperclass()) {
             result.add(superClass);
         }
 
-        return Collections.unmodifiableSet(result);
+        return Collections.unmodifiableSequencedSet(result);
     }
 
     /**

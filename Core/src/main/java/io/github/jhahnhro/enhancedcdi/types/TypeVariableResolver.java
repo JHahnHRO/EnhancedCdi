@@ -43,29 +43,7 @@ public class TypeVariableResolver {
 
         final Map<TypeVariable<?>, Type> result = new HashMap<>();
 
-        Function<Type, Stream<Type>> getRelatedTypes = t -> {
-            Set<Type> related = new HashSet<>();
-            if (t instanceof Class<?> clazz) {
-                if (clazz.isArray()) {
-                    related.add(clazz.getComponentType());
-                } else {
-                    related.add(clazz.getEnclosingClass());
-                    related.add(clazz.getGenericSuperclass());
-                    Collections.addAll(related, clazz.getGenericInterfaces());
-                }
-            } else if (t instanceof ParameterizedType parameterizedType) {
-                related.add(parameterizedType.getOwnerType());
-                final Class<?> rawType = (Class<?>) parameterizedType.getRawType();
-                related.add(rawType.getGenericSuperclass());
-                Collections.addAll(related, rawType.getGenericInterfaces());
-            } else if (t instanceof GenericArrayType genericArrayType) {
-                related.add(genericArrayType.getGenericComponentType());
-            }
-            related.remove(null);
-            return related.stream();
-        };
-
-        Iteration.depthFirstSearch(type, getRelatedTypes)
+        Iteration.depthFirstSearch(type, TypeVariableResolver::getRelatedTypes)
                 .stream()
                 .filter(ParameterizedType.class::isInstance)
                 .map(ParameterizedType.class::cast)
@@ -83,6 +61,25 @@ public class TypeVariableResolver {
         return Collections.unmodifiableMap(result);
     }
 
+    private static Stream<Type> getRelatedTypes(Type type) {
+        final Stream<Type> relatedTypes = switch (type) {
+            case Class<?> clazz -> clazz.isArray() ?
+                    // unpack array class
+                    Stream.of(clazz.getComponentType()) :
+                    // otherwise use enclosing class and generic super types
+                    Stream.concat(Stream.of(clazz.getEnclosingClass(), clazz.getGenericSuperclass()),
+                                  Stream.of(clazz.getGenericInterfaces()));
+            case ParameterizedType parameterizedType -> {
+                final Class<?> rawType = (Class<?>) parameterizedType.getRawType();
+                yield Stream.concat(Stream.of(parameterizedType.getOwnerType(), rawType.getGenericSuperclass()),
+                                    Stream.of(rawType.getGenericInterfaces()));
+            }
+            case GenericArrayType genericArrayType -> Stream.of(genericArrayType.getGenericComponentType());
+            default -> Stream.empty();
+        };
+        return relatedTypes.filter(Objects::nonNull);
+    }
+
     private static Type normalize(Class<?> clazz) {
         if (clazz.isArray()) {
             final Type normalizedComponentType = normalize(clazz.getComponentType());
@@ -96,35 +93,25 @@ public class TypeVariableResolver {
     }
 
     private static Type resolveInternal(Type type, Map<TypeVariable<?>, Type> resolvedVariables) {
-        if (type instanceof TypeVariable) {
-            return resolvedVariables.getOrDefault(type, type);
-        } else if (type instanceof Class<?> clazz) {
-            Type normalizedType = normalize(clazz);
-            if (normalizedType == clazz) {
-                return clazz;
-            } else {
-                return resolveInternal(normalizedType, resolvedVariables);
+        return switch (type) {
+            case null -> null;
+            case TypeVariable<?> typeVariable -> resolvedVariables.getOrDefault(typeVariable, type);
+            case Class<?> clazz -> {
+                Type normalizedType = normalize(clazz);
+                yield normalizedType == clazz ? clazz : resolveInternal(normalizedType, resolvedVariables);
             }
-        } else if (type instanceof GenericArrayType arrayType) {
-            return new GenericArrayTypeImpl(resolveInternal(arrayType.getGenericComponentType(), resolvedVariables));
-        } else if (type instanceof ParameterizedType parameterizedType) {
-            Class<?> rawType = (Class<?>) parameterizedType.getRawType();
-
-            final Type resolvedOwnerType;
-            if (parameterizedType.getOwnerType() != null) {
-                resolvedOwnerType = resolveInternal(parameterizedType.getOwnerType(), resolvedVariables);
-            } else {
-                resolvedOwnerType = null;
-            }
-            return new ParameterizedTypeImpl(rawType, resolvedOwnerType,
-                                             resolveInternal(parameterizedType.getActualTypeArguments(),
-                                                             resolvedVariables));
-        } else if (type instanceof WildcardType wildcardType) {
-            return new WildcardTypeImpl(resolveInternal(wildcardType.getUpperBounds(), resolvedVariables),
-                                        resolveInternal(wildcardType.getLowerBounds(), resolvedVariables));
-        } else {
-            throw new UnsupportedOperationException("Cannot replace type variables in " + type);
-        }
+            case GenericArrayType arrayType ->
+                    new GenericArrayTypeImpl(resolveInternal(arrayType.getGenericComponentType(), resolvedVariables));
+            case ParameterizedType parameterizedType ->
+                    new ParameterizedTypeImpl((Class<?>) parameterizedType.getRawType(),
+                                              resolveInternal(parameterizedType.getOwnerType(), resolvedVariables),
+                                              resolveInternal(parameterizedType.getActualTypeArguments(),
+                                                              resolvedVariables));
+            case WildcardType wildcardType ->
+                    new WildcardTypeImpl(resolveInternal(wildcardType.getUpperBounds(), resolvedVariables),
+                                         resolveInternal(wildcardType.getLowerBounds(), resolvedVariables));
+            default -> throw new UnsupportedOperationException("Cannot replace type variables in " + type);
+        };
     }
 
     private static Type[] resolveInternal(Type[] types, Map<TypeVariable<?>, Type> resolvedVariables) {

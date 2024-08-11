@@ -5,8 +5,8 @@ import java.lang.reflect.Type;
 import java.util.Objects;
 
 public record GenericArrayTypeImpl(Type genericComponentType) implements GenericArrayType {
-    public GenericArrayTypeImpl(Type genericComponentType) {
-        this.genericComponentType = Objects.requireNonNull(genericComponentType);
+    public GenericArrayTypeImpl {
+        Objects.requireNonNull(genericComponentType);
     }
 
     @Override
