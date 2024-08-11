@@ -15,8 +15,11 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
+import io.github.jhahnhro.enhancedcdi.metadata.InjectionPointImpl;
+import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
+
 /**
- * Helps with the lack of {@code select(Type, Annotation...)} in {@link javax.enterprise.inject.Instance}
+ * Helps with the lack of {@code select(Type, Annotation...)} in {@link jakarta.enterprise.inject.Instance}
  */
 @Dependent
 @Typed(EnhancedEvent.class)
@@ -47,10 +50,19 @@ public class EnhancedEvent<T> extends AbstractEventDecorator<T> {
     }
 
     private static <U> Event<U> getEventUnchecked(BeanManager bm, EventMetadata eventMetadata) {
-        ParameterizedType eventType = eventTypeOf(eventMetadata.getType());
-        SyntheticInjectionPoint ij = new SyntheticInjectionPoint(eventType, eventMetadata.getQualifiers());
+        ParameterizedType type = eventTypeOf(eventMetadata.getType());
+        Set<Annotation> qualifiers = eventMetadata.getQualifiers();
+        InjectionPoint ip = eventMetadata.getInjectionPoint();
+
+        InjectionPoint syntheticInjectionPoint;
+        if (ip == null) {
+            syntheticInjectionPoint = new InjectionPointImpl(type, qualifiers);
+        } else {
+            syntheticInjectionPoint = new InjectionPointImpl(type, qualifiers, ip.getBean(), ip.getMember(),
+                                                             ip.getAnnotated(), ip.isDelegate(), ip.isTransient());
+        }
         //noinspection unchecked
-        return (Event<U>) bm.getInjectableReference(ij, bm.createCreationalContext(null));
+        return (Event<U>) bm.getInjectableReference(syntheticInjectionPoint, bm.createCreationalContext(null));
     }
 
     @Override
@@ -64,43 +76,5 @@ public class EnhancedEvent<T> extends AbstractEventDecorator<T> {
 
         EventMetadata newEventMetadata = new EventMetadataImpl(eventMetadata.getInjectionPoint(), type, newQualifiers);
         return new EnhancedEvent<>(beanManager, newEventMetadata);
-    }
-
-    private record SyntheticInjectionPoint(Type type, Set<Annotation> qualifiers) implements InjectionPoint {
-
-        @Override
-        public Type getType() {
-            return type;
-        }
-
-        @Override
-        public Set<Annotation> getQualifiers() {
-            return qualifiers;
-        }
-
-        @Override
-        public Bean<?> getBean() {
-            return null;
-        }
-
-        @Override
-        public Member getMember() {
-            return null;
-        }
-
-        @Override
-        public Annotated getAnnotated() {
-            return null;
-        }
-
-        @Override
-        public boolean isDelegate() {
-            return false;
-        }
-
-        @Override
-        public boolean isTransient() {
-            return false;
-        }
     }
 }

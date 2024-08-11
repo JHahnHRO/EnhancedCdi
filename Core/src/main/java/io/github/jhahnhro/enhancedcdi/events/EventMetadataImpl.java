@@ -23,11 +23,8 @@ import java.util.Set;
 // the various classes do not implement the Serializable interface, e.g. InjectionPoint is a built-in bean that is
 // required by the spec to be serializable.
 @SuppressWarnings("java:S1948")
-public class EventMetadataImpl implements EventMetadata, Serializable {
-
-    private final InjectionPoint eventInjectionPoint;
-    private final Type eventType;
-    private final Set<Annotation> qualifiers;
+public record EventMetadataImpl(InjectionPoint eventInjectionPoint, Type eventType, Set<Annotation> qualifiers)
+        implements EventMetadata, Serializable {
 
     /**
      * @param eventInjectionPoint injection point of the event.
@@ -35,10 +32,10 @@ public class EventMetadataImpl implements EventMetadata, Serializable {
      * @param qualifiers          qualifiers of the event.
      * @throws NullPointerException if any argument is null or if {@code qualifiers} contains null.
      */
-    public EventMetadataImpl(InjectionPoint eventInjectionPoint, Type eventType, Set<Annotation> qualifiers) {
-        this.eventInjectionPoint = Objects.requireNonNull(eventInjectionPoint);
-        this.eventType = Objects.requireNonNull(eventType);
-        this.qualifiers = Set.copyOf(qualifiers);
+    public EventMetadataImpl {
+        Objects.requireNonNull(eventInjectionPoint);
+        Objects.requireNonNull(eventType);
+        qualifiers = Set.copyOf(qualifiers);
     }
 
     /**
@@ -97,11 +94,5 @@ public class EventMetadataImpl implements EventMetadata, Serializable {
     @Override
     public Set<Annotation> getQualifiers() {
         return qualifiers;
-    }
-
-    @Override
-    public String toString() {
-        return "EventMetadata{type=" + eventType + ", qualifiers=" + qualifiers + ", injectionPoint="
-               + eventInjectionPoint + "}";
     }
 }
