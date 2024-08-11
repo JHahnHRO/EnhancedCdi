@@ -8,14 +8,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import javax.enterprise.context.Dependent;
-import javax.enterprise.context.spi.CreationalContext;
-import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.BeanAttributes;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.InjectionPoint;
 
 import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
+import jakarta.enterprise.context.Dependent;
+import jakarta.enterprise.context.spi.CreationalContext;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanAttributes;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.enterprise.inject.spi.InjectionPoint;
 
 public class MapBean<P, T> implements Bean<Map<P, T>> {
     private final BeanAttributes<T> beanAttributes;
@@ -82,11 +82,6 @@ public class MapBean<P, T> implements Bean<Map<P, T>> {
     @Override
     public Set<InjectionPoint> getInjectionPoints() {
         return Collections.emptySet();
-    }
-
-    @Override
-    public boolean isNullable() {
-        return false;
     }
 
     @Override

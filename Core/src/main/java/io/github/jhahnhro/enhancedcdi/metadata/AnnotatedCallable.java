@@ -8,10 +8,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 class AnnotatedCallable<X> extends AnnotatedMember<Executable, X>
-        implements javax.enterprise.inject.spi.AnnotatedCallable<X> {
+        implements jakarta.enterprise.inject.spi.AnnotatedCallable<X> {
 
     protected final List<AnnotatedParameter<X>> parameters;
 
@@ -24,7 +23,7 @@ class AnnotatedCallable<X> extends AnnotatedMember<Executable, X>
     }
 
     @Override
-    public List<javax.enterprise.inject.spi.AnnotatedParameter<X>> getParameters() {
+    public List<jakarta.enterprise.inject.spi.AnnotatedParameter<X>> getParameters() {
         return (List) parameters;
     }
 }

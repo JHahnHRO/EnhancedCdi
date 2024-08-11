@@ -1,13 +1,13 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
-import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
-
-import javax.enterprise.inject.spi.Annotated;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
+import jakarta.enterprise.inject.spi.Annotated;
 
 class AnnotatedElement<ELEMENT extends java.lang.reflect.AnnotatedElement> implements Annotated {
 

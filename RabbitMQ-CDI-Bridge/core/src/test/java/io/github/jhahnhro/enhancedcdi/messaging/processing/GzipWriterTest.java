@@ -8,7 +8,6 @@ import java.io.OutputStream;
 import java.util.Map;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPOutputStream;
-import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Envelope;
@@ -17,6 +16,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageWriter;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
+import jakarta.inject.Inject;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;

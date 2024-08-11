@@ -1,11 +1,12 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import javax.enterprise.event.Event;
-import javax.enterprise.inject.Vetoed;
-import javax.inject.Inject;
 import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Vetoed;
+import jakarta.inject.Inject;
 
 @Vetoed
 public class ProcessContextController<KEY, PROCESS extends ProcessContext.Process<KEY>,

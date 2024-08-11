@@ -1,18 +1,18 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl.producers;
 
 import java.util.stream.Stream;
-import javax.enterprise.context.spi.CreationalContext;
-import javax.enterprise.inject.Any;
-import javax.enterprise.inject.Instance;
-import javax.enterprise.inject.Produces;
-import javax.enterprise.inject.TransientReference;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 
 import com.rabbitmq.client.AMQP;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
+import jakarta.enterprise.context.spi.CreationalContext;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Instance;
+import jakarta.enterprise.inject.Produces;
+import jakarta.enterprise.inject.TransientReference;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 @Singleton
 class TopologyProducer {

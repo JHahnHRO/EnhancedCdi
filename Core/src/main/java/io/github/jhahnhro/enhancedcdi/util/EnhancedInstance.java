@@ -5,21 +5,22 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
-import javax.annotation.PreDestroy;
-import javax.enterprise.context.Dependent;
-import javax.enterprise.inject.AmbiguousResolutionException;
-import javax.enterprise.inject.Instance;
-import javax.enterprise.inject.Typed;
-import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.InjectionPoint;
-import javax.enterprise.util.TypeLiteral;
-import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.metadata.MutableInjectionPoint;
+import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.context.Dependent;
+import jakarta.enterprise.inject.AmbiguousResolutionException;
+import jakarta.enterprise.inject.Instance;
+import jakarta.enterprise.inject.Typed;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.enterprise.inject.spi.InjectionPoint;
+import jakarta.enterprise.util.TypeLiteral;
+import jakarta.inject.Inject;
 
 /**
  * Helps with the lack of {@code select(Type, Annotation...)} in {@link Instance}
@@ -102,7 +103,8 @@ public final class EnhancedInstance<T> implements Instance<T> {
     @SuppressWarnings("unchecked")
     public <U extends T> EnhancedInstance<U> select(Type subtype, Annotation... qualifiers) {
         final EnhancedInstance<T> result;
-        if (subtype.equals(currentInjectionPoint.getType()) && qualifiers.length == 0) {
+        if (subtype.equals(currentInjectionPoint.getType()) && currentInjectionPoint.getQualifiers()
+                .containsAll(List.of(qualifiers))) {
             result = this;
         } else {
             result = new EnhancedInstance<>(beanManager, originalInjectionPoint,

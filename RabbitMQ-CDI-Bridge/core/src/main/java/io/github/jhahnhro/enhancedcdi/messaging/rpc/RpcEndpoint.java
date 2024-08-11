@@ -5,12 +5,12 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import javax.interceptor.InterceptorBinding;
 
 import io.github.jhahnhro.enhancedcdi.messaging.Incoming;
+import jakarta.interceptor.InterceptorBinding;
 
 /**
- * An interceptor binding to mark {@link javax.enterprise.event.Observes event observer methods} for
+ * An interceptor binding to mark {@link jakarta.enterprise.event.Observes event observer methods} for
  * {@link Incoming incoming RabbitMQ messages} as RPC endpoints. A corresponding interceptor is provided that
  * automatically publishes the result of the method.
  *

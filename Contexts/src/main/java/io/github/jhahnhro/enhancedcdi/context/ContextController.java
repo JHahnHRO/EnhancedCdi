@@ -1,10 +1,10 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import javax.enterprise.context.BeforeDestroyed;
-import javax.enterprise.context.Destroyed;
-import javax.enterprise.context.Initialized;
-import javax.enterprise.context.spi.Context;
-import javax.enterprise.event.Event;
+import jakarta.enterprise.context.BeforeDestroyed;
+import jakarta.enterprise.context.Destroyed;
+import jakarta.enterprise.context.Initialized;
+import jakarta.enterprise.context.spi.Context;
+import jakarta.enterprise.event.Event;
 
 /**
  * A ContextController is responsible for changing the state of a context if it allows for state changes. It fires

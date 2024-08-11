@@ -6,7 +6,6 @@ import java.io.IOException;
 import java.lang.System.Logger.Level;
 import java.util.Map;
 import java.util.concurrent.Semaphore;
-import javax.enterprise.event.Event;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AlreadyClosedException;
@@ -17,6 +16,7 @@ import com.rabbitmq.client.ShutdownSignalException;
 import io.github.jhahnhro.enhancedcdi.messaging.Consumers;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Acknowledgement;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import jakarta.enterprise.event.Event;
 
 class DispatchingConsumer extends DefaultConsumer {
 

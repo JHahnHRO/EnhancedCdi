@@ -5,13 +5,13 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import javax.enterprise.util.AnnotationLiteral;
-import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.multiton.BeanParameter;
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedAnnotation;
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedBean;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Color;
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.inject.Inject;
 
 @SuppressWarnings("unused")
 public class BeansWithInvalidAnnotations {

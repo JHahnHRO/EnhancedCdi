@@ -7,10 +7,6 @@ import java.io.OutputStream;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
-import javax.enterprise.context.Dependent;
-import javax.enterprise.inject.Any;
-import javax.enterprise.inject.spi.InjectionPoint;
-import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
@@ -19,6 +15,10 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageW
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
 import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
 import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
+import jakarta.enterprise.context.Dependent;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.spi.InjectionPoint;
+import jakarta.inject.Inject;
 
 /**
  * Represents the auto-selection process for {@link SelectableMessageWriter}s and makes it available to clients:

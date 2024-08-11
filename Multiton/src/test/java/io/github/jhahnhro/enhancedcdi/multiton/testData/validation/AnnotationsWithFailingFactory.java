@@ -1,9 +1,8 @@
 package io.github.jhahnhro.enhancedcdi.multiton.testData.validation;
 
-import javax.enterprise.util.AnnotationLiteral;
-
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Color;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.TestException;
+import jakarta.enterprise.util.AnnotationLiteral;
 
 @SuppressWarnings("unused")
 public class AnnotationsWithFailingFactory {

@@ -1,14 +1,14 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import javax.annotation.Priority;
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.context.Initialized;
-import javax.enterprise.event.Event;
-import javax.enterprise.event.Observes;
-import javax.enterprise.inject.Vetoed;
-import javax.inject.Inject;
+import static jakarta.interceptor.Interceptor.Priority.LIBRARY_AFTER;
 
-import static javax.interceptor.Interceptor.Priority.LIBRARY_AFTER;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.Initialized;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.Vetoed;
+import jakarta.inject.Inject;
 
 @Vetoed
 public class SimpleCloseableContextController<CONTEXT extends CloseableContext>

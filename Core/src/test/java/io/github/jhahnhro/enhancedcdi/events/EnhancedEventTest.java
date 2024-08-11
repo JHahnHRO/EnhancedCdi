@@ -1,5 +1,23 @@
 package io.github.jhahnhro.enhancedcdi.events;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Type;
+import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Stream;
+
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.spi.EventContext;
+import jakarta.enterprise.inject.spi.EventMetadata;
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.enterprise.util.TypeLiteral;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldJunit5Extension;
 import org.jboss.weld.junit5.WeldSetup;
@@ -9,24 +27,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import javax.enterprise.event.Event;
-import javax.enterprise.event.Observes;
-import javax.enterprise.inject.spi.EventContext;
-import javax.enterprise.inject.spi.EventMetadata;
-import javax.enterprise.util.AnnotationLiteral;
-import javax.enterprise.util.TypeLiteral;
-import javax.inject.Inject;
-import javax.inject.Singleton;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Type;
-import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.stream.Stream;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 @ExtendWith(WeldJunit5Extension.class)
 class EnhancedEventTest {

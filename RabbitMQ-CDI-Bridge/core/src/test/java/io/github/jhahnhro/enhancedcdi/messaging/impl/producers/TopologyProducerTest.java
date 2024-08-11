@@ -4,14 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import javax.enterprise.context.Dependent;
-import javax.enterprise.inject.Produces;
-import javax.inject.Qualifier;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.BuiltinExchangeType;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
+import jakarta.enterprise.context.Dependent;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Qualifier;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldJunit5Extension;
 import org.jboss.weld.junit5.WeldSetup;

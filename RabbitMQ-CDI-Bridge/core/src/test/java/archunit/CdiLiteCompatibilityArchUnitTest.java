@@ -2,14 +2,13 @@ package archunit;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.*;
 
-import javax.decorator.Decorator;
-import javax.enterprise.inject.spi.Extension;
-import javax.interceptor.Interceptors;
-
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import jakarta.decorator.Decorator;
+import jakarta.enterprise.inject.spi.Extension;
+import jakarta.interceptor.Interceptors;
 
 @SuppressWarnings("unused")
 @AnalyzeClasses(packages = "io.github.jhahnhro", importOptions = ImportOption.DoNotIncludeTests.class)

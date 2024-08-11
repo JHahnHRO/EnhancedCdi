@@ -10,9 +10,9 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import javax.enterprise.inject.IllegalProductException;
 
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedAnnotation;
+import jakarta.enterprise.inject.IllegalProductException;
 
 public class AnnotationLiteralRepository<P> {
 

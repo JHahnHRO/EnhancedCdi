@@ -6,13 +6,13 @@ import static org.mockito.Mockito.*;
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import javax.enterprise.util.AnnotationLiteral;
-import javax.inject.Inject;
 
 import com.rabbitmq.client.Channel;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.inject.Inject;
 import org.jboss.weld.junit.MockBean;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;

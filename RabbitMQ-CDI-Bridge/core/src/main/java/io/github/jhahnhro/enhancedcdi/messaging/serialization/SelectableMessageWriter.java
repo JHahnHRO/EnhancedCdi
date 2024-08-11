@@ -1,10 +1,9 @@
 package io.github.jhahnhro.enhancedcdi.messaging.serialization;
 
-import javax.enterprise.inject.spi.Prioritized;
-
 import com.rabbitmq.client.BasicProperties;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import jakarta.enterprise.inject.spi.Prioritized;
 
 /**
  * A {@link MessageWriter} that participates in automatic serialization. If a bean has this interface in its bean types,
@@ -20,7 +19,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
  * the highest {@link #getPriority() priority} among those that are applicable. If multiple instances with the same
  * priority are applicable to a message, it is undefined which one will be selected.
  * <p>
- * The library provides a {@link javax.enterprise.context.Dependent} scoped bean with type {@code MessageWriter<T>} and
+ * The library provides a {@link jakarta.enterprise.context.Dependent} scoped bean with type {@code MessageWriter<T>} and
  * qualifier {@link Selected} that automatically selects the right {@code SelectableMessageWriter} for each call to
  * {@link #write(Outgoing, MessageBuilder)}.
  *

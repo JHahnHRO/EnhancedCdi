@@ -3,14 +3,14 @@ package io.github.jhahnhro.enhancedcdi.messaging.impl;
 import java.io.IOException;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 class Infrastructure {

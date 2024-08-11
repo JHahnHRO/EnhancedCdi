@@ -1,8 +1,8 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import javax.enterprise.context.spi.AlterableContext;
-import javax.enterprise.context.spi.Contextual;
-import javax.enterprise.context.spi.CreationalContext;
+import jakarta.enterprise.context.spi.AlterableContext;
+import jakarta.enterprise.context.spi.Contextual;
+import jakarta.enterprise.context.spi.CreationalContext;
 
 abstract class ForwardingContext implements AlterableContext {
     protected abstract AlterableContext delegate();

@@ -1,12 +1,18 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
 
-import javax.enterprise.inject.spi.Annotated;
 import java.lang.annotation.Annotation;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+
+import jakarta.enterprise.inject.spi.Annotated;
 
 public abstract class AnnotatedElementConfigurator<A extends Annotated, SELF extends AnnotatedElementConfigurator<A,
         SELF>> {

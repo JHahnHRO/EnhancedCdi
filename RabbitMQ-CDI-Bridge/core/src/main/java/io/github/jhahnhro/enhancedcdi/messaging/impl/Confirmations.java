@@ -8,13 +8,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
 import java.util.function.Consumer;
-import javax.enterprise.context.ApplicationScoped;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.ShutdownListener;
 import com.rabbitmq.client.ShutdownSignalException;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import jakarta.enterprise.context.ApplicationScoped;
 
 /**
  * Manages confirmations

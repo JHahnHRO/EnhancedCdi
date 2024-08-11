@@ -4,13 +4,14 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Type;
 import java.util.Set;
 import java.util.function.Supplier;
-import javax.enterprise.context.Dependent;
-import javax.enterprise.context.spi.Contextual;
-import javax.enterprise.context.spi.CreationalContext;
-import javax.enterprise.inject.UnsatisfiedResolutionException;
-import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.InjectionPoint;
+
+import jakarta.enterprise.context.Dependent;
+import jakarta.enterprise.context.spi.Contextual;
+import jakarta.enterprise.context.spi.CreationalContext;
+import jakarta.enterprise.inject.UnsatisfiedResolutionException;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.enterprise.inject.spi.InjectionPoint;
 
 /**
  * Convenience object encapsulating a bean, one of its instances and the {@link CreationalContext} in which that
@@ -22,7 +23,7 @@ import javax.enterprise.inject.spi.InjectionPoint;
  *     depending on the bean's scope:
  *     <ul>
  *         <li>none if the scope's context is not active (i.e. a
- *         {@link javax.enterprise.context.ContextNotActiveException} could be thrown)</li>
+ *         {@link jakarta.enterprise.context.ContextNotActiveException} could be thrown)</li>
  *         <li>exactly one for {@code @ApplicationScoped} and {@code @Singleton} beans,</li>
  *         <li>as many as there are requests for {@code @RequestScoped} beans,</li>
  *         <li>a potentially unlimited amount for {@code @Dependent} scoped beans</li>

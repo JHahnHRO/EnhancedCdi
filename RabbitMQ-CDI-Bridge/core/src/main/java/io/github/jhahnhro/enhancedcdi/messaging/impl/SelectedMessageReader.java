@@ -4,16 +4,16 @@ import static io.github.jhahnhro.enhancedcdi.messaging.impl.PriorityComparator.H
 
 import java.io.IOException;
 import java.io.InputStream;
-import javax.enterprise.context.RequestScoped;
-import javax.enterprise.inject.Any;
-import javax.enterprise.inject.Instance;
-import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
 
 /**
  * Represents the auto-selection process for {@link SelectableMessageReader}s and makes it available to clients:

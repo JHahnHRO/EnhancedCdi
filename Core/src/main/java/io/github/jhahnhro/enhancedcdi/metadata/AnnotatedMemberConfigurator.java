@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
-public abstract class AnnotatedMemberConfigurator<T, A extends javax.enterprise.inject.spi.AnnotatedMember<T>,
+public abstract class AnnotatedMemberConfigurator<T, A extends jakarta.enterprise.inject.spi.AnnotatedMember<T>,
         SELF extends AnnotatedMemberConfigurator<T, A, SELF>>
         extends AnnotatedElementConfigurator<A, SELF> {
 

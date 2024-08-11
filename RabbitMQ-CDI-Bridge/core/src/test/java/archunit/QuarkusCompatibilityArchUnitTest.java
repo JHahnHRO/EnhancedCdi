@@ -5,14 +5,6 @@ import static com.tngtech.archunit.lang.conditions.ArchPredicates.is;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.fields;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.methods;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import javax.enterprise.event.Observes;
-import javax.enterprise.event.ObservesAsync;
-import javax.enterprise.inject.Produces;
-import javax.inject.Inject;
-import javax.inject.Qualifier;
-
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaCodeUnit;
 import com.tngtech.archunit.core.domain.JavaParameter;
@@ -20,6 +12,13 @@ import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.event.ObservesAsync;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
+import jakarta.inject.Qualifier;
 
 /**
  * The CDI spec and Quarkus ArC's opinions about what is allowed and what is best practice differs at some points. This

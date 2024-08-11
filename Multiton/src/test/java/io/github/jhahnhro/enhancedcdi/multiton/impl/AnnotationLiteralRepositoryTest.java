@@ -5,13 +5,13 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import javax.enterprise.inject.IllegalProductException;
 
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedAnnotation;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Color;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.trueBeans.SomeOtherQualifier;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.validation.AnnotationsWithFailingFactory;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.validation.AnnotationsWithValidFactories;
+import jakarta.enterprise.inject.IllegalProductException;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

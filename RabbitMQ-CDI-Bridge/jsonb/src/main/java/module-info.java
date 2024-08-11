@@ -1,6 +1,6 @@
 module enhancedcdi.rabbitmqcdibridge.json {
-    requires java.annotation;
-    requires java.json.bind;
+    requires jakarta.json.bind;
+    requires jakarta.annotation;
 
     requires enhancedcdi.rabbitmqcdibridge.core;
     requires com.rabbitmq.client;

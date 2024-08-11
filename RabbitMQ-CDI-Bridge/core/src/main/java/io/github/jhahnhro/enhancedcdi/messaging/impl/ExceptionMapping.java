@@ -8,12 +8,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import javax.annotation.PreDestroy;
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.inject.Any;
-import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
@@ -21,6 +15,12 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.ExceptionMapper;
 import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
 import io.github.jhahnhro.enhancedcdi.types.WildcardTypeImpl;
 import io.github.jhahnhro.enhancedcdi.util.BeanInstance;
+import jakarta.annotation.PreDestroy;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.inject.Inject;
 
 // TODO Use Instance.Handle instead
 @ApplicationScoped

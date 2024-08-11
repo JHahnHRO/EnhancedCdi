@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.multiton.exception;
 
-import javax.enterprise.inject.spi.DefinitionException;
+import jakarta.enterprise.inject.spi.DefinitionException;
 
 public class InvalidParametrizedAnnotationException extends DefinitionException {
     public InvalidParametrizedAnnotationException(String message, Throwable t) {

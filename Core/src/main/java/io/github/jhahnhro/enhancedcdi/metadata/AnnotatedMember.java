@@ -6,7 +6,7 @@ import java.lang.reflect.Type;
 import java.util.Set;
 
 class AnnotatedMember<MEMBER extends java.lang.reflect.Member & java.lang.reflect.AnnotatedElement, X>
-        extends AnnotatedElement<MEMBER> implements javax.enterprise.inject.spi.AnnotatedMember<X> {
+        extends AnnotatedElement<MEMBER> implements jakarta.enterprise.inject.spi.AnnotatedMember<X> {
 
     protected final AnnotatedType<X> declaringType;
 

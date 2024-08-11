@@ -2,9 +2,9 @@ package io.github.jhahnhro.enhancedcdi.multiton.testData.validation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import javax.enterprise.util.AnnotationLiteral;
 
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Color;
+import jakarta.enterprise.util.AnnotationLiteral;
 
 public class AnnotationsWithValidFactories {
 

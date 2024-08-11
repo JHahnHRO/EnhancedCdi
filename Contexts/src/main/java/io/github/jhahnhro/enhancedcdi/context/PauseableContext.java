@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import javax.enterprise.context.spi.AlterableContext;
+import jakarta.enterprise.context.spi.AlterableContext;
 
 /**
  * An {@link AlterableContext} that can be manually "paused", i.e. explicitly made inactive. The context may decide for
@@ -8,8 +8,8 @@ import javax.enterprise.context.spi.AlterableContext;
  * <p>
  * Pausing (and re-activation if supported) can happen multiple times.
  *
- * @apiNote <ul><li>Pausing is orthogonal to {@link javax.enterprise.inject.spi.PassivationCapable passivation}. A
- * passivation-capable scope like the {@link javax.enterprise.context.SessionScoped session scope} is still active while
+ * @apiNote <ul><li>Pausing is orthogonal to {@link jakarta.enterprise.inject.spi.PassivationCapable passivation}. A
+ * passivation-capable scope like the {@link jakarta.enterprise.context.SessionScoped session scope} is still active while
  * its beans are passivated. A scope can be both pauseable and passivation-capable, either one or neither.<br />If it is
  * both, it may be a good idea to passivate the beans while the context is inactive, but that is not required.</li>
  * <li>No guarantees are made regarding thread-safety of pausing. An implementation may wait until it can be sure

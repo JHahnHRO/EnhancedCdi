@@ -2,11 +2,11 @@ package io.github.jhahnhro.enhancedcdi.serialization.json;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import javax.json.bind.Jsonb;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
+import jakarta.json.bind.Jsonb;
 
 /**
  * A general purpose {@link SelectableMessageWriter} that serializes arbitrary Java objects to RabbitMQ string messages

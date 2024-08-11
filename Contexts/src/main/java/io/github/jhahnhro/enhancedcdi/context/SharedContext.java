@@ -1,11 +1,11 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.context.ConversationScoped;
-import javax.enterprise.context.RequestScoped;
-import javax.enterprise.context.SessionScoped;
-import javax.enterprise.inject.spi.Bean;
-import javax.inject.Singleton;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.ConversationScoped;
+import jakarta.enterprise.context.RequestScoped;
+import jakarta.enterprise.context.SessionScoped;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.inject.Singleton;
 
 /**
  * A context that shares all its contextual instances between all threads in which it is active.

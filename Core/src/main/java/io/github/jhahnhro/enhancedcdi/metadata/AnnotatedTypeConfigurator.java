@@ -11,14 +11,14 @@ import java.util.stream.Collectors;
  * @param <T>
  */
 public class AnnotatedTypeConfigurator<T>
-        extends AnnotatedElementConfigurator<javax.enterprise.inject.spi.AnnotatedType<T>, AnnotatedTypeConfigurator<T>>
-        implements javax.enterprise.inject.spi.configurator.AnnotatedTypeConfigurator<T> {
+        extends AnnotatedElementConfigurator<jakarta.enterprise.inject.spi.AnnotatedType<T>, AnnotatedTypeConfigurator<T>>
+        implements jakarta.enterprise.inject.spi.configurator.AnnotatedTypeConfigurator<T> {
 
     private final Set<AnnotatedConstructorConfigurator<T>> constructors;
     private final Set<AnnotatedMethodConfigurator<T>> allMethods;
     private final Set<AnnotatedFieldConfigurator<T>> allFields;
 
-    public AnnotatedTypeConfigurator(javax.enterprise.inject.spi.AnnotatedType<T> originalType) {
+    public AnnotatedTypeConfigurator(jakarta.enterprise.inject.spi.AnnotatedType<T> originalType) {
         super(originalType);
 
         this.constructors = originalType.getConstructors()
@@ -28,20 +28,20 @@ public class AnnotatedTypeConfigurator<T>
 
         this.allFields = originalType.getFields()
                 .stream()
-                .map(field -> new AnnotatedFieldConfigurator<>((javax.enterprise.inject.spi.AnnotatedField<T>) field,
+                .map(field -> new AnnotatedFieldConfigurator<>((jakarta.enterprise.inject.spi.AnnotatedField<T>) field,
                                                                this))
                 .collect(Collectors.toUnmodifiableSet());
 
         this.allMethods = originalType.getMethods()
                 .stream()
                 .map(method -> new AnnotatedMethodConfigurator<>(
-                        (javax.enterprise.inject.spi.AnnotatedMethod<T>) method, this))
+                        (jakarta.enterprise.inject.spi.AnnotatedMethod<T>) method, this))
                 .collect(Collectors.toUnmodifiableSet());
 
     }
 
     @Override
-    public Set<javax.enterprise.inject.spi.configurator.AnnotatedMethodConfigurator<? super T>> methods() {
+    public Set<jakarta.enterprise.inject.spi.configurator.AnnotatedMethodConfigurator<? super T>> methods() {
         return (Set) allMethods;
     }
 
@@ -50,7 +50,7 @@ public class AnnotatedTypeConfigurator<T>
     }
 
     @Override
-    public Set<javax.enterprise.inject.spi.configurator.AnnotatedFieldConfigurator<? super T>> fields() {
+    public Set<jakarta.enterprise.inject.spi.configurator.AnnotatedFieldConfigurator<? super T>> fields() {
         return (Set) allFields;
     }
 
@@ -59,7 +59,7 @@ public class AnnotatedTypeConfigurator<T>
     }
 
     @Override
-    public Set<javax.enterprise.inject.spi.configurator.AnnotatedConstructorConfigurator<T>> constructors() {
+    public Set<jakarta.enterprise.inject.spi.configurator.AnnotatedConstructorConfigurator<T>> constructors() {
         return (Set) constructors;
     }
 

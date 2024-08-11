@@ -5,7 +5,7 @@ import java.lang.reflect.Parameter;
 import java.util.Set;
 
 public class AnnotatedParameter<X> extends AnnotatedElement<Parameter>
-        implements javax.enterprise.inject.spi.AnnotatedParameter<X> {
+        implements jakarta.enterprise.inject.spi.AnnotatedParameter<X> {
     private final int position;
     private final AnnotatedCallable<X> declaringCallable;
 

@@ -3,9 +3,9 @@ package io.github.jhahnhro.enhancedcdi.multiton.impl;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
-import javax.enterprise.inject.spi.AnnotatedType;
-import javax.enterprise.inject.spi.BeanAttributes;
 
+import jakarta.enterprise.inject.spi.AnnotatedType;
+import jakarta.enterprise.inject.spi.BeanAttributes;
 import org.eclipse.microprofile.config.Config;
 
 public final class BeanClassData<P, T> extends BeanData<P, T> {

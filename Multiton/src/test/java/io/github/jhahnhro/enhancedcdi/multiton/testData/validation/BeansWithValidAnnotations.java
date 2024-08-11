@@ -1,15 +1,14 @@
 package io.github.jhahnhro.enhancedcdi.multiton.testData.validation;
 
-import javax.enterprise.event.Observes;
-import javax.enterprise.event.ObservesAsync;
-import javax.enterprise.inject.Disposes;
-import javax.enterprise.inject.Produces;
-import javax.inject.Inject;
-
 import io.github.jhahnhro.enhancedcdi.multiton.BeanParameter;
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedAnnotation;
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedBean;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Color;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.event.ObservesAsync;
+import jakarta.enterprise.inject.Disposes;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
 
 @SuppressWarnings("unused")
 public class BeansWithValidAnnotations {

@@ -11,10 +11,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.enterprise.util.AnnotationLiteral;
 
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedAnnotation;
 import io.github.jhahnhro.enhancedcdi.multiton.exception.InvalidParametrizedAnnotationException;
+import jakarta.enterprise.util.AnnotationLiteral;
 
 /**
  * Stores constructors/factory methods for annotation literals that are parametrized by a given enum class.

@@ -4,7 +4,8 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import javax.enterprise.util.AnnotationLiteral;
+
+import jakarta.enterprise.util.AnnotationLiteral;
 
 /**
  * In a {@link ParametrizedBean parametrized bean}, annotations on the class itself, its fields, constructors, methods

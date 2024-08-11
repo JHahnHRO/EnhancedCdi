@@ -1,15 +1,15 @@
 package io.github.jhahnhro.enhancedcdi.multiton.testData.trueBeans;
 
 import java.util.List;
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.inject.Produces;
-import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.multiton.BeanParameter;
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedAnnotation;
 import io.github.jhahnhro.enhancedcdi.multiton.ParametrizedBean;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Color;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Shape;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 @ParametrizedBean

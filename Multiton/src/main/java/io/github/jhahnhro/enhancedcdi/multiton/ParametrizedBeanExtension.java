@@ -6,14 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import javax.enterprise.context.Dependent;
-import javax.enterprise.context.spi.CreationalContext;
-import javax.enterprise.event.Observes;
-import javax.enterprise.inject.Produces;
-import javax.enterprise.inject.Vetoed;
-import javax.enterprise.inject.spi.*;
-import javax.enterprise.inject.spi.configurator.BeanConfigurator;
-import javax.enterprise.util.AnnotationLiteral;
 
 import io.github.jhahnhro.enhancedcdi.multiton.impl.BeanClassData;
 import io.github.jhahnhro.enhancedcdi.multiton.impl.BeanData;
@@ -22,6 +14,14 @@ import io.github.jhahnhro.enhancedcdi.multiton.impl.MapBean;
 import io.github.jhahnhro.enhancedcdi.multiton.impl.ProducerMethodData;
 import io.github.jhahnhro.enhancedcdi.multiton.impl.Validator;
 import io.github.jhahnhro.enhancedcdi.multiton.impl.WithParameter;
+import jakarta.enterprise.context.Dependent;
+import jakarta.enterprise.context.spi.CreationalContext;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.Produces;
+import jakarta.enterprise.inject.Vetoed;
+import jakarta.enterprise.inject.spi.*;
+import jakarta.enterprise.inject.spi.configurator.BeanConfigurator;
+import jakarta.enterprise.util.AnnotationLiteral;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -43,7 +43,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * from the enum class, see the documentation of {@link ParametrizedAnnotation} for details.
  * <p>
  * This makes it possible to define a different qualifier for each of the copies of the bean which avoid {@link
- * javax.enterprise.inject.AmbiguousResolutionException AmbiguousResolutionException}s. If a parametrized bean is
+ * jakarta.enterprise.inject.AmbiguousResolutionException AmbiguousResolutionException}s. If a parametrized bean is
  * defined like so
  * <pre>{@code
  * enum Color{ RED, GREEN, BLUE }

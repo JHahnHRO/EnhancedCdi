@@ -15,7 +15,7 @@ import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
 import io.github.jhahnhro.enhancedcdi.types.Types;
 
 public class AnnotatedType<T> extends AnnotatedElement<Class<T>>
-        implements javax.enterprise.inject.spi.AnnotatedType<T> {
+        implements jakarta.enterprise.inject.spi.AnnotatedType<T> {
     final Set<AnnotatedConstructor<T>> constructors;
     final Set<AnnotatedMethod<T>> methods;
     final Set<AnnotatedField<T>> fields;
@@ -55,7 +55,7 @@ public class AnnotatedType<T> extends AnnotatedElement<Class<T>>
                                    typeResolver.resolvedTypeClosure(clazz));
     }
 
-    public static <T> AnnotatedType<T> of(javax.enterprise.inject.spi.AnnotatedType<T> annotatedType) {
+    public static <T> AnnotatedType<T> of(jakarta.enterprise.inject.spi.AnnotatedType<T> annotatedType) {
         return new AnnotatedType<>(annotatedType.getJavaClass(), Collector.collectAllAnnotations(annotatedType),
                                    annotatedType.getBaseType(), annotatedType.getTypeClosure());
     }
@@ -66,17 +66,17 @@ public class AnnotatedType<T> extends AnnotatedElement<Class<T>>
     }
 
     @Override
-    public Set<javax.enterprise.inject.spi.AnnotatedConstructor<T>> getConstructors() {
+    public Set<jakarta.enterprise.inject.spi.AnnotatedConstructor<T>> getConstructors() {
         return (Set) constructors;
     }
 
     @Override
-    public Set<javax.enterprise.inject.spi.AnnotatedMethod<? super T>> getMethods() {
+    public Set<jakarta.enterprise.inject.spi.AnnotatedMethod<? super T>> getMethods() {
         return (Set) methods;
     }
 
     @Override
-    public Set<javax.enterprise.inject.spi.AnnotatedField<? super T>> getFields() {
+    public Set<jakarta.enterprise.inject.spi.AnnotatedField<? super T>> getFields() {
         return (Set) fields;
     }
 }

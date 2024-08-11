@@ -1,12 +1,12 @@
 package io.github.jhahnhro.enhancedcdi.serialization.json;
 
 import java.io.InputStream;
-import javax.json.bind.Jsonb;
-import javax.json.bind.JsonbException;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageReader;
+import jakarta.json.bind.Jsonb;
+import jakarta.json.bind.JsonbException;
 
 /**
  * Abstract implementation of a {@link SelectableMessageReader} that converts RabbitMQ string messages to Java objects using

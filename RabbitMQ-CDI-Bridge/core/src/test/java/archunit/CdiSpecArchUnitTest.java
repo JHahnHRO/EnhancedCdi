@@ -8,10 +8,6 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.*;
 
 import java.util.Optional;
 import java.util.function.Predicate;
-import javax.enterprise.context.NormalScope;
-import javax.enterprise.inject.Produces;
-import javax.inject.Singleton;
-import javax.interceptor.InterceptorBinding;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -23,6 +19,10 @@ import com.tngtech.archunit.junit.AnalyzeClasses;
 import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import jakarta.enterprise.context.NormalScope;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Singleton;
+import jakarta.interceptor.InterceptorBinding;
 
 
 /**

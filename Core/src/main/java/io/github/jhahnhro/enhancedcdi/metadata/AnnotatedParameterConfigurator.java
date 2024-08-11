@@ -1,15 +1,15 @@
 package io.github.jhahnhro.enhancedcdi.metadata;
 
-public class AnnotatedParameterConfigurator<T, CALLABLE extends javax.enterprise.inject.spi.AnnotatedCallable<T>>
+public class AnnotatedParameterConfigurator<T, CALLABLE extends jakarta.enterprise.inject.spi.AnnotatedCallable<T>>
         extends
-        AnnotatedElementConfigurator<javax.enterprise.inject.spi.AnnotatedParameter<T>,
+        AnnotatedElementConfigurator<jakarta.enterprise.inject.spi.AnnotatedParameter<T>,
                 AnnotatedParameterConfigurator<T, CALLABLE>>
-        implements javax.enterprise.inject.spi.configurator.AnnotatedParameterConfigurator<T> {
+        implements jakarta.enterprise.inject.spi.configurator.AnnotatedParameterConfigurator<T> {
 
     final AnnotatedCallableConfigurator<T, CALLABLE, ?> declaringCallable;
 
-    AnnotatedParameterConfigurator(javax.enterprise.inject.spi.AnnotatedParameter<T> original,
-                                             AnnotatedCallableConfigurator<T, CALLABLE, ?> declaringCallable) {
+    AnnotatedParameterConfigurator(jakarta.enterprise.inject.spi.AnnotatedParameter<T> original,
+                                   AnnotatedCallableConfigurator<T, CALLABLE, ?> declaringCallable) {
         super(original);
         this.declaringCallable = declaringCallable;
     }

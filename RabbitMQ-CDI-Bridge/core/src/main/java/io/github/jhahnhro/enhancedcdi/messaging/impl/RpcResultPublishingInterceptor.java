@@ -4,13 +4,6 @@ import static java.lang.System.Logger.Level.WARNING;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import javax.annotation.Priority;
-import javax.enterprise.context.ContextNotActiveException;
-import javax.enterprise.inject.Instance;
-import javax.inject.Inject;
-import javax.interceptor.AroundInvoke;
-import javax.interceptor.Interceptor;
-import javax.interceptor.InvocationContext;
 
 import io.github.jhahnhro.enhancedcdi.messaging.Publisher;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
@@ -18,6 +11,13 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing.Response;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcEndpoint;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcNotActiveException;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ContextNotActiveException;
+import jakarta.enterprise.inject.Instance;
+import jakarta.inject.Inject;
+import jakarta.interceptor.AroundInvoke;
+import jakarta.interceptor.Interceptor;
+import jakarta.interceptor.InvocationContext;
 
 @Interceptor
 @Priority(Interceptor.Priority.LIBRARY_BEFORE)

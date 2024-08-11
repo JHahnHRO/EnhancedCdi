@@ -5,11 +5,6 @@ import static java.lang.System.Logger.Level.WARNING;
 
 import java.io.IOException;
 import java.lang.annotation.Annotation;
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.Event;
-import javax.enterprise.event.ObserverException;
-import javax.enterprise.event.ObservesAsync;
-import javax.inject.Inject;
 
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.FromExchange;
@@ -24,6 +19,11 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.DeserializationException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.ObserverException;
+import jakarta.enterprise.event.ObservesAsync;
+import jakarta.inject.Inject;
 
 /**
  * Handles incoming raw messages by de-serializing them into java objects and fire those as CDI events. Also deals with

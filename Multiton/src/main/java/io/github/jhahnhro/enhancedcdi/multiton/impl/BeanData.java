@@ -6,9 +6,9 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.BeanAttributes;
 
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanAttributes;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.spi.Converter;
 

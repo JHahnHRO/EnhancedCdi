@@ -33,7 +33,7 @@ public interface Publisher {
     /**
      * Similar to {@link #publish(Outgoing)} but sends the given message to the broker in "mandatory" mode, i.e. the
      * broker will send an error back if the message could not be delivered to any receipts. That error will manifest as
-     * an {@link javax.enterprise.event.ObservesAsync asynchronous event} of type
+     * an {@link jakarta.enterprise.event.ObservesAsync asynchronous event} of type
      * {@link io.github.jhahnhro.enhancedcdi.messaging.messages.ReturnedMessage}.
      *
      * @param message the outgoing message

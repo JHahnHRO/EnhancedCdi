@@ -7,12 +7,6 @@ import java.time.Duration;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.Event;
-import javax.enterprise.event.ObservesAsync;
-import javax.enterprise.inject.Default;
-import javax.enterprise.inject.spi.EventMetadata;
-import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
@@ -29,6 +23,12 @@ import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.DeserializationException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.ObservesAsync;
+import jakarta.enterprise.inject.Default;
+import jakarta.enterprise.inject.spi.EventMetadata;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 class OutgoingMessageHandler implements Publisher {

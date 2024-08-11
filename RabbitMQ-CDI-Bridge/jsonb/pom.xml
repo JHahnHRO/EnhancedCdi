@@ -28,9 +28,9 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.json.bind</groupId>
-            <artifactId>javax.json.bind-api</artifactId>
-            <version>1.0</version>
+            <groupId>jakarta.json.bind</groupId>
+            <artifactId>jakarta.json.bind-api</artifactId>
+            <version>3.0.0</version>
         </dependency>
     </dependencies>
 </project>

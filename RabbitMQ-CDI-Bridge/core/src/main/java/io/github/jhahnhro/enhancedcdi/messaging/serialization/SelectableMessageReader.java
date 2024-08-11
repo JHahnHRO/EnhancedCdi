@@ -1,10 +1,9 @@
 package io.github.jhahnhro.enhancedcdi.messaging.serialization;
 
-import javax.enterprise.inject.spi.Prioritized;
-
 import com.rabbitmq.client.BasicProperties;
 import com.rabbitmq.client.Envelope;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
+import jakarta.enterprise.inject.spi.Prioritized;
 
 /**
  * A {@link MessageReader} that participates in automatic deserialization. If a bean has this interface in its bean
@@ -22,7 +21,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
  * the highest {@link #getPriority() priority} among those that are applicable. If multiple instances with the same
  * priority are applicable to a message, it is undefined which one will be selected.
  * <p>
- * The library provides a {@link javax.enterprise.context.RequestScoped} bean of type {@code MessageReader<Object>} with
+ * The library provides a {@link jakarta.enterprise.context.RequestScoped} bean of type {@code MessageReader<Object>} with
  * qualifier {@link Selected} that represents the result of the selection process for the incoming message of the
  * current request context.
  *

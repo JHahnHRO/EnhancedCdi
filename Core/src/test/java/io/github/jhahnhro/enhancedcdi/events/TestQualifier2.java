@@ -1,8 +1,9 @@
 package io.github.jhahnhro.enhancedcdi.events;
 
-import javax.inject.Qualifier;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+
+import jakarta.inject.Qualifier;
 
 @Qualifier
 @Retention(RetentionPolicy.RUNTIME)

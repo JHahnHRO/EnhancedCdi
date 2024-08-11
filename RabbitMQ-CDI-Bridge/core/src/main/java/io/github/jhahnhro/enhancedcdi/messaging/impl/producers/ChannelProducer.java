@@ -9,14 +9,6 @@ import java.lang.System.Logger.Level;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.Event;
-import javax.enterprise.inject.Any;
-import javax.enterprise.inject.Default;
-import javax.enterprise.inject.Disposes;
-import javax.enterprise.inject.Produces;
-import javax.inject.Inject;
-import javax.inject.Singleton;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.AlreadyClosedException;
@@ -31,6 +23,14 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.ReturnedMessage;
 import io.github.jhahnhro.enhancedcdi.pooled.BlockingPool;
 import io.github.jhahnhro.enhancedcdi.pooled.LazyBlockingPool;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.Default;
+import jakarta.enterprise.inject.Disposes;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Inject;
+import jakarta.inject.Singleton;
 
 @Singleton
 class ChannelProducer {

@@ -3,10 +3,10 @@ package io.github.jhahnhro.enhancedcdi.multiton.impl;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
-import javax.enterprise.inject.spi.AnnotatedMethod;
-import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.BeanAttributes;
 
+import jakarta.enterprise.inject.spi.AnnotatedMethod;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanAttributes;
 import org.eclipse.microprofile.config.Config;
 
 public class ProducerMethodData<P, T, X extends Y, Y> extends BeanData<P, T> {

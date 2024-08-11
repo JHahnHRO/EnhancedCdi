@@ -1,7 +1,5 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import javax.enterprise.context.ContextNotActiveException;
-import javax.enterprise.context.spi.Context;
 import java.lang.annotation.Annotation;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,6 +9,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+
+import jakarta.enterprise.context.ContextNotActiveException;
+import jakarta.enterprise.context.spi.Context;
 
 /**
  * A context that associates beans with "processes". Multiple threads can work on the same process and see the same set
@@ -25,10 +26,10 @@ import java.util.function.Function;
  * often as needed. They can also be {@link Process#close() closed} individually. Calling {@link #close()} on the whole
  * context closes all its processes.
  * <p>
- * If this was part of the CDI standard, {@link javax.enterprise.context.SessionScoped} and
- * {@link javax.enterprise.context.ConversationScoped} would be backed by something similar: Multiple threads can work
+ * If this was part of the CDI standard, {@link jakarta.enterprise.context.SessionScoped} and
+ * {@link jakarta.enterprise.context.ConversationScoped} would be backed by something similar: Multiple threads can work
  * for the same session/conversation, but also multiple conversations/sessions can be active at the same time. In
- * contrast to {@link javax.enterprise.context.RequestScoped} which is usually single-threaded, i.e. every thread in
+ * contrast to {@link jakarta.enterprise.context.RequestScoped} which is usually single-threaded, i.e. every thread in
  * which a RequestContext is active sees its own set of contextual instances.
  *
  * @param <KEY> the type of key identifying the processes

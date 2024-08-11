@@ -1,16 +1,17 @@
 package io.github.jhahnhro.enhancedcdi.events;
 
-import javax.enterprise.event.Event;
-import javax.enterprise.inject.Instance;
-import javax.enterprise.inject.spi.EventMetadata;
-import javax.enterprise.inject.spi.InjectionPoint;
-import javax.inject.Provider;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Objects;
 import java.util.Set;
+
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Instance;
+import jakarta.enterprise.inject.spi.EventMetadata;
+import jakarta.enterprise.inject.spi.InjectionPoint;
+import jakarta.inject.Provider;
 
 /**
  * A relatively simple implementation of {@link EventMetadata} because the CDI spec does not provide a default one.

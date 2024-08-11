@@ -10,16 +10,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
-import javax.enterprise.event.Event;
-import javax.enterprise.inject.Default;
-import javax.enterprise.inject.Instance;
-import javax.enterprise.inject.spi.EventMetadata;
-import javax.enterprise.inject.spi.InjectionPoint;
-import javax.enterprise.util.AnnotationLiteral;
-import javax.enterprise.util.TypeLiteral;
-import javax.inject.Provider;
-
-import io.github.jhahnhro.enhancedcdi.events.EventMetadataImpl;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Instance;
+import jakarta.enterprise.inject.spi.EventMetadata;
+import jakarta.enterprise.inject.spi.InjectionPoint;
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.enterprise.util.TypeLiteral;
+import jakarta.inject.Provider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

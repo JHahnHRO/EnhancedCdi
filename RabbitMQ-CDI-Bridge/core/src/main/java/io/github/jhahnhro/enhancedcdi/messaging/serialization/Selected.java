@@ -2,8 +2,9 @@ package io.github.jhahnhro.enhancedcdi.messaging.serialization;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import javax.enterprise.util.AnnotationLiteral;
-import javax.inject.Qualifier;
+
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.inject.Qualifier;
 
 @Qualifier
 @Retention(RetentionPolicy.RUNTIME)

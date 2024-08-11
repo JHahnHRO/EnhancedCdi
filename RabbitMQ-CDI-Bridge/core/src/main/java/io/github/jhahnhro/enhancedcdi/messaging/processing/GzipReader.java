@@ -4,16 +4,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.InflaterInputStream;
-import javax.annotation.Priority;
-import javax.decorator.Decorator;
-import javax.decorator.Delegate;
-import javax.inject.Inject;
-import javax.interceptor.Interceptor;
 
 import com.rabbitmq.client.AMQP;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
+import jakarta.annotation.Priority;
+import jakarta.decorator.Decorator;
+import jakarta.decorator.Delegate;
+import jakarta.inject.Inject;
+import jakarta.interceptor.Interceptor;
 
 /**
  * A decorator that adds automatic decompression for incoming messages with

@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.multiton.exception;
 
-import javax.enterprise.inject.spi.DefinitionException;
+import jakarta.enterprise.inject.spi.DefinitionException;
 
 public class MissingBeanParameterException extends DefinitionException {
     public MissingBeanParameterException(String message, Throwable t) {

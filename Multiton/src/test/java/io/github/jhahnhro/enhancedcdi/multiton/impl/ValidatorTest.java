@@ -3,14 +3,6 @@ package io.github.jhahnhro.enhancedcdi.multiton.impl;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.function.Predicate;
-import javax.enterprise.event.Observes;
-import javax.enterprise.event.ObservesAsync;
-import javax.enterprise.inject.Disposes;
-import javax.enterprise.inject.spi.AnnotatedParameter;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.DefinitionException;
-import javax.enterprise.util.AnnotationLiteral;
-import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.multiton.BeanParameter;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.Color;
@@ -18,6 +10,14 @@ import io.github.jhahnhro.enhancedcdi.multiton.testData.trueBeans.ParametrizedBe
 import io.github.jhahnhro.enhancedcdi.multiton.testData.validation.BeansWithInvalidAnnotations;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.validation.BeansWithValidAnnotations;
 import io.github.jhahnhro.enhancedcdi.multiton.testData.validation.TheOneTrueBoolean;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.event.ObservesAsync;
+import jakarta.enterprise.inject.Disposes;
+import jakarta.enterprise.inject.spi.AnnotatedParameter;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.enterprise.inject.spi.DefinitionException;
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.Config;
 import org.jboss.weld.junit.MockBean;
 import org.jboss.weld.junit5.EnableWeld;

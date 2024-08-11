@@ -3,14 +3,14 @@ package io.github.jhahnhro.enhancedcdi.multiton;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import javax.enterprise.inject.spi.AnnotatedMethod;
-import javax.enterprise.inject.spi.AnnotatedType;
-import javax.enterprise.inject.spi.DefinitionException;
 
 import io.github.jhahnhro.enhancedcdi.metadata.AnnotatedElementConfigurator;
 import io.github.jhahnhro.enhancedcdi.metadata.AnnotatedMethodConfigurator;
 import io.github.jhahnhro.enhancedcdi.metadata.AnnotatedTypeConfigurator;
 import io.github.jhahnhro.enhancedcdi.multiton.impl.AnnotationLiteralRepository;
+import jakarta.enterprise.inject.spi.AnnotatedMethod;
+import jakarta.enterprise.inject.spi.AnnotatedType;
+import jakarta.enterprise.inject.spi.DefinitionException;
 
 public class AnnotationSpecializer<E> {
 

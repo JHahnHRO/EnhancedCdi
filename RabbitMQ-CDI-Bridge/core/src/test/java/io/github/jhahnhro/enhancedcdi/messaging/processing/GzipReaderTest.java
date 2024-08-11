@@ -9,7 +9,6 @@ import java.io.InputStream;
 import java.util.Arrays;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPOutputStream;
-import javax.inject.Inject;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Envelope;
@@ -17,6 +16,7 @@ import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.InvalidMessageException;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.MessageReader;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
+import jakarta.inject.Inject;
 import org.jboss.weld.junit5.EnableWeld;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;

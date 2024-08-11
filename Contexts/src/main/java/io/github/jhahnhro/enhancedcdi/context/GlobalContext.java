@@ -4,10 +4,10 @@ import java.lang.annotation.Annotation;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.enterprise.context.spi.Contextual;
-import javax.enterprise.context.spi.CreationalContext;
 
 import io.github.jhahnhro.enhancedcdi.util.BeanInstance;
+import jakarta.enterprise.context.spi.Contextual;
+import jakarta.enterprise.context.spi.CreationalContext;
 
 /**
  * The simplest non-trivial {@link CloseableContext}. It is created active for all threads and stays active until it is
@@ -15,10 +15,10 @@ import io.github.jhahnhro.enhancedcdi.util.BeanInstance;
  * instances.
  * <p>
  * It is backed by a {@link ConcurrentHashMap} and works basically the same as the context for the
- * {@link javax.inject.Singleton} scope until it is closed.
+ * {@link jakarta.inject.Singleton} scope until it is closed.
  *
  * @apiNote Closing is not thread-safe, i.e. client proxies that are still in use will throw
- * {@link javax.enterprise.context.ContextNotActiveException} when another thread concurrently calls {@link #close()}.
+ * {@link jakarta.enterprise.context.ContextNotActiveException} when another thread concurrently calls {@link #close()}.
  */
 public class GlobalContext implements SharedContext {
     /**

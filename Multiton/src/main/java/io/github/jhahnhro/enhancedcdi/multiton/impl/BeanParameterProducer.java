@@ -1,8 +1,9 @@
 package io.github.jhahnhro.enhancedcdi.multiton.impl;
 
 import java.util.function.Function;
-import javax.enterprise.inject.Instance;
-import javax.enterprise.inject.spi.InjectionPoint;
+
+import jakarta.enterprise.inject.Instance;
+import jakarta.enterprise.inject.spi.InjectionPoint;
 
 public class BeanParameterProducer<P> implements Function<Instance<Object>, P> {
     private final Validator validator;

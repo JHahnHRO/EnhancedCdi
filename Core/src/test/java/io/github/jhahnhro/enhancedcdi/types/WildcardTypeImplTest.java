@@ -9,8 +9,8 @@ import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.List;
 import java.util.stream.Stream;
-import javax.enterprise.util.TypeLiteral;
 
+import jakarta.enterprise.util.TypeLiteral;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;

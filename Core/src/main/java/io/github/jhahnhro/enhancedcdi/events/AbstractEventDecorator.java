@@ -1,17 +1,18 @@
 package io.github.jhahnhro.enhancedcdi.events;
 
 
-import javax.enterprise.event.Event;
-import javax.enterprise.event.NotificationOptions;
-import javax.enterprise.inject.spi.EventMetadata;
-import javax.enterprise.inject.spi.InjectionPoint;
-import javax.enterprise.util.TypeLiteral;
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.NotificationOptions;
+import jakarta.enterprise.inject.spi.EventMetadata;
+import jakarta.enterprise.inject.spi.InjectionPoint;
+import jakarta.enterprise.util.TypeLiteral;
 
 /**
  * A base class for decorating the built-in bean of type(s) {@code Event<..>}. The default implementation simply

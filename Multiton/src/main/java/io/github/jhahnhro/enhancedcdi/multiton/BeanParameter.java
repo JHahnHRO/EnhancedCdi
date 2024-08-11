@@ -4,8 +4,9 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import javax.enterprise.util.AnnotationLiteral;
-import javax.inject.Qualifier;
+
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.inject.Qualifier;
 
 /**
  * The concrete enum constant corresponding to the copy of a {@link ParametrizedBean parametrized bean} can be injected

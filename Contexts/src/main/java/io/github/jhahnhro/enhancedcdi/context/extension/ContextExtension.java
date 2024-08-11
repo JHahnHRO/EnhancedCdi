@@ -1,17 +1,29 @@
 package io.github.jhahnhro.enhancedcdi.context.extension;
 
-import io.github.jhahnhro.enhancedcdi.context.*;
-import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
-import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
-
-import javax.enterprise.event.Observes;
-import javax.enterprise.inject.spi.*;
-import javax.inject.Singleton;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.ParameterizedType;
 import java.util.ArrayList;
 import java.util.List;
+
+import io.github.jhahnhro.enhancedcdi.context.CloseableContext;
+import io.github.jhahnhro.enhancedcdi.context.CloseableContextController;
+import io.github.jhahnhro.enhancedcdi.context.ProcessContext;
+import io.github.jhahnhro.enhancedcdi.context.ProcessContextController;
+import io.github.jhahnhro.enhancedcdi.context.SimpleCloseableContextController;
+import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
+import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.spi.AfterBeanDiscovery;
+import jakarta.enterprise.inject.spi.AnnotatedConstructor;
+import jakarta.enterprise.inject.spi.AnnotatedType;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.enterprise.inject.spi.DefinitionException;
+import jakarta.enterprise.inject.spi.Extension;
+import jakarta.enterprise.inject.spi.ProcessAnnotatedType;
+import jakarta.enterprise.inject.spi.WithAnnotations;
+import jakarta.inject.Singleton;
 
 public class ContextExtension implements Extension {
 

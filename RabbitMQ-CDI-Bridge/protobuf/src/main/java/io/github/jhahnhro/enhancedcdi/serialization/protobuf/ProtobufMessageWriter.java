@@ -2,12 +2,12 @@ package io.github.jhahnhro.enhancedcdi.serialization.protobuf;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import javax.enterprise.context.Dependent;
 
 import com.google.protobuf.Message;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SelectableMessageWriter;
+import jakarta.enterprise.context.Dependent;
 
 @Dependent
 public class ProtobufMessageWriter<M extends Message> implements SelectableMessageWriter<M> {

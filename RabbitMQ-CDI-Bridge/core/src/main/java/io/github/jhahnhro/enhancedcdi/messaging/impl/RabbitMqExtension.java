@@ -8,15 +8,6 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.enterprise.event.Observes;
-import javax.enterprise.inject.spi.AfterBeanDiscovery;
-import javax.enterprise.inject.spi.AfterDeploymentValidation;
-import javax.enterprise.inject.spi.AnnotatedMethod;
-import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.DefinitionException;
-import javax.enterprise.inject.spi.Extension;
-import javax.enterprise.inject.spi.ProcessObserverMethod;
-import javax.enterprise.util.AnnotationLiteral;
 
 import com.rabbitmq.client.AMQP;
 import io.github.jhahnhro.enhancedcdi.messaging.Consolidated;
@@ -24,6 +15,15 @@ import io.github.jhahnhro.enhancedcdi.messaging.FromExchange;
 import io.github.jhahnhro.enhancedcdi.messaging.FromQueue;
 import io.github.jhahnhro.enhancedcdi.messaging.Topology;
 import io.github.jhahnhro.enhancedcdi.messaging.rpc.RpcEndpoint;
+import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.spi.AfterBeanDiscovery;
+import jakarta.enterprise.inject.spi.AfterDeploymentValidation;
+import jakarta.enterprise.inject.spi.AnnotatedMethod;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.enterprise.inject.spi.DefinitionException;
+import jakarta.enterprise.inject.spi.Extension;
+import jakarta.enterprise.inject.spi.ProcessObserverMethod;
+import jakarta.enterprise.util.AnnotationLiteral;
 
 public class RabbitMqExtension implements Extension {
     private final Map<String, Set<AnnotatedMethod<?>>> necessaryQueues = new HashMap<>();
@@ -54,7 +54,6 @@ public class RabbitMqExtension implements Extension {
                 .map(FromExchange::value)
                 .findAny()
                 .ifPresent(exchange -> necessaryExchanges.computeIfAbsent(exchange, __ -> new HashSet<>()).add(method));
-
     }
 
     private <T, X> void validateRpcMethod(ProcessObserverMethod<T, X> pom) {

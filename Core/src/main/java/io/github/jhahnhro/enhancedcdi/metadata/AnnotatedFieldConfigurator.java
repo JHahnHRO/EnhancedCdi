@@ -2,12 +2,12 @@ package io.github.jhahnhro.enhancedcdi.metadata;
 
 public class AnnotatedFieldConfigurator<T> extends
                                            AnnotatedMemberConfigurator<T,
-                                                   javax.enterprise.inject.spi.AnnotatedField<T>,
+                                                   jakarta.enterprise.inject.spi.AnnotatedField<T>,
                                                    AnnotatedFieldConfigurator<T>>
-        implements javax.enterprise.inject.spi.configurator.AnnotatedFieldConfigurator<T> {
+        implements jakarta.enterprise.inject.spi.configurator.AnnotatedFieldConfigurator<T> {
 
-    AnnotatedFieldConfigurator(javax.enterprise.inject.spi.AnnotatedField<T> original,
-                                      AnnotatedTypeConfigurator<T> declaringType) {
+    AnnotatedFieldConfigurator(jakarta.enterprise.inject.spi.AnnotatedField<T> original,
+                               AnnotatedTypeConfigurator<T> declaringType) {
         super(original, declaringType);
     }
 

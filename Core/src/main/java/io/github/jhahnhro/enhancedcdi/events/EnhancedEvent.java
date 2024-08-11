@@ -1,12 +1,5 @@
 package io.github.jhahnhro.enhancedcdi.events;
 
-import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
-
-import javax.enterprise.context.Dependent;
-import javax.enterprise.event.Event;
-import javax.enterprise.inject.Typed;
-import javax.enterprise.inject.spi.*;
-import javax.inject.Inject;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Member;
 import java.lang.reflect.ParameterizedType;
@@ -14,6 +7,17 @@ import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+
+import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
+import jakarta.enterprise.context.Dependent;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Typed;
+import jakarta.enterprise.inject.spi.Annotated;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanManager;
+import jakarta.enterprise.inject.spi.EventMetadata;
+import jakarta.enterprise.inject.spi.InjectionPoint;
+import jakarta.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.metadata.InjectionPointImpl;
 import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;

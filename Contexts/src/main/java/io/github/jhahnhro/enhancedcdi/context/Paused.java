@@ -1,10 +1,11 @@
 package io.github.jhahnhro.enhancedcdi.context;
 
-import javax.enterprise.util.AnnotationLiteral;
-import javax.inject.Qualifier;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.inject.Qualifier;
 
 @Retention(RetentionPolicy.RUNTIME)
 @Qualifier

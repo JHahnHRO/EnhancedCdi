@@ -8,11 +8,11 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.inject.Singleton;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import jakarta.inject.Singleton;
 
 @Singleton
 public class PlainTextReaderWriter implements SelectableMessageReader<String>, SelectableMessageWriter<String> {

@@ -6,7 +6,7 @@ import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.Set;
 
-public class AnnotatedMethod<X> extends AnnotatedCallable<X> implements javax.enterprise.inject.spi.AnnotatedMethod<X> {
+public class AnnotatedMethod<X> extends AnnotatedCallable<X> implements jakarta.enterprise.inject.spi.AnnotatedMethod<X> {
     protected AnnotatedMethod(Method method, Map<AnnotatedElement, Set<Annotation>> annotations,
                               AnnotatedType<X> declaringType) {
         super(method, annotations, declaringType.typeResolver.resolve(method.getGenericReturnType()),

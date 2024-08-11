@@ -1,6 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.multiton.exception;
 
-import javax.enterprise.inject.spi.DefinitionException;
+import jakarta.enterprise.inject.spi.DefinitionException;
 
 public class InvalidBeanParameterException extends DefinitionException {
     public InvalidBeanParameterException(String message, Throwable t) {

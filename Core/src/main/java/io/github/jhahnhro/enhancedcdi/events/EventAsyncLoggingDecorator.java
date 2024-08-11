@@ -1,14 +1,5 @@
 package io.github.jhahnhro.enhancedcdi.events;
 
-import javax.decorator.Decorator;
-import javax.decorator.Delegate;
-import javax.enterprise.event.Event;
-import javax.enterprise.event.NotificationOptions;
-import javax.enterprise.inject.Any;
-import javax.enterprise.inject.spi.Bean;
-import javax.enterprise.inject.spi.EventMetadata;
-import javax.enterprise.inject.spi.InjectionPoint;
-import javax.inject.Inject;
 import java.io.Serializable;
 import java.lang.System.Logger.Level;
 import java.text.MessageFormat;
@@ -18,9 +9,19 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
+import jakarta.decorator.Decorator;
+import jakarta.decorator.Delegate;
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.NotificationOptions;
+import jakarta.enterprise.inject.Any;
+import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.EventMetadata;
+import jakarta.enterprise.inject.spi.InjectionPoint;
+import jakarta.inject.Inject;
+
 /**
  * Enables logging of all exceptions that are thrown in
- * {@link javax.enterprise.event.ObservesAsync async observer methods} and would otherwise be lost. All exceptions from
+ * {@link jakarta.enterprise.event.ObservesAsync async observer methods} and would otherwise be lost. All exceptions from
  * all failed observer methods are collected and logged after the last observer method finished executing.
  *
  * @param <T>

@@ -2,12 +2,12 @@ package io.github.jhahnhro.enhancedcdi.metadata;
 
 public class AnnotatedConstructorConfigurator<T> extends
                                                  AnnotatedCallableConfigurator<T,
-                                                         javax.enterprise.inject.spi.AnnotatedConstructor<T>,
+                                                         jakarta.enterprise.inject.spi.AnnotatedConstructor<T>,
                                                          AnnotatedConstructorConfigurator<T>>
-        implements javax.enterprise.inject.spi.configurator.AnnotatedConstructorConfigurator<T> {
+        implements jakarta.enterprise.inject.spi.configurator.AnnotatedConstructorConfigurator<T> {
 
-    AnnotatedConstructorConfigurator(javax.enterprise.inject.spi.AnnotatedConstructor<T> original,
-                                            AnnotatedTypeConfigurator<T> declaringType) {
+    AnnotatedConstructorConfigurator(jakarta.enterprise.inject.spi.AnnotatedConstructor<T> original,
+                                     AnnotatedTypeConfigurator<T> declaringType) {
         super(original, declaringType);
     }
 

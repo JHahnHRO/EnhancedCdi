@@ -7,7 +7,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class AnnotatedConstructor<X> extends AnnotatedCallable<X>
-        implements javax.enterprise.inject.spi.AnnotatedConstructor<X> {
+        implements jakarta.enterprise.inject.spi.AnnotatedConstructor<X> {
     protected AnnotatedConstructor(Constructor<X> constructor, Map<AnnotatedElement, Set<Annotation>> annotations,
                                    AnnotatedType<X> declaringType) {
         super(constructor, annotations, declaringType.getBaseType(), declaringType.getTypeClosure(), declaringType);

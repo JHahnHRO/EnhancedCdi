@@ -3,9 +3,7 @@ package io.github.jhahnhro.enhancedcdi.events;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 import java.lang.annotation.Annotation;
 import java.util.Set;
@@ -13,13 +11,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 
-import javax.enterprise.event.Event;
-import javax.enterprise.event.NotificationOptions;
-import javax.enterprise.inject.spi.EventMetadata;
-import javax.enterprise.inject.spi.InjectionPoint;
-import javax.enterprise.util.AnnotationLiteral;
-import javax.enterprise.util.TypeLiteral;
-
+import jakarta.enterprise.event.Event;
+import jakarta.enterprise.event.NotificationOptions;
+import jakarta.enterprise.inject.spi.EventMetadata;
+import jakarta.enterprise.inject.spi.InjectionPoint;
+import jakarta.enterprise.util.AnnotationLiteral;
+import jakarta.enterprise.util.TypeLiteral;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

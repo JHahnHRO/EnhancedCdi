@@ -1,7 +1,8 @@
 package io.github.jhahnhro.enhancedcdi.messaging.impl;
 
 import java.util.Comparator;
-import javax.enterprise.inject.spi.Prioritized;
+
+import jakarta.enterprise.inject.spi.Prioritized;
 
 public enum PriorityComparator implements Comparator<Prioritized> {
     LOWEST_FIRST {

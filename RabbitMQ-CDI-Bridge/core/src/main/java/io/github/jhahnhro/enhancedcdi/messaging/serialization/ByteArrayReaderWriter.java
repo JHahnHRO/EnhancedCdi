@@ -3,11 +3,11 @@ package io.github.jhahnhro.enhancedcdi.messaging.serialization;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import javax.inject.Singleton;
 
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.MessageBuilder;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Outgoing;
+import jakarta.inject.Singleton;
 
 @Singleton
 public class ByteArrayReaderWriter implements SelectableMessageReader<byte[]>, SelectableMessageWriter<byte[]> {

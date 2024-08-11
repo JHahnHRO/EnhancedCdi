@@ -4,8 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
 
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.messages.Incoming;
@@ -18,6 +16,8 @@ import io.github.jhahnhro.enhancedcdi.messaging.serialization.Selected;
 import io.github.jhahnhro.enhancedcdi.messaging.serialization.SerializationException;
 import io.github.jhahnhro.enhancedcdi.types.ParameterizedTypeImpl;
 import io.github.jhahnhro.enhancedcdi.util.EnhancedInstance;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 class Serialization {

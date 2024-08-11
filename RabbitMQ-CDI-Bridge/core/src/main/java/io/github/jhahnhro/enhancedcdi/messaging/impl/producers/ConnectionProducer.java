@@ -9,10 +9,6 @@ import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.inject.Disposes;
-import javax.enterprise.inject.Produces;
-import javax.inject.Singleton;
 
 import com.rabbitmq.client.AlreadyClosedException;
 import com.rabbitmq.client.Channel;
@@ -22,6 +18,10 @@ import com.rabbitmq.client.ShutdownNotifier;
 import com.rabbitmq.client.ShutdownSignalException;
 import io.github.jhahnhro.enhancedcdi.messaging.Configuration;
 import io.github.jhahnhro.enhancedcdi.messaging.Retry;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Disposes;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Singleton;
 
 @Singleton
 class ConnectionProducer {
