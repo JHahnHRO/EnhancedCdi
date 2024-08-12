@@ -2,10 +2,10 @@ package io.github.jhahnhro.enhancedcdi.types;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 
-public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... actualTypeArguments)
+public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, List<Type> actualTypeArguments)
         implements ParameterizedType {
 
     public ParameterizedTypeImpl {
@@ -14,15 +14,20 @@ public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... ac
             throw new IllegalArgumentException(
                     "ownerType must be present iff the rawType is declared by another class");
         }
-        if (rawType.getTypeParameters().length != actualTypeArguments.length) {
+        // implicit NPE if actualTypeArguments == null
+        if (rawType.getTypeParameters().length != actualTypeArguments.size()) {
             throw new IllegalArgumentException("wrong number of type parameters");
         }
-        actualTypeArguments = Arrays.copyOf(actualTypeArguments, actualTypeArguments.length);
+        actualTypeArguments = List.copyOf(actualTypeArguments);
+    }
+
+    public ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... actualTypeArguments) {
+        this(rawType, ownerType, List.of(actualTypeArguments));
     }
 
     @Override
     public Type[] getActualTypeArguments() {
-        return Arrays.copyOf(actualTypeArguments, actualTypeArguments.length);
+        return actualTypeArguments.toArray(Type[]::new);
     }
 
     @Override
@@ -39,7 +44,9 @@ public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... ac
     @Override
     public int hashCode() {
         // not Objects.hash(...) in order to be consistent with Weld's implementation
-        return Arrays.hashCode(actualTypeArguments) ^ Objects.hashCode(ownerType) ^ Objects.hashCode(rawType);
+
+        return actualTypeArguments.hashCode() // happens to be equal to Arrays.hashCode which Weld uses
+               ^ Objects.hashCode(ownerType) ^ Objects.hashCode(rawType);
     }
 
     @Override
@@ -48,8 +55,8 @@ public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... ac
             return true;
         }
         return obj instanceof ParameterizedType that && Objects.equals(this.ownerType, that.getOwnerType())
-               && Objects.equals(this.rawType, that.getRawType()) && Arrays.equals(this.actualTypeArguments,
-                                                                                   that.getActualTypeArguments());
+               && Objects.equals(this.rawType, that.getRawType()) && Objects.equals(this.actualTypeArguments,
+                                                                                    List.of(that.getActualTypeArguments()));
     }
 
     @Override
@@ -59,7 +66,7 @@ public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, Type... ac
             sb.append(ownerType).append("$");
         }
         sb.append(rawType);
-        if (actualTypeArguments.length > 0) {
+        if (!actualTypeArguments.isEmpty()) {
             sb.append("<");
             for (Type actualType : actualTypeArguments) {
                 sb.append(actualType);
