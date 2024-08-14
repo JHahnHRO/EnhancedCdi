@@ -1,10 +1,11 @@
 package io.github.jhahnhro.enhancedcdi.types;
 
+import java.io.Serializable;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Type;
 import java.util.Objects;
 
-public record GenericArrayTypeImpl(Type genericComponentType) implements GenericArrayType {
+public record GenericArrayTypeImpl(Type genericComponentType) implements GenericArrayType, Serializable {
     public GenericArrayTypeImpl {
         Objects.requireNonNull(genericComponentType);
     }

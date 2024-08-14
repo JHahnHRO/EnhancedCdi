@@ -1,11 +1,13 @@
 package io.github.jhahnhro.enhancedcdi.types;
 
+import java.io.Serializable;
+import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.Arrays;
 import java.util.List;
 
-public record WildcardTypeImpl(List<Type> upperBounds, List<Type> lowerBounds) implements WildcardType {
+public record WildcardTypeImpl(List<Type> upperBounds, List<Type> lowerBounds) implements WildcardType, Serializable {
 
     public WildcardTypeImpl {
         upperBounds = List.copyOf(upperBounds);

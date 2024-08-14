@@ -1,12 +1,13 @@
 package io.github.jhahnhro.enhancedcdi.types;
 
+import java.io.Serializable;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Objects;
 
 public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, List<Type> actualTypeArguments)
-        implements ParameterizedType {
+        implements ParameterizedType, Serializable {
 
     public ParameterizedTypeImpl {
         // implicit NPE if rawType == null
