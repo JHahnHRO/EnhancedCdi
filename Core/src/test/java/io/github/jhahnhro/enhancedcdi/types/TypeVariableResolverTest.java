@@ -5,13 +5,18 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+import java.util.AbstractCollection;
+import java.util.AbstractList;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.SequencedCollection;
 import java.util.Set;
 import java.util.stream.Stream;
 
 import jakarta.enterprise.util.TypeLiteral;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -90,13 +95,62 @@ class TypeVariableResolverTest {
     }
 
     @Test
-    void testKnownTypes() {
+    void testResolvedTypeClosure() {
         final Type typeOfListOfInteger = new TypeLiteral<List<Integer>>() {}.getType();
         final TypeVariableResolver resolver = TypeVariableResolver.withKnownTypesOf(typeOfListOfInteger);
 
-        assertThat(resolver.hasUnresolvedVariables()).isFalse();
         assertThat(resolver.resolvedTypeClosure(typeOfListOfInteger)).isEqualTo(
-                Set.of(typeOfListOfInteger, new TypeLiteral<Collection<Integer>>() {}.getType(),
+                Set.of(typeOfListOfInteger, new TypeLiteral<SequencedCollection<Integer>>() {}.getType(),
+                       new TypeLiteral<Collection<Integer>>() {}.getType(),
                        new TypeLiteral<Iterable<Integer>>() {}.getType(), Object.class));
+    }
+
+    @Nested
+    class TestKnownTypes {
+
+        @Test
+        void shouldResolveVariablesInSuperTypes() {
+            final Type typeOfListOfInteger = new TypeLiteral<ArrayList<Integer>>() {}.getType();
+            final TypeVariableResolver resolver = TypeVariableResolver.withKnownTypesOf(typeOfListOfInteger);
+
+            assertThat(resolver.hasUnresolvedVariables()).isFalse();
+
+            // super classes
+            assertThat(resolver.resolve(ArrayList.class.getTypeParameters()[0])).isEqualTo(Integer.class);
+            assertThat(resolver.resolve(AbstractList.class.getTypeParameters()[0])).isEqualTo(Integer.class);
+            assertThat(resolver.resolve(AbstractCollection.class.getTypeParameters()[0])).isEqualTo(Integer.class);
+            // interfaces
+            assertThat(resolver.resolve(List.class.getTypeParameters()[0])).isEqualTo(Integer.class);
+            assertThat(resolver.resolve(SequencedCollection.class.getTypeParameters()[0])).isEqualTo(Integer.class);
+            assertThat(resolver.resolve(Collection.class.getTypeParameters()[0])).isEqualTo(Integer.class);
+            assertThat(resolver.resolve(Iterable.class.getTypeParameters()[0])).isEqualTo(Integer.class);
+        }
+
+        @Test
+        <T> void shouldRecognizeUnresolvableVariables() {
+            final Type typeOfListOfInteger = new TypeLiteral<Map<Integer, T>>() {}.getType();
+            final TypeVariableResolver resolver = TypeVariableResolver.withKnownTypesOf(typeOfListOfInteger);
+
+            assertThat(resolver.hasUnresolvedVariables()).isTrue();
+
+            assertThat(resolver.resolve(Map.class.getTypeParameters()[0])).isEqualTo(Integer.class);
+            assertThat(resolver.resolve(Map.class.getTypeParameters()[1])).isEqualTo(new TypeLiteral<T>() {}.getType());
+        }
+
+        @Test
+        void shouldNotResolveNestedParametrizedTypes() {
+            final Type type = new TypeLiteral<Map<Set<Integer>, Set<Long>>>() {}.getType();
+            final TypeVariableResolver resolver = TypeVariableResolver.withKnownTypesOf(type);
+
+            assertThat(resolver.hasUnresolvedVariables()).isFalse();
+
+            assertThat(resolver.resolve(Map.class.getTypeParameters()[0])).isEqualTo(
+                    new TypeLiteral<Set<Integer>>() {}.getType());
+            assertThat(resolver.resolve(Map.class.getTypeParameters()[1])).isEqualTo(
+                    new TypeLiteral<Set<Long>>() {}.getType());
+
+            final TypeVariable<?> unresolvableVariable = Set.class.getTypeParameters()[0];
+            assertThat(resolver.resolve(unresolvableVariable)).isEqualTo(unresolvableVariable);
+        }
     }
 }
