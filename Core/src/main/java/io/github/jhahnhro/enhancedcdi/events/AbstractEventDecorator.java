@@ -3,8 +3,9 @@ package io.github.jhahnhro.enhancedcdi.events;
 
 import java.io.Serializable;
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Type;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 
@@ -16,9 +17,9 @@ import jakarta.enterprise.util.TypeLiteral;
 
 /**
  * A base class for decorating the built-in bean of type(s) {@code Event<..>}. The default implementation simply
- * delegates {@link Event#fire(Object)} and {@link Event#fireAsync(Object)}. The only abstract method is {@link
- * #decorate(Event, EventMetadata)} which is needed to return a correctly decorated Event from the three {@code select}
- * methods.
+ * delegates {@link Event#fire(Object)} and {@link Event#fireAsync(Object)}. The only abstract method is
+ * {@link #decorate(Event, EventMetadata)} which is needed to return a correctly decorated Event from the three
+ * {@code select} methods.
  *
  * @param <T> the Event type
  */
@@ -33,8 +34,8 @@ public abstract class AbstractEventDecorator<T> implements Event<T>, Serializabl
      * {@code U}.
      * <p>
      * The selected qualifiers can be a super set of {@code injectionPoint.getQualifiers()} and {@code U} can be a
-     * subtype of {@code T} if the injection point has required type {@code Event<T>}) in cases when {@link
-     * Event#select(Class, Annotation...)} was called to specialise the event.
+     * subtype of {@code T} if the injection point has required type {@code Event<T>}) in cases when
+     * {@link Event#select(Class, Annotation...)} was called to specialise the event.
      */
     protected final EventMetadata eventMetadata;
 
@@ -93,29 +94,31 @@ public abstract class AbstractEventDecorator<T> implements Event<T>, Serializabl
 
     @Override
     public Event<T> select(Annotation... qualifiers) {
-        Set<Annotation> newQualifiers = new HashSet<>(eventMetadata.getQualifiers());
-        Collections.addAll(newQualifiers, qualifiers);
-
-        return decorate(delegate.select(qualifiers),
-                        new EventMetadataImpl(eventMetadata.getInjectionPoint(), eventMetadata.getType(),
-                                              newQualifiers));
+        return decorate(delegate.select(qualifiers), createNewMetadata(eventMetadata.getType(), qualifiers));
     }
 
     @Override
     public <U extends T> Event<U> select(Class<U> subtype, Annotation... qualifiers) {
-        Set<Annotation> newQualifiers = new HashSet<>(eventMetadata.getQualifiers());
-        Collections.addAll(newQualifiers, qualifiers);
-
-        return decorate(delegate.select(subtype, qualifiers),
-                        new EventMetadataImpl(eventMetadata.getInjectionPoint(), subtype, newQualifiers));
+        return decorate(delegate.select(subtype, qualifiers), createNewMetadata(subtype, qualifiers));
     }
 
     @Override
     public <U extends T> Event<U> select(TypeLiteral<U> subtype, Annotation... qualifiers) {
-        Set<Annotation> newQualifiers = new HashSet<>(eventMetadata.getQualifiers());
-        Collections.addAll(newQualifiers, qualifiers);
+        return decorate(delegate.select(subtype, qualifiers), createNewMetadata(subtype.getType(), qualifiers));
+    }
 
-        return decorate(delegate.select(subtype, qualifiers),
-                        new EventMetadataImpl(eventMetadata.getInjectionPoint(), subtype.getType(), newQualifiers));
+    /**
+     * Creates a new {@link EventMetadata} instance with the same {@link InjectionPoint} as {@link #eventMetadata}, but
+     * a different type and possible more qualifiers.
+     *
+     * @param subtype              the new type
+     * @param additionalQualifiers additional qualifiers
+     * @return a new {@link EventMetadata} instance
+     */
+    protected EventMetadata createNewMetadata(Type subtype, Annotation... additionalQualifiers) {
+        Set<Annotation> newQualifiers = new LinkedHashSet<>(eventMetadata.getQualifiers());
+        Collections.addAll(newQualifiers, additionalQualifiers);
+
+        return new EventMetadataImpl(eventMetadata.getInjectionPoint(), subtype, newQualifiers);
     }
 }

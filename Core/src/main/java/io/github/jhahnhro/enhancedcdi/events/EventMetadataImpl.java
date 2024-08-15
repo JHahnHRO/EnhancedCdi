@@ -4,11 +4,12 @@ import java.io.Serializable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
+import io.github.jhahnhro.enhancedcdi.types.TypeVariableResolver;
 import jakarta.enterprise.event.Event;
-import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.spi.EventMetadata;
 import jakarta.enterprise.inject.spi.InjectionPoint;
 import jakarta.inject.Provider;
@@ -40,23 +41,29 @@ public record EventMetadataImpl(InjectionPoint eventInjectionPoint, Type eventTy
     }
 
     /**
+     * Convenience constructor that constructs a EventMetaData from an injection point of type {@link Event Event<T>}.
+     *
      * @param eventInjectionPoint an injection point of type {@link Event Event<T>}.
-     * @throws NullPointerException     if the injection point is null
+     * @throws NullPointerException     if the injection point is {@code null}
      * @throws IllegalArgumentException if the injection point does not have a legal type for event injection points,
-     *                                  i.e. {@code Event<T>}, {@code Instance<Event<T>>}, {@code Provider<Event<T>>},
-     *                                  {@code Instance<Provider<Event<T>>}, etc. (all of which except the first are
-     *                                  nonsensical for a real world application, but technically allowed by the CDI
-     *                                  spec)
+     *                                  i.e. {@code Event<T>}, {@code WeldEvent<T>}, {@code EnhancedEvent<T>},
+     *                                  {@code Instance<Event<T>>}, {@code Provider<Event<T>>},
+     *                                  {@code Instance<Provider<Event<T>>}, etc. (those last three are nonsensical for
+     *                                  a real world application, but technically allowed by the CDI spec)
      */
     public EventMetadataImpl(InjectionPoint eventInjectionPoint) {
-        this(Objects.requireNonNull(eventInjectionPoint), extractSpecifiedType(eventInjectionPoint),
-             eventInjectionPoint.getQualifiers());
+        this(eventInjectionPoint, extractSpecifiedType(eventInjectionPoint), eventInjectionPoint.getQualifiers());
     }
 
     private static Type extractSpecifiedType(InjectionPoint injectionPoint) {
         Type type = injectionPoint.getType();
-        if (type instanceof ParameterizedType pType) {
-            Type eventType = extractEventType(pType);
+        if (type instanceof ParameterizedType parameterizedType) {
+            if (parameterizedType.getRawType() == Event.class) { // shortcut for the most common case
+                return parameterizedType.getActualTypeArguments()[0];
+            }
+            // more complex cases: Maybe it's WeldEvent<T>. We must resolve type variables.
+            Type eventType = extractEventType(parameterizedType,
+                                              TypeVariableResolver.withKnownTypesOf(parameterizedType));
             if (eventType != null) {
                 return eventType;
             }
@@ -65,21 +72,34 @@ public record EventMetadataImpl(InjectionPoint eventInjectionPoint, Type eventTy
         throw new IllegalArgumentException(injectionPoint + " is not a legal injection point for an Event");
     }
 
-    private static Type extractEventType(final ParameterizedType parameterizedType) {
+    private static Type extractEventType(final ParameterizedType parameterizedType, TypeVariableResolver resolver) {
         ParameterizedType paramType = parameterizedType;
-        while (true) {
-            Type rawType = paramType.getRawType();
-            if (rawType == Event.class) {
-                return paramType.getActualTypeArguments()[0];
-            } else if ((rawType == Provider.class || rawType == Instance.class)
-                       && paramType.getActualTypeArguments()[0] instanceof ParameterizedType pType) {
-                // It's not particular reasonable, but nevertheless perfectly legal to have an injection point of type
-                // Instance<Event<T>> or Provider<Provider<Event<T>>> or Provider<Instance<Provider<...
-                paramType = pType;
-                continue;
+
+        // It's not particular reasonable, but nevertheless perfectly legal to have an injection point of
+        // type Instance<Event<T>> or Provider<Provider<Event<T>>> or Provider<Instance<Provider<...
+        //
+        // 1. Step: Unpack those types
+        Set<Type> alreadyVisited = new HashSet<>();
+        while (Provider.class.isAssignableFrom((Class<?>) paramType.getRawType())) {
+            if (!alreadyVisited.add(paramType)) {
+                // Parametrized types can have cycles!! A self-referential definition like
+                // class Foobar implements Provider<Foobar>{...}
+                // can exist as a type. But no such types are types of Event injection points.
+                return null;
             }
-            return null;
+
+            final ParameterizedType resolvedArgument = (ParameterizedType) resolver.resolve(Provider.class);
+            if (resolvedArgument.getActualTypeArguments()[0] instanceof ParameterizedType pType) {
+                resolver = TypeVariableResolver.withKnownTypesOf(pType);
+                paramType = pType;
+            }
         }
+
+        // 2. Step: Unpack the event type
+        if (Event.class.isAssignableFrom((Class<?>) paramType.getRawType())) {
+            return resolver.resolve(Event.class.getTypeParameters()[0]);
+        }
+        return null;
     }
 
     @Override
