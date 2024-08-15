@@ -1,7 +1,6 @@
 package io.github.jhahnhro.enhancedcdi.util;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.lang.annotation.Annotation;
@@ -22,14 +21,17 @@ import jakarta.enterprise.inject.AmbiguousResolutionException;
 import jakarta.enterprise.inject.Any;
 import jakarta.enterprise.inject.Default;
 import jakarta.enterprise.inject.Instance;
+import jakarta.enterprise.inject.Instance.Handle;
 import jakarta.enterprise.inject.Produces;
 import jakarta.enterprise.inject.UnsatisfiedResolutionException;
+import jakarta.enterprise.inject.spi.InjectionPoint;
 import jakarta.enterprise.util.AnnotationLiteral;
 import jakarta.enterprise.util.TypeLiteral;
 import jakarta.inject.Inject;
 import jakarta.inject.Qualifier;
 import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.junit5.EnableWeld;
+import org.jboss.weld.junit5.ExplicitParamInjection;
 import org.jboss.weld.junit5.WeldInitiator;
 import org.jboss.weld.junit5.WeldSetup;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,31 +60,10 @@ class EnhancedInstanceTest {
     static Map<Integer, String> qualifiedMap = Map.of(1, "-1", 2, "-2", 3, "-3");
     Weld w = new Weld().disableDiscovery()
             .addBeanClasses(EnhancedInstance.class, EnhancedInstanceTest.class, AppScopedBean.class,
-                            DependentBean.class);
+                            DependentBean.class, InjectionPointAwareBean.class);
 
     @Inject
     EnhancedInstance<Object> enhancedInstance;
-
-    static Stream<Arguments> getArguments() {
-        final Annotation[] none = new Annotation[0];
-        return Stream.of(
-                //@formatter:off
-                arguments(new TypeLiteral<List<String>>() {}.getType(), none, new List[]{strings}),
-                arguments(new TypeLiteral<List<?>>() {}.getType(), none, new List[]{strings, integers}),
-                arguments(new TypeLiteral<Set<? extends B>>() {}.getType(), none, new Set[]{bSet, cSet}),
-                arguments(new TypeLiteral<Set<? super B>>() {}.getType(), none, new Set[]{aSet, bSet}),
-                arguments(new TypeLiteral<Map<Integer, String>>() {}.getType(), none, new Map[]{defaultMap}),
-                arguments(new TypeLiteral<Map<Integer, String>>() {}.getType(),
-                          new Annotation[]{Default.Literal.INSTANCE}, new Map[]{defaultMap}),
-                arguments(new TypeLiteral<Map<Integer, String>>() {}.getType(), new Annotation[]{Any.Literal.INSTANCE},
-                          new Map[]{defaultMap, qualifiedMap}),
-                arguments(new TypeLiteral<Map<Integer, String>>() {}.getType(),
-                          new Annotation[]{new AnnotationLiteral<MyQualifier>() {}}, new Map[]{qualifiedMap}),
-                arguments(new TypeLiteral<Map<Integer, String>>() {}.getType(),
-                          new Annotation[]{new AnnotationLiteral<MyOtherQualifier>() {}}, new Map[0])
-                //@formatter:on
-        );
-    }
 
     @BeforeEach
     void resetCounters() {
@@ -126,36 +107,56 @@ class EnhancedInstanceTest {
         }
     }
 
+    @Dependent
+    static class InjectionPointAwareBean {
+        @Inject
+        InjectionPoint injectionPoint;
+    }
+
     @Nested
     @EnableWeld
+    @ExplicitParamInjection
     class TestStream {
 
         @WeldSetup
         WeldInitiator weld = WeldInitiator.of(w);
 
+        static Stream<Arguments> getArguments() {
+            final Annotation[] none = new Annotation[0];
+            return Stream.of(
+                    //@formatter:off
+                    arguments(new TypeLiteral<List<String>>() {}.getType(), none, new List[]{strings}),
+                    arguments(new TypeLiteral<List<?>>() {}.getType(), none, new List[]{strings, integers}),
+                    arguments(new TypeLiteral<Set<? extends B>>() {}.getType(), none, new Set[]{bSet, cSet}),
+                    arguments(new TypeLiteral<Set<? super B>>() {}.getType(), none, new Set[]{aSet, bSet}),
+                    arguments(new TypeLiteral<Map<Integer, String>>() {}.getType(), none, new Map[]{defaultMap}),
+                    arguments(new TypeLiteral<Map<Integer, String>>() {}.getType(),
+                              new Annotation[]{Default.Literal.INSTANCE}, new Map[]{defaultMap}),
+                    arguments(new TypeLiteral<Map<Integer, String>>() {}.getType(),
+                              new Annotation[]{new AnnotationLiteral<MyOtherQualifier>() {}}, new Map[0])
+                    //@formatter:on
+            );
+        }
+
         @ParameterizedTest
-        @MethodSource("io.github.jhahnhro.enhancedcdi.util.EnhancedInstanceTest#getArguments")
-        <T> void givenTypeAndQualifiers_whenSafeStream_thenAllInstancesAreReturned(final Type beanType,
-                                                                                   final Annotation[] qualifiers,
-                                                                                   final T[] expectedInstances) {
-            final Collection<T> actual = enhancedInstance.<T>select(beanType, qualifiers)
-                    .safeStream()
-                    .map(BeanInstance::instance)
-                    .toList();
+        @MethodSource("getArguments")
+        <T> void givenTypeAndQualifiers_whenStream_thenAllInstancesAreReturned(Type beanType, Annotation[] qualifiers
+                , T[] expectedInstances) {
+            final Collection<T> actual = enhancedInstance.<T>selectUnchecked(beanType, qualifiers).stream().toList();
             assertThat(actual).containsExactlyInAnyOrder(expectedInstances);
         }
 
         @Test
-        void givenType_whenSafeStreamIsClosed_thenAllDependentInstancesAreDestroyed() {
-            try (var beanInstanceStream = enhancedInstance.select(MyInterface.class).safeStream()) {
-                final List<BeanInstance<MyInterface>> beanInstances = beanInstanceStream.toList();
+        void givenType_whenHandlesStreamIsClosed_thenAllDependentInstancesAreDestroyed() {
+            try (var handlesStream = enhancedInstance.select(MyInterface.class).handlesStream()) {
+                final List<Handle<MyInterface>> handles = handlesStream.toList();
 
                 // verify that terminal operation toList() does not close the stream
                 assertThat(AppScopedBean.destroyed).isZero();
                 assertThat(DependentBean.destroyed).isZero();
 
-                assertThat(beanInstances).hasSize(2);
-                beanInstances.forEach(BeanInstance::instance); // trigger lazy initialization
+                assertThat(handles).hasSize(2);
+                handles.forEach(Handle::get); // trigger lazy initialization
 
                 // verify that initialization has no side effects that trigger destruction
                 assertThat(AppScopedBean.destroyed).isZero();
@@ -170,6 +171,7 @@ class EnhancedInstanceTest {
 
     }
 
+    @SuppressWarnings("CdiManagedBeanInconsistencyInspection")
     @Nested
     @EnableWeld
     class TestSelect {
@@ -186,14 +188,14 @@ class EnhancedInstanceTest {
 
         @Test
         void givenMultipleBeans_whenSelect_thenThrowAmbiguousResolutionException() {
-            final EnhancedInstance<Set<?>> selected = enhancedInstance.select(new TypeLiteral<>() {});
-            assertThatThrownBy(selected::get).isInstanceOf(AmbiguousResolutionException.class);
+            final Instance<Set<?>> selected = enhancedInstance.select(new TypeLiteral<>() {});
+            assertThatExceptionOfType(AmbiguousResolutionException.class).isThrownBy(selected::get);
         }
 
         @Test
         void givenNoBeans_whenSelect_thenThrowUnsatisfiedResolutionException() {
-            final EnhancedInstance<Instant> selected = enhancedInstance.select(Instant.class);
-            assertThatThrownBy(selected::get).isInstanceOf(UnsatisfiedResolutionException.class);
+            final Instance<Instant> selected = enhancedInstance.select(Instant.class);
+            assertThatExceptionOfType(UnsatisfiedResolutionException.class).isThrownBy(selected::get);
         }
 
         @Test
@@ -213,20 +215,94 @@ class EnhancedInstanceTest {
         }
 
         @Test
-        void whenSelect_thenDestroyingEnhancedInstanceDestroysDependentBeans() {
-            final Instance<EnhancedInstance<Object>> instance = weld.select(new TypeLiteral<>() {});
-            final EnhancedInstance<Object> localEnhancedInstance = instance.get();
+        void whenSelectWithType_thenReturnAllInstances(@Any EnhancedInstance<Object> enhancedInstance) {
+            final var instances = enhancedInstance.select(new TypeLiteral<Map<Integer, String>>() {}).stream().toList();
 
-            localEnhancedInstance.select(AppScopedBean.class).get();
-            localEnhancedInstance.select(AppScopedBean.class).get();
+            assertThat(instances).containsExactlyInAnyOrder(defaultMap, qualifiedMap);
+        }
 
-            localEnhancedInstance.select(DependentBean.class).get();
-            localEnhancedInstance.select(DependentBean.class).get();
 
-            instance.destroy(localEnhancedInstance);
+        @Test
+        void whenSelectWithTypeAndQualifier_thenReturnCorrectInstance(@Any EnhancedInstance<Object> enhancedInstance) {
+            var defaultInstance = enhancedInstance.select(new TypeLiteral<Map<Integer, String>>() {},
+                                                          Default.Literal.INSTANCE).get();
+            assertThat(defaultInstance).isSameAs(defaultMap);
 
-            assertThat(AppScopedBean.destroyed).isZero();
-            assertThat(DependentBean.destroyed).isEqualTo(2);
+            var qualifiedInstance = enhancedInstance.select(new TypeLiteral<Map<Integer, String>>() {},
+                                                            new AnnotationLiteral<MyQualifier>() {}).get();
+            assertThat(qualifiedInstance).isSameAs(qualifiedMap);
+        }
+
+        static Stream<Arguments> illegalSubtypes() {
+            return Stream.of(
+                    //@formatter:off
+                    arguments(new TypeLiteral<String>() {}, new TypeLiteral<Integer>() {}),
+                    arguments(new TypeLiteral<Iterable<String>>() {}, new TypeLiteral<List<Integer>>() {})
+                    //@formatter:on
+            );
+        }
+
+        static Stream<Arguments> legalSubtypes() {
+            return Stream.of(
+                    //@formatter:off
+                    arguments(new TypeLiteral<CharSequence>() {}, new TypeLiteral<String>() {}),
+                    arguments(new TypeLiteral<Iterable<String>>() {}, new TypeLiteral<List<String>>() {})
+                    //@formatter:on
+            );
+        }
+
+        @ParameterizedTest
+        @MethodSource("illegalSubtypes")
+        <T> void givenIllegalSubtype_whenSelectUnchecked_thenThrowIAE(TypeLiteral<T> requiredType,
+                                                                      TypeLiteral<?> illegalSubtype) {
+            // selectUnchecked from Object to requiredType should always succeed
+            final Type typeT = requiredType.getType();
+            var childInstance = enhancedInstance.selectUnchecked(typeT);
+            assertThat(childInstance.injectionPoint.getType()).isEqualTo(typeT);
+
+            assertThatIllegalArgumentException().isThrownBy(
+                    () -> childInstance.selectUnchecked(illegalSubtype.getType()));
+        }
+
+        @ParameterizedTest
+        @MethodSource("legalSubtypes")
+        <T, U extends T> void givenLegalSubtype_whenSelectUnchecked_thenDoNoThrow(TypeLiteral<T> requiredType,
+                                                                                  TypeLiteral<U> subtype) {
+            // selectUnchecked from Object to requiredType should always succeed
+            final Type typeT = requiredType.getType();
+            var childInstance = enhancedInstance.selectUnchecked(typeT);
+            assertThat(childInstance.injectionPoint.getType()).isEqualTo(typeT);
+
+            final Type typeU = subtype.getType();
+            var childEvent2 = childInstance.selectUnchecked(typeU);
+            assertThat(childEvent2.injectionPoint.getType()).isEqualTo(typeU);
+        }
+
+        @Nested
+        class TestInjectionPoint {
+
+            @Test
+            void whenSelect_thenOriginalInjectionPointIsUsed() {
+                final InjectionPointAwareBean instance = enhancedInstance.select(InjectionPointAwareBean.class).get();
+
+                // verify that it is the injection point in this class, not the auxiliary injection point in
+                // EnhancedInstance
+                assertThat(instance.injectionPoint.getMember().getDeclaringClass()).isEqualTo(
+                        EnhancedInstanceTest.class);
+            }
+
+            @Test
+            void whenSelectUnchecked_thenOriginalInjectionPointIsUsed() {
+                final Type type = InjectionPointAwareBean.class;
+
+                final InjectionPointAwareBean instance = enhancedInstance.<InjectionPointAwareBean>selectUnchecked(type)
+                        .get();
+
+                // verify that it is the injection point in this class, not the auxiliary injection point in
+                // EnhancedInstance
+                assertThat(instance.injectionPoint.getMember().getDeclaringClass()).isEqualTo(
+                        EnhancedInstanceTest.class);
+            }
         }
     }
 }

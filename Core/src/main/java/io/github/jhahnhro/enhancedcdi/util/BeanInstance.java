@@ -10,6 +10,7 @@ import jakarta.enterprise.context.spi.Contextual;
 import jakarta.enterprise.context.spi.CreationalContext;
 import jakarta.enterprise.inject.UnsatisfiedResolutionException;
 import jakarta.enterprise.inject.spi.Bean;
+import jakarta.enterprise.inject.spi.BeanContainer;
 import jakarta.enterprise.inject.spi.BeanManager;
 import jakarta.enterprise.inject.spi.InjectionPoint;
 
@@ -59,7 +60,7 @@ public final class BeanInstance<T> {
         return new BeanInstance<>(() -> contextual.create(context), contextual, context);
     }
 
-    public static <T> BeanInstance<T> createContextualReference(BeanManager beanManager, Bean<T> bean, Type beanType) {
+    public static <T> BeanInstance<T> createContextualReference(BeanContainer beanManager, Bean<T> bean, Type beanType) {
         final CreationalContext<T> ctx = beanManager.createCreationalContext(bean);
         return new BeanInstance<>(() -> (T) beanManager.getReference(bean, beanType, ctx), bean, ctx);
     }
