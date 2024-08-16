@@ -5,6 +5,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.List;
 import java.util.Objects;
+import java.util.StringJoiner;
 
 public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, List<Type> actualTypeArguments)
         implements ParameterizedType, Serializable {
@@ -64,17 +65,15 @@ public record ParameterizedTypeImpl(Class<?> rawType, Type ownerType, List<Type>
     public String toString() {
         StringBuilder sb = new StringBuilder();
         if (ownerType != null) {
-            sb.append(ownerType).append("$");
+            sb.append(ownerType.getTypeName()).append("$").append(rawType.getSimpleName());
+        } else {
+            sb.append(rawType.getTypeName());
         }
-        sb.append(rawType);
         if (!actualTypeArguments.isEmpty()) {
-            sb.append("<");
-            for (Type actualType : actualTypeArguments) {
-                sb.append(actualType);
-                sb.append(",");
-            }
-            sb.deleteCharAt(sb.length() - 1);
-            sb.append(">");
+            StringJoiner sj = new StringJoiner(", ", "<", ">");
+            sj.setEmptyValue("");
+            actualTypeArguments.stream().map(Type::getTypeName).forEach(sj::add);
+            sb.append(sj);
         }
         return sb.toString();
     }

@@ -48,7 +48,15 @@ class WildcardTypeImplTest {
         void testHashCode(WildcardType jdkType) {
             final var myType = new WildcardTypeImpl(jdkType.getUpperBounds(), jdkType.getLowerBounds());
 
-            assertThat(myType.hashCode()).isEqualTo(jdkType.hashCode());
+            assertThat(myType).hasSameHashCodeAs(jdkType);
+        }
+
+        @ParameterizedTest
+        @MethodSource("io.github.jhahnhro.enhancedcdi.types.WildcardTypeImplTest#parametrizedTypes")
+        void testToString(WildcardType jdkType) {
+            final var myType = new WildcardTypeImpl(jdkType.getUpperBounds(), jdkType.getLowerBounds());
+
+            assertThat(myType).hasToString(jdkType.toString());
         }
 
         @Test

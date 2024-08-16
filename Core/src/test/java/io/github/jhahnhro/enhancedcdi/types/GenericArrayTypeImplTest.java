@@ -54,5 +54,13 @@ class GenericArrayTypeImplTest {
 
             assertThat(myType).hasSameHashCodeAs(jdkType);
         }
+
+        @ParameterizedTest
+        @MethodSource("io.github.jhahnhro.enhancedcdi.types.GenericArrayTypeImplTest#parametrizedTypes")
+        void testToString(GenericArrayType jdkType) {
+            final var myType = new GenericArrayTypeImpl(jdkType.getGenericComponentType());
+
+            assertThat(myType).hasToString(jdkType.toString());
+        }
     }
 }

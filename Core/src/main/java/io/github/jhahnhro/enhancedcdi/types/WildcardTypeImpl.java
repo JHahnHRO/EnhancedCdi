@@ -1,13 +1,15 @@
 package io.github.jhahnhro.enhancedcdi.types;
 
 import java.io.Serializable;
-import java.io.Serializable;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.Arrays;
 import java.util.List;
+import java.util.StringJoiner;
 
 public record WildcardTypeImpl(List<Type> upperBounds, List<Type> lowerBounds) implements WildcardType, Serializable {
+
+    public static final WildcardTypeImpl UNBOUNDED = new WildcardTypeImpl(List.of(), List.of());
 
     public WildcardTypeImpl {
         upperBounds = List.copyOf(upperBounds);
@@ -51,5 +53,30 @@ public record WildcardTypeImpl(List<Type> upperBounds, List<Type> lowerBounds) i
         // not Objects.hash(...) in order to be consistent with the JDK's and Weld's implementation
         // List.hashCode happens to give the same result as Arrays.hashCode that the JDK uses.
         return lowerBounds.hashCode() ^ upperBounds.hashCode();
+    }
+
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+
+        List<Type> bounds;
+        if (lowerBounds.isEmpty()) {
+            if (!upperBounds.isEmpty() && !upperBounds.getFirst().equals(Object.class)) {
+                bounds = upperBounds;
+                sb.append("? extends ");
+            } else {
+                return "?";
+            }
+        } else {
+            bounds = lowerBounds;
+            sb.append("? super ");
+        }
+
+        StringJoiner sj = new StringJoiner(" & ");
+        for (Type bound : bounds) {
+            sj.add(bound.getTypeName());
+        }
+        sb.append(sj);
+
+        return sb.toString();
     }
 }
