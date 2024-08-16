@@ -7,12 +7,10 @@ import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -51,9 +49,8 @@ public class TypeVariableResolver {
                     final Class<?> rawType = (Class<?>) relatedType.getRawType();
                     final TypeVariable<?>[] typeParameters = rawType.getTypeParameters();
                     final Type[] actualTypeArguments = relatedType.getActualTypeArguments();
-                    final Map<TypeVariable<?>, Type> copy = Map.copyOf(result);
                     for (int i = 0; i < typeParameters.length; i++) {
-                        result.put(typeParameters[i], resolveInternal(actualTypeArguments[i], copy));
+                        result.put(typeParameters[i], resolveInternal(actualTypeArguments[i], result));
                     }
                 });
         result.entrySet().removeIf(entry -> Objects.equals(entry.getKey(), entry.getValue()));
@@ -151,8 +148,8 @@ public class TypeVariableResolver {
         }
         final Class<?> erasedType = Types.erasure(type);
 
-        final Set<Class<?>> superClasses = Types.superClasses(erasedType);
-        final Set<Class<?>> superInterfaces = Types.superInterfaces(erasedType);
+        final var superClasses = Types.superClasses(erasedType);
+        final var superInterfaces = Types.superInterfaces(erasedType);
         return Stream.concat(superClasses.stream(), superInterfaces.stream())
                 .map(this::resolve)
                 .collect(Collectors.toUnmodifiableSet());
