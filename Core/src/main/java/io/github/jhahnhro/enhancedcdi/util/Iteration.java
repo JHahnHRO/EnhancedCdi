@@ -8,77 +8,38 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Objects;
-import java.util.Queue;
-import java.util.Set;
-import java.util.function.Consumer;
+import java.util.SequencedCollection;
+import java.util.SequencedSet;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 public final class Iteration {
 
     private Iteration() {}
 
-    public static <X> Set<X> breadthFirstSearch(X startVertex, Function<? super X, Stream<X>> edges) {
-        return breadthFirstSearch(startVertex, edges, x -> {});
-    }
-
-    public static <X> Set<X> breadthFirstSearch(X startVertex, Function<? super X, Stream<X>> edges,
-                                                final Consumer<X> action) {
+    public static <X> SequencedSet<X> breadthFirstSearch(X startVertex, Function<? super X, Stream<X>> edges) {
         final BreadthFirstIterator<X> iterator = new BreadthFirstIterator<>(startVertex, edges);
-        iterator.forEachRemaining(action);
+        iterator.forEachRemaining(x -> {});
         return iterator.getAlreadyVisited();
     }
 
-    public static <X> Set<X> depthFirstSearch(X startVertex, Function<? super X, Stream<X>> edges) {
-        return depthFirstSearch(startVertex, edges, x -> {});
-    }
-
-    public static <X> Set<X> depthFirstSearch(X startVertex, Function<? super X, Stream<X>> edges, Consumer<X> action) {
+    public static <X> SequencedSet<X> depthFirstSearch(X startVertex, Function<? super X, Stream<X>> edges) {
         final DepthFirstIterator<X> iterator = new DepthFirstIterator<>(startVertex, edges);
-        iterator.forEachRemaining(action);
+        iterator.forEachRemaining(x -> {});
         return iterator.getAlreadyVisited();
     }
 
-    public static class BreadthFirstIterator<X> implements Iterator<X> {
-        private final Set<X> alreadyVisited;
-        private final Queue<X> notYetVisited;
-        private final Function<? super X, Stream<X>> edges;
+    public static class BreadthFirstIterator<X> extends AbstractGraphIterator<X> {
 
         public BreadthFirstIterator(X startVertex, Function<? super X, Stream<X>> edges) {
-            this.alreadyVisited = new LinkedHashSet<>();
-            this.notYetVisited = new LinkedList<>();
-            this.notYetVisited.add(Objects.requireNonNull(startVertex));
-            this.edges = edges.andThen(stream -> stream.filter(not(alreadyVisited::contains)));
+            super(startVertex, edges, LinkedList::new); // LinkedList used as queue
         }
 
         @Override
-        public boolean hasNext() {
-            return !notYetVisited.isEmpty();
+        protected void updateNextVertices(X currentVertex, Stream<X> neighbours) {
+            neighbours.forEach(nextVertices::addLast);
         }
-
-        @Override
-        public X next() {
-            if (!hasNext()) {
-                throw new NoSuchElementException();
-            }
-            final X next = this.notYetVisited.remove();
-            alreadyVisited.add(next);
-
-            final Stream<X> neighbours = edges.apply(next);
-            neighbours.forEach(notYetVisited::add);
-
-            return next;
-        }
-
-        /**
-         * @return an unmodifiable view of the Set of the graph's vertices that have already been visited by this
-         * iterator.
-         */
-        public Set<X> getAlreadyVisited() {
-            return Collections.unmodifiableSet(alreadyVisited);
-        }
-
     }
 
     /**
@@ -89,22 +50,37 @@ public final class Iteration {
      *
      * @param <X> the type of vertices of the graph
      */
-    public static class DepthFirstIterator<X> implements Iterator<X> {
-        private final Set<X> alreadyVisited;
-        // our stack
-        private final List<X> notYetVisited;
-        private final Function<? super X, Stream<X>> edges;
+    public static class DepthFirstIterator<X> extends AbstractGraphIterator<X> {
 
         public DepthFirstIterator(X startVertex, Function<? super X, Stream<X>> edges) {
+            super(startVertex, edges, LinkedList::new); // LinkedList used as stack
+        }
+
+        @Override
+        protected void updateNextVertices(X currentVertex, Stream<X> neighbours) {
+            // push all neighbours to the stack all at once so that they are popped off the stack in the same order
+            // as they occur in the stream. This ensures the pre-ordering traversal.
+            final List<X> list = neighbours.toList();
+            list.reversed().forEach(nextVertices::addFirst);
+        }
+    }
+
+    abstract static class AbstractGraphIterator<X> implements Iterator<X> {
+        protected final SequencedCollection<X> nextVertices;
+        private final SequencedSet<X> alreadyVisited;
+        private final Function<? super X, Stream<X>> edges;
+
+        AbstractGraphIterator(X startVertex, Function<? super X, Stream<X>> edges, Supplier<?
+                extends SequencedCollection<X>> supplier) {
             this.alreadyVisited = new LinkedHashSet<>();
-            this.notYetVisited = new LinkedList<>();
-            this.notYetVisited.add(Objects.requireNonNull(startVertex));
+            this.nextVertices = supplier.get();
+            this.nextVertices.add(startVertex);
             this.edges = edges.andThen(stream -> stream.filter(not(alreadyVisited::contains)));
         }
 
         @Override
         public boolean hasNext() {
-            return !notYetVisited.isEmpty();
+            return !nextVertices.isEmpty();
         }
 
         @Override
@@ -112,24 +88,22 @@ public final class Iteration {
             if (!hasNext()) {
                 throw new NoSuchElementException();
             }
-            final X next = notYetVisited.remove(0); // stack.pop()
+            final X next = nextVertices.removeFirst();
             alreadyVisited.add(next);
 
-            final Stream<X> neighbours = edges.apply(next);
-            // push all neighbours to the stack all at once so that they are popped off the stack in the same order
-            // as they occur in the stream. This ensures the pre-ordering traversal.
-            notYetVisited.addAll(0, neighbours.toList());
+            updateNextVertices(next, edges.apply(next));
 
             return next;
         }
 
+        protected abstract void updateNextVertices(X currentVertex, Stream<X> neighbours);
 
         /**
          * @return an unmodifiable view of the Set of the graph's vertices that have already been visited by this
          * iterator.
          */
-        public Set<X> getAlreadyVisited() {
-            return Collections.unmodifiableSet(alreadyVisited);
+        public SequencedSet<X> getAlreadyVisited() {
+            return Collections.unmodifiableSequencedSet(alreadyVisited);
         }
     }
 }
