@@ -17,7 +17,7 @@
 
     <properties>
         <junit-jupiter.version>5.11.3</junit-jupiter.version>
-        <mockito.version>5.14.2</mockito.version>
+        <mockito.version>5.23.0</mockito.version>
     </properties>
 
     <dependencyManagement>
